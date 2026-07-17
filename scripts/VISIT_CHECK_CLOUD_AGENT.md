@@ -42,6 +42,22 @@ CZ_SITE_PASSWORD=chuanzang2026
 - 不要把文件下载到用户电脑
 - 登录失败则停止并报告
 
+## 外网 API 依赖（重要）
+
+Cloud Agent 通过 `https://1.chuanzangyiqu.top/api/visit_check/import` 入库。该域名走 **Cloudflare 隧道**，本机需保持：
+
+```bash
+./start_all.sh
+# 或安装开机自启：bash scripts/install_tunnel_launchd.sh
+```
+
+隧道离线时会报 **Cloudflare 1033**，导出成功但无法入库。推送前可先测：
+
+```bash
+curl -s https://1.chuanzangyiqu.top/api/health
+# 应返回 ok:true
+```
+
 ## 定时 Automation
 
 - 预填：`scripts/cursor_automation_visit_check.json`

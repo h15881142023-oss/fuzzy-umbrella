@@ -27,26 +27,35 @@ def latest_xlsx(directory: Path) -> Path | None:
     return files[0] if files else None
 
 
-def push_api(payload: dict, origin: str, password: str) -> dict:
+def push_api(payload: dict, origin: str, password: str, retries: int = 3) -> dict:
+    import time
     import urllib.error
     import urllib.request
 
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    req = urllib.request.Request(
-        f"{origin.rstrip('/')}/api/visit_check/import",
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "X-CZ-Token": password,
-        },
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"API {e.code}: {detail}") from e
+    last_err: Exception | None = None
+    for attempt in range(1, retries + 1):
+        req = urllib.request.Request(
+            f"{origin.rstrip('/')}/api/visit_check/import",
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "X-CZ-Token": password,
+            },
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode("utf-8", errors="replace")
+            last_err = RuntimeError(f"API {e.code}: {detail}")
+        except Exception as e:  # noqa: BLE001
+            last_err = e
+        if attempt < retries:
+            time.sleep(min(15 * attempt, 45))
+    assert last_err is not None
+    raise last_err
 
 
 def main() -> int:
