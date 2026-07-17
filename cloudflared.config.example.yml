@@ -1,0 +1,15 @@
+# Cloudflare Tunnel 示例配置
+# 1) brew install cloudflare/cloudflare/cloudflared
+# 2) cloudflared tunnel login
+# 3) cloudflared tunnel create chuanzang-data
+# 4) 把下方 tunnel / credentials-file 换成你的真实值
+# 5) 复制到 ~/.cloudflared/config.yml
+# 6) cloudflared tunnel route dns <TUNNEL_NAME> 1.chuanzangyiqu.top
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: /Users/REPLACE_USER/.cloudflared/REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: 1.chuanzangyiqu.top
+    service: http://localhost:5001
+  - service: http_status:404

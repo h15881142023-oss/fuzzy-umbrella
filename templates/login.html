@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录 · {{ region_name }}数据平台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+</head>
+<body>
+  <div class="login-wrap">
+    <form class="login-box" method="post">
+      <h1>{{ region_name }}</h1>
+      <p>数据平台 · 请输入共用访问密码</p>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <label for="password">访问密码</label>
+      <input id="password" name="password" type="password" autofocus required />
+      <button class="btn btn-primary" type="submit" style="width:100%">进入平台</button>
+    </form>
+  </div>
+</body>
+</html>

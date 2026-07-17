@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ region_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="page-desc">城市：{{ cities|join('、') }}</p>
+  </div>
+  <div class="actions">
+    {% if sync_endpoint %}
+    <button class="btn btn-primary" id="btn-sync" type="button">同步数据</button>
+    {% endif %}
+    <button class="btn" id="btn-reload" type="button">刷新</button>
+  </div>
+</div>
+<div class="panel" id="table-mount"></div>
+<div class="status" id="status"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const endpoint = {{ (api_endpoint or '')|tojson }};
+  const syncEndpoint = {{ (sync_endpoint or '')|tojson }};
+  const columns = {{ columns|tojson }};
+
+  async function refresh() {
+    await CZ.loadTable({
+      endpoint,
+      mount: document.getElementById("table-mount"),
+      columns: columns.map((c) => ({
+        ...c,
+        format: c.format === "pct" ? (v) => CZ.pct(v) : undefined,
+      })),
+      statusEl: document.getElementById("status"),
+    });
+  }
+
+  document.getElementById("btn-reload").addEventListener("click", refresh);
+  const syncBtn = document.getElementById("btn-sync");
+  if (syncBtn && syncEndpoint) {
+    syncBtn.addEventListener("click", async () => {
+      await CZ.triggerSync(syncEndpoint, document.getElementById("status"));
+      await refresh();
+    });
+  }
+  refresh();
+</script>
+{% endblock %}

@@ -1,0 +1,34 @@
+{
+  "_comment": "川藏一区：城市 → Mac 上已有 Chrome 资料（chrome://version 可核对）。键为标准城名。",
+  "chrome_user_data_dir": "~/Library/Application Support/Google/ChromeAutomation",
+  "chrome_source_dir": "~/Library/Application Support/Google/Chrome",
+  "dashboard_url": "https://jx.ocrm.meituan.com/report/agentDashboard/unitDashboard.html",
+  "debug_port": 9222,
+  "cities": {
+    "仁寿县": {
+      "profile_directory": "Profile 1",
+      "profile_name": "仁寿合作商",
+      "aliases": ["仁寿"]
+    },
+    "南溪": {
+      "profile_directory": "Profile 24",
+      "profile_name": "南溪",
+      "aliases": []
+    },
+    "叙永": {
+      "profile_directory": "Profile 17",
+      "profile_name": "叙永",
+      "aliases": []
+    },
+    "彭州市": {
+      "profile_directory": "Profile 29",
+      "profile_name": "彭州",
+      "aliases": ["彭州"]
+    },
+    "合江县": {
+      "profile_directory": "Profile 26",
+      "profile_name": "合江",
+      "aliases": ["合江"]
+    }
+  }
+}

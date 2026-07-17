@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ region_name }}{% endblock %}
+{% block content %}
+<div class="topbar">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="page-desc" id="meta-desc">按《拜访检核标准》检核 t-1 外卖拜访</p>
+  </div>
+  <div class="actions">
+    <select class="btn" id="filter-date" aria-label="日期"></select>
+    <button class="btn" id="btn-reload" type="button">刷新</button>
+  </div>
+</div>
+
+<div class="panel" id="region-mount"></div>
+<div class="panel" id="city-mount" style="margin-top:16px"></div>
+<div class="panel" id="issue-mount" style="margin-top:16px"></div>
+<div class="status" id="status"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const endpoint = {{ (api_endpoint or '')|tojson }};
+
+  function pct(v) { return (v == null || v === '') ? '—' : `${Number(v).toFixed(1)}%`; }
+
+  async function refresh() {
+    const statusEl = document.getElementById('status');
+    const date = document.getElementById('filter-date').value;
+    const qs = new URLSearchParams();
+    if (date) qs.set('date', date);
+    statusEl.textContent = '加载中…';
+    try {
+      const json = await CZ.fetchJson(`${endpoint}?${qs.toString()}`);
+      const meta = json.meta || {};
+      document.getElementById('meta-desc').textContent =
+        `检核日期：${meta.check_date || '—'} · 有数据城市 ${meta.city_with_data || 0}/${meta.city_total || 0}`;
+
+      const dateSel = document.getElementById('filter-date');
+      const dates = (json.filters && json.filters.dates) || [];
+      const cur = dateSel.value || meta.check_date || '';
+      dateSel.innerHTML = dates.map(d => `<option value="${d}" ${d===cur?'selected':''}>${d}</option>`).join('');
+      if (!dateSel.value && meta.check_date) dateSel.value = meta.check_date;
+
+      const region = json.region || {};
+      document.getElementById('region-mount').innerHTML = `
+        <h2 class="section-title">区域汇总 · 川藏一区</h2>
+        <div class="kpi-row">
+          <div><div class="kpi-label">拜访人数合规率</div><div class="kpi-value">${pct(region.bd_rate)}</div><div class="kpi-sub">${region.bd_compliant||0}/${region.bd_total||0}</div></div>
+          <div><div class="kpi-label">拜访商家合规率</div><div class="kpi-value">${pct(region.visit_rate)}</div><div class="kpi-sub">${region.visit_compliant||0}/${region.visit_total||0}</div></div>
+          <div><div class="kpi-label">无数据城市</div><div class="kpi-value" style="font-size:1.1rem">${(region.city_no_data||[]).join('、') || '无'}</div></div>
+        </div>`;
+
+      const cities = json.cities || [];
+      const cityRows = cities.map(c => `
+        <tr class="${c.has_data ? '' : 'row-muted'}">
+          <td>${c.city}</td>
+          <td>${c.status || '—'}</td>
+          <td>${c.bd_compliant||0}/${c.bd_total||0}（${pct(c.bd_rate)}）</td>
+          <td>${c.visit_compliant||0}/${c.visit_total||0}（${pct(c.visit_rate)}）</td>
+          <td>${c.coop_count||0}</td>
+          <td>${c.noncoop_count||0}</td>
+          <td>${(c.issues||[]).length}</td>
+        </tr>`).join('');
+      document.getElementById('city-mount').innerHTML = `
+        <h2 class="section-title">城市维度</h2>
+        <div class="table-wrap"><table class="data-table">
+          <thead><tr><th>城市</th><th>状态</th><th>人数合规</th><th>商家合规</th><th>已合作</th><th>未合作</th><th>问题数</th></tr></thead>
+          <tbody>${cityRows || '<tr><td colspan="7">暂无数据</td></tr>'}</tbody>
+        </table></div>`;
+
+      const issues = [];
+      cities.forEach(c => (c.issues||[]).forEach(i => issues.push({...i, city: i.city || c.city})));
+      const issueRows = issues.slice(0, 300).map(i => `
+        <tr>
+          <td>${i.city||''}</td>
+          <td>${i.bd||''}</td>
+          <td>${i.target||''}</td>
+          <td>${i.type||''}</td>
+          <td>${i.time||''}</td>
+          <td>${(i.reasons||[]).join('；')}</td>
+          <td class="cell-desc">${(i.desc||'').replace(/</g,'&lt;')}</td>
+        </tr>`).join('');
+      document.getElementById('issue-mount').innerHTML = `
+        <h2 class="section-title">不合规明细（${issues.length}）</h2>
+        <div class="table-wrap"><table class="data-table visit-issue-table">
+          <thead><tr><th>城市</th><th>BD</th><th>拜访对象</th><th>类型</th><th>时间</th><th>原因</th><th>工作描述</th></tr></thead>
+          <tbody>${issueRows || '<tr><td colspan="7">无不合规项</td></tr>'}</tbody>
+        </table></div>`;
+
+      statusEl.textContent = `已更新 ${new Date().toLocaleTimeString()}`;
+    } catch (e) {
+      statusEl.textContent = `加载失败：${e.message || e}`;
+    }
+  }
+
+  document.getElementById('btn-reload').addEventListener('click', refresh);
+  document.getElementById('filter-date').addEventListener('change', refresh);
+  refresh();
+</script>
+{% endblock %}

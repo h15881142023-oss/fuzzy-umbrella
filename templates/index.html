@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}首页 · {{ region_name }}{% endblock %}
+{% block content %}
+<section class="hero-band">
+  <h1>{{ region_name }}数据平台</h1>
+  <p>覆盖 {{ cities|join('、') }}。本机 Flask 服务经 Cloudflare Tunnel 对外提供 https://1.chuanzangyiqu.top 。数据更新：桌面「川藏一区数据更新」文件夹，或各页同步按钮。</p>
+</section>
+<div class="home-grid">
+  {% for item in nav_items if item.path != '/' %}
+  <a class="home-link" href="{{ item.path }}">
+    <strong>{{ item.label }}</strong>
+    <span>打开模块</span>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

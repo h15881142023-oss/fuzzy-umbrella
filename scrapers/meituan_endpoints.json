@@ -1,0 +1,16 @@
+{
+  "_comment": "川藏一区美团看板配置。dashboard 即 unitDashboard 绩效看板页面。",
+  "pages": {
+    "dashboard": "https://jx.ocrm.meituan.com/report/agentDashboard/unitDashboard.html",
+    "todo": "https://jx.ocrm.meituan.com/report/agentDashboard/unitDashboard.html",
+    "notice": "https://jx.ocrm.meituan.com/"
+  },
+  "api_fetch_urls": [],
+  "network_keywords": {
+    "dashboard": ["unitDashboard", "agentDashboard", "dashboard", "kpiBoard", "report"],
+    "catering": ["catering", "foodKpi", "餐饮", "cater"],
+    "non_catering": ["nonCatering", "非餐", "retail"],
+    "todo": ["todo", "requirement", "task", "待办", "业务要求"],
+    "notice": ["notice", "message", "通知", "announcement"]
+  }
+}

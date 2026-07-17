@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} · {{ region_name }}{% endblock %}
+{% block content %}
+<div class="topbar pbi-sticky-bar">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    <p class="page-desc" id="meta-desc">Power BI 补贴监测 · 四块明细与总计</p>
+  </div>
+  <div class="actions">
+    <label class="filter-label">区域
+      <select class="btn" id="filter-area" aria-label="区域筛选"></select>
+    </label>
+    <label class="filter-label">城市
+      <select class="btn" id="filter-city" aria-label="城市筛选"></select>
+    </label>
+    <label class="filter-label">日期
+      <select class="btn" id="filter-date" aria-label="日期筛选"></select>
+    </label>
+    {% if sync_endpoint %}
+    <button class="btn btn-primary" id="btn-sync" type="button">同步数据</button>
+    {% endif %}
+    <button class="btn" id="btn-reload" type="button">刷新</button>
+  </div>
+</div>
+<div class="pbi-grid" id="pbi-mount"></div>
+<div class="status" id="status"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const endpoint = {{ (api_endpoint or '')|tojson }};
+  const syncEndpoint = {{ (sync_endpoint or '')|tojson }};
+
+  function cleanText(v) {
+    if (v === null || v === undefined || v === "") return "—";
+    return String(v).replace(/其他条件格式/g, "");
+  }
+
+  function renderSection(sec) {
+    const headers = sec.headers || [];
+    const thead = `<tr>${headers.map((h) => `<th>${h}</th>`).join("")}</tr>`;
+    const tbody = (sec.rows || [])
+      .map((row) => {
+        const cls = row.is_total ? ' class="row-total"' : "";
+        const tds = headers
+          .map((h) => `<td>${cleanText(row.cells[h])}</td>`)
+          .join("");
+        return `<tr${cls}>${tds}</tr>`;
+      })
+      .join("");
+    return `
+      <section class="pbi-section panel">
+        <h2 class="pbi-section-title">${sec.name}</h2>
+        <div class="table-wrap">
+          <table class="data pbi-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>
+        </div>
+      </section>`;
+  }
+
+  async function refresh() {
+    const statusEl = document.getElementById("status");
+    const mount = document.getElementById("pbi-mount");
+    const area = document.getElementById("filter-area").value;
+    const city = document.getElementById("filter-city").value;
+    const date = document.getElementById("filter-date").value;
+    const qs = new URLSearchParams();
+    if (area) qs.set("area", area);
+    if (city) qs.set("city", city);
+    if (date) qs.set("date", date);
+    statusEl.textContent = "加载中…";
+    try {
+      const json = await CZ.fetchJson(`${endpoint}?${qs.toString()}`);
+      const meta = json.meta || {};
+      document.getElementById("meta-desc").textContent =
+        `区域：${meta.area || "—"} · 城市：${meta.city || "—"} · 快照日期：${meta.snapshot_date || "—"}`;
+
+      const areaSel = document.getElementById("filter-area");
+      const citySel = document.getElementById("filter-city");
+      const dateSel = document.getElementById("filter-date");
+      if (json.filters) {
+        if (!areaSel.dataset.ready) {
+          areaSel.innerHTML = (json.filters.areas || [])
+            .map((a) => `<option value="${a}">${a}</option>`)
+            .join("");
+          areaSel.dataset.ready = "1";
+        }
+        if (!citySel.dataset.ready) {
+          citySel.innerHTML = (json.filters.cities || [])
+            .map((c) => `<option value="${c}">${c}</option>`)
+            .join("");
+          citySel.dataset.ready = "1";
+        }
+        if (!dateSel.dataset.ready) {
+          dateSel.innerHTML = (json.filters.dates || [])
+            .map((d) => `<option value="${d}">${d}</option>`)
+            .join("");
+          dateSel.dataset.ready = "1";
+        }
+        if (meta.area) areaSel.value = meta.area;
+        if (meta.city) citySel.value = meta.city;
+        if (meta.snapshot_date) dateSel.value = meta.snapshot_date;
+      }
+
+      const sections = json.sections || [];
+      if (!sections.length) {
+        mount.innerHTML = '<div class="empty panel">暂无 Power BI 数据。请先在浏览器登录看板后同步，或由助手抓取入库。</div>';
+        statusEl.textContent = "0 条";
+        return;
+      }
+      mount.innerHTML = sections.map(renderSection).join("");
+      const rowCount = sections.reduce((n, s) => n + (s.rows || []).length, 0);
+      statusEl.textContent = `${sections.length} 个板块，共 ${rowCount} 行（已按代理商补贴金额降序）`;
+    } catch (err) {
+      statusEl.textContent = `加载失败：${err.message}`;
+      throw err;
+    }
+  }
+
+  document.getElementById("btn-reload").addEventListener("click", refresh);
+  document.getElementById("filter-area").addEventListener("change", refresh);
+  document.getElementById("filter-city").addEventListener("change", refresh);
+  document.getElementById("filter-date").addEventListener("change", refresh);
+  const syncBtn = document.getElementById("btn-sync");
+  if (syncBtn && syncEndpoint) {
+    syncBtn.addEventListener("click", async () => {
+      await CZ.triggerSync(syncEndpoint, document.getElementById("status"));
+      document.getElementById("filter-area").dataset.ready = "";
+      document.getElementById("filter-city").dataset.ready = "";
+      document.getElementById("filter-date").dataset.ready = "";
+      await refresh();
+    });
+  }
+  refresh();
+</script>
+{% endblock %}

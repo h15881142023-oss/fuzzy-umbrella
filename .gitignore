@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+data.db
+gunicorn.pid
+access.log
+error.log
+logs/
+scrapers/_last_runs/
+data/visit_exports/
+.env
+*.xlsx
+!~/Desktop/**
+.DS_Store
