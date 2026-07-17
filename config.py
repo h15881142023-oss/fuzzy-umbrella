@@ -48,6 +48,10 @@ VISIT_ADMIN_URL = os.environ.get(
     "CZ_VISIT_ADMIN_URL",
     "http://47.112.178.78:13000/admin/iefct5mpj1o/tab/47nekzoybbv",
 )
+VISIT_ADMIN_SIGNIN_URL = os.environ.get(
+    "CZ_VISIT_ADMIN_SIGNIN_URL",
+    "http://47.112.178.78:13000/signin",
+)
 VISIT_EXPORT_DIR = Path(
     os.environ.get("CZ_VISIT_EXPORT_DIR", str(BASE_DIR / "data" / "visit_exports"))
 )

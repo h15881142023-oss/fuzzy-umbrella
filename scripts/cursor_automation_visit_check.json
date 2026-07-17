@@ -1,6 +1,6 @@
 {
   "name": "拜访检核日更（Cloud）",
-  "description": "每天从业务后台导出川藏一区昨天拜访 Excel，推送到数据平台入库。Excel 仅落 Cloud 工作区，不下载到用户电脑。",
+  "description": "登录业务后台，导出川藏一区昨天拜访 Excel，推送到数据平台入库。Excel 仅落 Cloud 工作区。",
   "workflow": {
     "triggers": [
       {
@@ -12,7 +12,7 @@
     "actions": [],
     "prompts": [
       {
-        "text": "你是川藏一区数据平台「拜访检核」日更 Cloud Agent。\n\n严格按仓库 scripts/VISIT_CHECK_CLOUD_AGENT.md 执行，禁止读金山文档 kdocs。\n\n环境变量（请在 Cloud Agent 密钥中配置）：\n- CZ_PUBLIC_ORIGIN=https://1.chuanzangyiqu.top\n- CZ_SITE_PASSWORD=（川藏平台站密码）\n\n步骤：\n1. 浏览器打开 http://47.112.178.78:13000/admin/iefct5mpj1o/tab/47nekzoybbv ，确认「拜访」Tab；需已登录后台，否则报告阻塞\n2. 筛选：区域=川藏一区，拜访时间=昨天；城市不选\n3. 等待表格刷新约 1–2 分钟（总条数应为数百级）\n4. 点击「导出」→「确定」；将 xlsx 保存到仓库 data/visit_exports/（禁止用户本机 Downloads）\n5. 在仓库根目录：python3 -m venv .venv 2>/dev/null; source .venv/bin/activate; pip install -q -r requirements.txt\n6. 执行：python scrapers/visit_check_daily.py --push-api\n7. 确认 API 返回 ok:true 且五城均有结果；脚本默认删除已消费 xlsx\n\n完成时在回复中列出：check_date、区域 BD/拜访合规率、五城 BD 与拜访数。"
+        "text": "你是川藏一区数据平台「拜访检核」日更 Cloud Agent。严格按 scripts/VISIT_CHECK_CLOUD_AGENT.md 执行，禁止 kdocs。\n\n【凭证 - 运行前由维护者填入真实值】\nADMIN_USER=在此填写用户名或邮箱\nADMIN_PASSWORD=在此填写密码\nCZ_PUBLIC_ORIGIN=https://1.chuanzangyiqu.top\nCZ_SITE_PASSWORD=chuanzang2026\n\n步骤 0 登录：\n1. 打开 http://47.112.178.78:13000/signin\n2. 若 URL 含 /signin：在「用户名/邮箱」填 ADMIN_USER，「密码」填 ADMIN_PASSWORD，点橙色「登录」\n3. 确认离开 /signin 后再继续\n\n步骤 1-7：\n1. 打开 http://47.112.178.78:13000/admin/iefct5mpj1o/tab/47nekzoybbv ，确认「拜访」Tab\n2. 区域=川藏一区，拜访时间=昨天\n3. 等待 1-2 分钟，总条数百级\n4. 导出→确定，xlsx 存 data/visit_exports/\n5. source .venv/bin/activate 或 venv+pip install -r requirements.txt\n6. python scrapers/visit_check_daily.py --push-api\n7. 确认 ok:true 与五城结果\n\n完成时汇报 check_date、区域合规率、五城 BD/拜访数。"
       }
     ],
     "gitConfig": {

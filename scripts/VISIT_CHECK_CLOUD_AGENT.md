@@ -3,41 +3,47 @@
 每天在 **Cloud** 环境执行（Excel 只落云端工作区，禁止下载到用户本机 Downloads）。
 
 ## 目标
-1. 打开后台拜访页并按当前列表条件导出昨天数据
+1. 登录业务后台并导出昨天「川藏一区」拜访数据
 2. 将 Excel 保存到仓库 `data/visit_exports/`（云端）
 3. 推送到平台入库后删除云端 Excel
 
 ## 步骤
-1. 打开：`http://47.112.178.78:13000/admin/iefct5mpj1o/tab/47nekzoybbv`（需已登录；未登录则停在登录页并报告）
-2. 确认在「拜访」Tab
-3. 筛选：区域=`川藏一区`，拜访时间=`昨天`；城市不选
-4. 等待表格刷新（约 1–2 分钟），总条数应变小（通常数百级，不是几十万）
-5. 点击「导出」→ 弹窗「确定」；把下载文件保存/移动到 `data/visit_exports/`（不要用用户本机 Downloads）
-6. 在仓库根目录执行：
 
-```bash
-source .venv/bin/activate
-python scrapers/visit_check_daily.py --push-api
+### 0. 登录（Cloud 必须先做）
+1. 打开 `http://47.112.178.78:13000/signin`
+2. 若已在后台页则跳过
+3. 填写 **用户名/邮箱**、**密码**，点橙色 **「登录」**
+4. 登录成功后 URL 不应再是 `/signin`
+
+### 1–7. 导出与入库
+1. 打开：`http://47.112.178.78:13000/admin/iefct5mpj1o/tab/47nekzoybbv`，确认「拜访」Tab
+2. 筛选：区域=`川藏一区`，拜访时间=`昨天`；城市不选
+3. 等待表格刷新（约 1–2 分钟），总条数应为数百级
+4. 点击「导出」→「确定」；xlsx 保存到 `data/visit_exports/`（禁止用户本机 Downloads）
+5. `source .venv/bin/activate` 或创建 venv 并 `pip install -r requirements.txt`
+6. `python scrapers/visit_check_daily.py --push-api`
+7. 确认 API 返回 `ok: true` 与五城结果；默认删除已消费 xlsx
+
+## 智能体指令中的账号（必填）
+
+Automation **没有单独的环境变量页**，请写在「智能体指令」顶部：
+
+```
+ADMIN_USER=你的用户名或邮箱
+ADMIN_PASSWORD=你的后台密码
+CZ_PUBLIC_ORIGIN=https://1.chuanzangyiqu.top
+CZ_SITE_PASSWORD=chuanzang2026
 ```
 
-7. 确认 API 返回 `ok: true` 与五城结果；脚本默认会删除已消费的 xlsx
+登录页字段：**用户名/邮箱**、**密码**、按钮 **登录**（NocoBase）。
 
 ## 约束
 - 金山文档已弃用，不要再读 kdocs
 - 不要把文件下载到用户电脑
-- 若浏览器无法登录后台，停止并说明阻塞原因
-
-## Cloud Agent 密钥（Cursor Dashboard → Cloud Agents → Secrets）
-
-| 变量 | 值 |
-|------|-----|
-| `CZ_PUBLIC_ORIGIN` | `https://1.chuanzangyiqu.top` |
-| `CZ_SITE_PASSWORD` | 川藏平台站密码（与 `config.py` 默认一致） |
-
-业务后台 `47.112.178.78:13000` 需保持登录态：首次在 Cloud 浏览器手动登录一次，或后续在 Automation 运行前确认会话有效。
+- 登录失败则停止并报告
 
 ## 定时 Automation
 
-- 预填草稿：`scripts/cursor_automation_visit_check.json`
-- 建议触发：每天 **09:00**（`0 9 * * *`）
-- 仓库：`h15881142023-oss/fuzzy-umbrella` · 分支 `main`
+- 预填：`scripts/cursor_automation_visit_check.json`
+- 触发：每天 **09:00**（`0 9 * * *`）
+- 仓库：`h15881142023-oss/fuzzy-umbrella` · `main`
