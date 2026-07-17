@@ -26,3 +26,18 @@ python scrapers/visit_check_daily.py --push-api
 - 金山文档已弃用，不要再读 kdocs
 - 不要把文件下载到用户电脑
 - 若浏览器无法登录后台，停止并说明阻塞原因
+
+## Cloud Agent 密钥（Cursor Dashboard → Cloud Agents → Secrets）
+
+| 变量 | 值 |
+|------|-----|
+| `CZ_PUBLIC_ORIGIN` | `https://1.chuanzangyiqu.top` |
+| `CZ_SITE_PASSWORD` | 川藏平台站密码（与 `config.py` 默认一致） |
+
+业务后台 `47.112.178.78:13000` 需保持登录态：首次在 Cloud 浏览器手动登录一次，或后续在 Automation 运行前确认会话有效。
+
+## 定时 Automation
+
+- 预填草稿：`scripts/cursor_automation_visit_check.json`
+- 建议触发：每天 **09:00**（`0 9 * * *`）
+- 仓库：`h15881142023-oss/fuzzy-umbrella` · 分支 `main`
