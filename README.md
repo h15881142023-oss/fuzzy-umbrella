@@ -135,12 +135,15 @@ python scrapers/scrape_meituan_cdp.py
 
 ## LR 日报
 
+每天 **23:30** Cloud Agent 自动：抓取 [LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq) 网页表格 → 写入模板 `数据源(日)` → 推送「看板-单城」截图 + Excel 到企业微信。
+
 ```bash
-cd lr
-cp .env.example .env   # 填 WECOM_WEBHOOK、CHUXIN_TOKEN
-source ../.venv/bin/activate
-python run_daily.py
+# 手动试跑（需先有抓取 JSON）
+python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --dry-run
 ```
+
+- 说明：`scripts/LR_DAILY_CLOUD_AGENT.md`
+- Automation 预填：`scripts/cursor_automation_lr_daily.json`
 
 ## 健康检查
 

@@ -1,0 +1,27 @@
+{
+  "name": "LR日报日更（Cloud 23:30）",
+  "description": "23:30 抓取 LR 日利润网页表格，写入 Excel 数据源(日)，推送看板-单城截图与填好文件到企业微信。",
+  "workflow": {
+    "triggers": [
+      {
+        "cron": {
+          "cron": "30 23 * * *"
+        }
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      {
+        "text": "你是川藏一区「LR 日报」自动化助手，必须在云端一次完整执行，禁止中途停下来提问、确认需求或做需求对齐。\n\n硬性约束：\n1. 禁止 AskQuestion / 「请确认后再执行」；缺信息用下方默认值，无法继续则写阻塞报告并结束。\n2. 数据直接从网页表格抓取，不要点「导出」。\n3. 文件只落云端工作区（data/lr_scrape/、lr/work/、lr/output/），禁止用户本机 Downloads。\n4. 严格按仓库 scripts/LR_DAILY_CLOUD_AGENT.md。\n\n【凭证与路径】\nADMIN_USER=在此填写用户名或邮箱\nADMIN_PASSWORD=在此填写密码\nWECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb\nLR_TEMPLATE_PATH=lr/work/template.xlsx\n\n步骤 0 登录：\n1. 打开 http://47.112.178.78:13000/signin\n2. 若 URL 含 /signin：填 ADMIN_USER / ADMIN_PASSWORD，点「登录」\n3. 离开 /signin 后再继续\n\n步骤 1 筛选并抓取：\n1. 打开 http://47.112.178.78:13000/admin/g303bjgeytq\n2. 区域=川藏一区，日期=昨天，城市留空\n3. 等待表格刷新\n4. 用 JS 抓取 thead th 与 tbody tr/td 文本，保存 data/lr_scrape/latest.json\n\n步骤 2 模板：\n1. 从服务器路径下载模板到 lr/work/template.xlsx\n   路径：/Users/qxh/月度工作/2026年/26年1月工作/LR日报总表模版5.4版(川藏一区) .xlsx\n\n步骤 3 执行：\n1. source .venv/bin/activate 或创建 venv；pip install -r requirements.txt\n2. python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --template lr/work/template.xlsx\n\n步骤 4 汇报：\n- 目标日期（昨天）\n- 写入五城列表\n- 企微 errcode=0\n失败则写阻塞原因。"
+      }
+    ],
+    "gitConfig": {
+      "repo": "h15881142023-oss/fuzzy-umbrella",
+      "branch": "main"
+    },
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": false
+  }
+}

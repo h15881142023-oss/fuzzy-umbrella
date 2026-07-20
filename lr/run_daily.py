@@ -1,88 +1,113 @@
 #!/usr/bin/env python3
-"""川藏一区 LR 利润日报（独立于网站）
+"""川藏一区 LR 日报：网页抓取 JSON → 填模板 → 看板截图 → 企业微信。
 
-流程骨架：
-1. 从业务 API（如 chuxin.city）拉数 — 需本地登录态/Token
-2. 写入 Excel
-3. 截图为 PNG（待接）
-4. 经企业微信发送
+Cloud Agent 推荐流程：
+1. 浏览器打开 LR 日利润表，筛选区域=川藏一区、日期=昨天
+2. 直接抓取表格 headers/rows，保存 JSON
+3. 本脚本消费 JSON，写入模板并推送
 
 用法：
-  cp .env.example .env   # 填写 WECOM_WEBHOOK / CHUXIN_TOKEN
-  python run_daily.py
+  python lr/run_daily.py --scrape-json data/lr_scrape/latest.json
+  python lr/run_daily.py --scrape-json sample.json --dry-run
 """
 from __future__ import annotations
 
+import argparse
 import json
 import os
-from datetime import datetime
+import sys
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-OUT = ROOT / "output"
-OUT.mkdir(parents=True, exist_ok=True)
-CITIES = ["仁寿县", "南溪", "叙永", "彭州市", "合江县"]
+BASE = ROOT.parent
+sys.path.insert(0, str(BASE))
 
+from config import LR_DIR, REGION_NAME  # noqa: E402
+from lr.fill_template import fill_template  # noqa: E402
+from lr.kanban_image import export_kanban_png  # noqa: E402
+from lr.table_utils import filter_target_date, parse_scrape_payload  # noqa: E402
+from lr.wecom_push import push_lr_report  # noqa: E402
 
-def load_env() -> dict:
-    env_path = ROOT / ".env"
-    data = {}
-    if env_path.exists():
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            data[k.strip()] = v.strip().strip('"').strip("'")
-    for k in ("WECOM_WEBHOOK", "CHUXIN_TOKEN"):
-        if os.environ.get(k):
-            data[k] = os.environ[k]
-    return data
-
-
-def fetch_lr_rows(token: str | None) -> list[dict]:
-    _ = token
-    return [{"city": c, "profit": None, "note": "待接 API"} for c in CITIES]
-
-
-def write_excel(rows: list[dict]) -> Path:
-    import pandas as pd
-
-    today = datetime.now().strftime("%Y-%m-%d")
-    path = OUT / f"LR日报_{today}.xlsx"
-    pd.DataFrame(rows).to_excel(path, index=False)
-    return path
-
-
-def wecom_send(webhook: str, text: str) -> dict:
-    import urllib.request
-
-    payload = json.dumps({"msgtype": "text", "text": {"content": text}}).encode("utf-8")
-    req = urllib.request.Request(
-        webhook,
-        data=payload,
-        headers={"Content-Type": "application/json"},
-        method="POST",
+DEFAULT_TEMPLATE = Path(
+    os.environ.get(
+        "LR_TEMPLATE_PATH",
+        "/Users/qxh/月度工作/2026年/26年1月工作/LR日报总表模版5.4版(川藏一区) .xlsx",
     )
-    with urllib.request.urlopen(req, timeout=20) as resp:
-        return json.loads(resp.read().decode("utf-8"))
+)
+WORK_DIR = LR_DIR / "work"
+OUTPUT_DIR = LR_DIR / "output"
+DEFAULT_WEBHOOK = os.environ.get(
+    "WECOM_WEBHOOK",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+)
+
+
+def load_scrape(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def main() -> int:
-    env = load_env()
-    rows = fetch_lr_rows(env.get("CHUXIN_TOKEN"))
-    xlsx = write_excel(rows)
-    summary = f"【川藏一区 LR】{datetime.now():%Y-%m-%d} 已生成 {xlsx.name}（共 {len(rows)} 城）"
-    print(summary)
-    webhook = env.get("WECOM_WEBHOOK")
-    if webhook:
-        print("wecom:", wecom_send(webhook, summary))
-    else:
-        print("未配置 WECOM_WEBHOOK，跳过推送。见 lr/.env.example")
-    (OUT / "last_run.json").write_text(
-        json.dumps({"xlsx": str(xlsx), "rows": rows, "at": datetime.now().isoformat()}, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    parser = argparse.ArgumentParser(description="LR 日报：抓取 JSON → 填表 → 推送")
+    parser.add_argument("--scrape-json", type=Path, required=True, help="浏览器抓取的 headers/rows JSON")
+    parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
+    parser.add_argument("--target-date", help="YYYY-MM-DD，默认昨天")
+    parser.add_argument("--webhook", default=DEFAULT_WEBHOOK)
+    parser.add_argument("--dry-run", action="store_true", help="只生成文件，不推送企微")
+    args = parser.parse_args()
+
+    target = (
+        datetime.strptime(args.target_date, "%Y-%m-%d").date()
+        if args.target_date
+        else date.today() - timedelta(days=1)
     )
+
+    if not args.template.exists():
+        print(f"模板不存在: {args.template}", file=sys.stderr)
+        return 1
+    if not args.scrape_json.exists():
+        print(f"抓取文件不存在: {args.scrape_json}", file=sys.stderr)
+        return 1
+
+    payload = load_scrape(args.scrape_json)
+    rows_all = parse_scrape_payload(payload)
+    rows = filter_target_date(rows_all, target)
+    if not rows:
+        print(
+            f"未找到 {REGION_NAME} 五城在 {target} 的数据；"
+            f"抓取共 {len(rows_all)} 行",
+            file=sys.stderr,
+        )
+        return 1
+
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    filled = fill_template(args.template, rows, target, WORK_DIR)
+    png = export_kanban_png(filled, OUTPUT_DIR / f"看板-单城_{target.isoformat()}.png")
+
+    summary = {
+        "target_date": target.isoformat(),
+        "cities": sorted({str(r.get("组织结构")) for r in rows}),
+        "xlsx": str(filled),
+        "png": str(png),
+        "rows": len(rows),
+    }
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+
+    if args.dry_run:
+        print("dry-run: 跳过企业微信推送")
+        return 0
+
+    title = (
+        f"## 📊 川藏一区 LR 日报（{target}）\n\n"
+        f"- 区域：{REGION_NAME}\n"
+        f"- 写入工作表：`数据源(日)`\n"
+        f"- 城市：{', '.join(summary['cities'])}\n"
+        f"- 附件：看板截图 + 填好数据的 Excel"
+    )
+    push_lr_report(args.webhook, title=title, png=png, xlsx=filled)
+    print("企业微信推送成功")
     return 0
 
 

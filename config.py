@@ -70,6 +70,16 @@ EXCEL_FOLDERS = {
 
 # LR 独立系统（不走网站）
 LR_DIR = BASE_DIR / "lr"
+LR_ADMIN_URL = os.environ.get(
+    "LR_ADMIN_URL",
+    "http://47.112.178.78:13000/admin/g303bjgeytq",
+)
+LR_ADMIN_SIGNIN_URL = os.environ.get("LR_ADMIN_SIGNIN_URL", VISIT_ADMIN_SIGNIN_URL)
+LR_SCRAPE_DIR = Path(os.environ.get("LR_SCRAPE_DIR", str(BASE_DIR / "data" / "lr_scrape")))
+LR_TEMPLATE_DEFAULT = os.environ.get(
+    "LR_TEMPLATE_PATH",
+    "/Users/qxh/月度工作/2026年/26年1月工作/LR日报总表模版5.4版(川藏一区) .xlsx",
+)
 
 # Gunicorn
 GUNICORN_BIND = f"{HOST}:{PORT}"
