@@ -23,18 +23,13 @@ ROOT = Path(__file__).resolve().parent
 BASE = ROOT.parent
 sys.path.insert(0, str(BASE))
 
-from config import LR_DIR, REGION_NAME  # noqa: E402
+from config import LR_DIR, LR_TEMPLATE_DEFAULT, REGION_NAME  # noqa: E402
 from lr.fill_template import fill_template  # noqa: E402
 from lr.kanban_image import export_kanban_png  # noqa: E402
 from lr.table_utils import filter_target_date, parse_scrape_payload  # noqa: E402
 from lr.wecom_push import push_lr_report  # noqa: E402
 
-DEFAULT_TEMPLATE = Path(
-    os.environ.get(
-        "LR_TEMPLATE_PATH",
-        "/Users/qxh/月度工作/2026年/26年1月工作/LR日报总表模版5.4版(川藏一区) .xlsx",
-    )
-)
+DEFAULT_TEMPLATE = Path(os.environ.get("LR_TEMPLATE_PATH", LR_TEMPLATE_DEFAULT))
 WORK_DIR = LR_DIR / "work"
 OUTPUT_DIR = LR_DIR / "output"
 DEFAULT_WEBHOOK = os.environ.get(

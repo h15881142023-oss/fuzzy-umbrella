@@ -41,25 +41,18 @@
 
 将结果保存为仓库 `data/lr_scrape/latest.json`（仅云端工作区）。
 
-### 3. 准备模板
+### 3. 模板（已在仓库，无需从服务器下载）
 
-从服务器路径复制模板到云端工作区（任选其一）：
+直接使用 checkout 内的模板：
 
-- 本机路径（Cloud checkout 若已同步）：`lr/templates/LR日报总表模版5.4版(川藏一区) .xlsx`
-- 或浏览器打开文件管理下载到 `lr/work/template.xlsx`
-
-服务器原路径：
-
-`/Users/qxh/月度工作/2026年/26年1月工作/LR日报总表模版5.4版(川藏一区) .xlsx`
+`lr/templates/LR日报总表模版5.4版(川藏一区).xlsx`
 
 ### 4. 运行脚本
 
 ```bash
 source .venv/bin/activate || python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-python lr/run_daily.py \
-  --scrape-json data/lr_scrape/latest.json \
-  --template "lr/work/template.xlsx"
+python lr/run_daily.py --scrape-json data/lr_scrape/latest.json
 ```
 
 ### 5. 推送结果
@@ -76,7 +69,7 @@ python lr/run_daily.py \
 ADMIN_USER=你的用户名或邮箱
 ADMIN_PASSWORD=你的后台密码
 WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb
-LR_TEMPLATE_PATH=lr/work/template.xlsx
+LR_TEMPLATE_PATH=lr/templates/LR日报总表模版5.4版(川藏一区).xlsx
 ```
 
 ## 约束

@@ -78,7 +78,7 @@ LR_ADMIN_SIGNIN_URL = os.environ.get("LR_ADMIN_SIGNIN_URL", VISIT_ADMIN_SIGNIN_U
 LR_SCRAPE_DIR = Path(os.environ.get("LR_SCRAPE_DIR", str(BASE_DIR / "data" / "lr_scrape")))
 LR_TEMPLATE_DEFAULT = os.environ.get(
     "LR_TEMPLATE_PATH",
-    "/Users/qxh/月度工作/2026年/26年1月工作/LR日报总表模版5.4版(川藏一区) .xlsx",
+    str(LR_DIR / "templates" / "LR日报总表模版5.4版(川藏一区).xlsx"),
 )
 
 # Gunicorn

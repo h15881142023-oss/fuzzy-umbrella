@@ -13,5 +13,6 @@ lr/work/
 lr/output/
 .env
 *.xlsx
+!lr/templates/*.xlsx
 !~/Desktop/**
 .DS_Store
