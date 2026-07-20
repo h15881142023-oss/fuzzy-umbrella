@@ -95,6 +95,13 @@ def parse_scrape_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(row, dict):
             mapped = {map_header(k) or norm_header(k): parse_cell_value(v) for k, v in row.items()}
         else:
+            # 页面首列是无标题行号。抓取时空表头会被过滤，因此数据行
+            # 会比 headers 多一列；先移除行号，避免所有字段整体错位。
+            if (
+                len(row) == len(headers) + 1
+                and re.fullmatch(r"\d+", norm_header(row[0]))
+            ):
+                row = row[1:]
             mapped = {}
             for i, cell in enumerate(row):
                 if i < len(headers) and headers[i]:
