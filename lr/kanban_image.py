@@ -7,10 +7,25 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 KANBAN_SHEET = "看板-单城"
+FONT_CANDIDATES = (
+    "/usr/share/fonts/truetype/wqy/wqy-microhei.ttc",
+    "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+)
+
+
+def _load_font(size: int):
+    from PIL import ImageFont
+
+    for path in FONT_CANDIDATES:
+        try:
+            return ImageFont.truetype(path, size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
 
 
 def _render_with_pillow(xlsx: Path, out_png: Path) -> Path:
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 
     wb = load_workbook(xlsx, data_only=True)
     ws = wb[KANBAN_SHEET]
@@ -34,15 +49,16 @@ def _render_with_pillow(xlsx: Path, out_png: Path) -> Path:
             lines.append(" | ".join(cells))
     wb.close()
 
-    font = ImageFont.load_default()
-    line_h = 18
+    font = _load_font(14)
+    title_font = _load_font(18)
+    line_h = 24
     width = 1200
     height = max(400, 40 + line_h * len(lines))
     img = Image.new("RGB", (width, height), "white")
     draw = ImageDraw.Draw(img)
     y = 16
     for i, line in enumerate(lines):
-        f = font
+        f = title_font if i == 0 else font
         if i == 0:
             draw.text((16, y), line, fill=(0, 80, 160), font=f)
         else:
