@@ -91,6 +91,9 @@ def parse_cell_value(raw: Any) -> Any:
             return float(s[:-1]) / 100
         except ValueError:
             return s
+    numeric = s.replace(",", "")
+    if re.fullmatch(r"-?\d+(?:\.\d+)?", numeric):
+        return float(numeric) if "." in numeric else int(numeric)
     return s
 
 

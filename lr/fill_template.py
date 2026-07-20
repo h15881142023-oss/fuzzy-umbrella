@@ -20,7 +20,7 @@ def _header_col_map(ws) -> dict[str, int]:
     for col in range(1, ws.max_column + 1):
         val = ws.cell(HEADER_ROW, col).value
         if val:
-            mapping[norm_header(val)] = col
+            mapping.setdefault(norm_header(val), col)
     return mapping
 
 
