@@ -16,7 +16,7 @@ class ParseScrapePayloadTest(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0]["区域"], "川藏一区")
         self.assertEqual(rows[0]["组织结构"], "仁寿县")
-        self.assertEqual(rows[0]["日"].date(), date(2026, 7, 19))
+        self.assertEqual(rows[0]["日"], date(2026, 7, 19))
 
 
 if __name__ == "__main__":
