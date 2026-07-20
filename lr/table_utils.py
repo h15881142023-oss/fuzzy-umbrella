@@ -28,18 +28,27 @@ HEADER_ALIASES: dict[str, str] = {
     "合作商补贴率(页面代补率)": "合作商补贴率 (页面代补率)",
     "合作商补贴率 (页面代补率)": "合作商补贴率 (页面代补率)",
     "页面代补率": "合作商补贴率 (页面代补率)",
+    "代补率": "合作商补贴率 (页面代补率)",
     "全量订单": "全量订单",
+    "全量订单量": "全量订单",
     "专送订单量": "专送订单量",
+    "专送订单量(新)": "专送订单量",
     "专送主板订单量": "专送主板订单量",
+    "专送主板单量(新)": "专送主板订单量",
     "专送PHF订单量": "专送PHF订单量",
+    "专送拼好饭单量(新)": "专送PHF订单量",
     "众包主板": " 众包主板",
     " 众包主板": " 众包主板",
+    "众包主板单量(新)": " 众包主板",
     "众包PHF": " 众包PHF",
     " 众包PHF": " 众包PHF",
+    "众包拼好饭单量(新)": " 众包PHF",
     "众包跑腿": "众包跑腿",
+    "跑腿单量(新)": "众包跑腿",
     "高校订单": " 高校订单",
     " 高校订单": " 高校订单",
     "活动补贴": "活动补贴",
+    "HD活动花费": "活动补贴",
     "商家服务费": "商家服务费",
     "专送配送费": "专送配送费",
     "后台收入": "后台收入",
@@ -82,6 +91,9 @@ def parse_cell_value(raw: Any) -> Any:
             return float(s[:-1]) / 100
         except ValueError:
             return s
+    numeric = s.replace(",", "")
+    if re.fullmatch(r"-?\d+(?:\.\d+)?", numeric):
+        return float(numeric) if "." in numeric else int(numeric)
     return s
 
 
@@ -95,6 +107,16 @@ def parse_scrape_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if isinstance(row, dict):
             mapped = {map_header(k) or norm_header(k): parse_cell_value(v) for k, v in row.items()}
         else:
+            # 页面首列是无标题行号。抓取时空表头会被过滤，因此数据行
+            # 与混入的日期控件表头无法按长度对齐；根据区域和城市识别
+            # 数据行并移除行号，避免所有字段整体错位。
+            if (
+                len(row) >= 4
+                and re.fullmatch(r"\d+", norm_header(row[0]))
+                and norm_header(row[1]) == REGION_NAME
+                and normalize_city(row[2]) in CITIES
+            ):
+                row = row[1:]
             mapped = {}
             for i, cell in enumerate(row):
                 if i < len(headers) and headers[i]:

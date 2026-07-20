@@ -20,7 +20,7 @@ def _header_col_map(ws) -> dict[str, int]:
     for col in range(1, ws.max_column + 1):
         val = ws.cell(HEADER_ROW, col).value
         if val:
-            mapping[norm_header(val)] = col
+            mapping.setdefault(norm_header(val), col)
     return mapping
 
 
@@ -59,27 +59,39 @@ def fill_template(
     ws = wb[DATA_SHEET]
     col_map = _header_col_map(ws)
 
-    # 现有行索引：区域+城市+日
+    # 现有行索引：区域+城市+日；同时复用模板预置的空白公式行，
+    # 保留后续成本与利润计算公式，不能按 max_row 追加到公式区之外。
     index: dict[tuple[str, str, str], int] = {}
+    available_rows: list[int] = []
     for r in range(HEADER_ROW + 1, ws.max_row + 1):
-        region = norm_header(ws.cell(r, col_map.get("区域", 1)).value)
+        region_value = ws.cell(r, col_map.get("区域", 1)).value
         city = norm_header(ws.cell(r, col_map.get("组织结构", 2)).value)
         day = _read_row_day(ws.cell(r, col_map.get("日", 3)).value)
-        if region and city and day:
-            index[_row_key(region, city, day)] = r
+        if city in CITIES and day:
+            index[_row_key(REGION_NAME, city, day)] = r
+        elif (
+            not city
+            and day is None
+            and isinstance(region_value, str)
+            and region_value.startswith("=")
+        ):
+            available_rows.append(r)
 
     by_city = {str(r.get("组织结构")): r for r in rows if r.get("组织结构") in CITIES}
     missing = [c for c in CITIES if c not in by_city]
     if missing:
         raise ValueError(f"抓取数据缺少城市: {missing}；目标日={target}")
 
-    next_row = ws.max_row + 1
+    available = iter(available_rows)
     for city in CITIES:
         src = by_city[city]
         key = _row_key(REGION_NAME, city, target)
-        row_idx = index.get(key, next_row)
-        if row_idx == next_row:
-            next_row += 1
+        row_idx = index.get(key)
+        if row_idx is None:
+            try:
+                row_idx = next(available)
+            except StopIteration as exc:
+                raise ValueError("模板没有足够的预置空白公式行") from exc
 
         for header, val in src.items():
             col = col_map.get(norm_header(header))
