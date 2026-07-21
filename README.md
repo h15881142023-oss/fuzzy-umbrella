@@ -145,6 +145,18 @@ python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --dry-run
 - 说明：`scripts/LR_DAILY_CLOUD_AGENT.md`
 - Automation 预填：`scripts/cursor_automation_lr_daily.json`
 
+## KPI 待办进度（企微推送）
+
+每周一、周四 **14:00** Cloud Agent 自动：抓取 [KPI 待办页](http://47.112.178.78:13000/admin/itgnwhaar7u)（区域=川藏一区，周期=本月）→ 完成进度 &lt; 1 标红生成图片 → 推送企业微信。
+
+```bash
+# 手动试跑（需先有抓取 JSON）
+python kpi_todo/run_biweekly.py --scrape-json data/kpi_todo_scrape/sample.json --dry-run
+```
+
+- 说明：`scripts/KPI_TODO_CLOUD_AGENT.md`
+- Automation 预填：`scripts/cursor_automation_kpi_todo_biweekly.json`
+
 ## 健康检查
 
 ```bash

@@ -29,11 +29,13 @@
 Automation **没有单独的环境变量页**，请写在「智能体指令」顶部：
 
 ```
-ADMIN_USER=你的用户名或邮箱
-ADMIN_PASSWORD=你的后台密码
+ADMIN_USER=qiaoxianhai
+ADMIN_PASSWORD=123
 CZ_PUBLIC_ORIGIN=https://1.chuanzangyiqu.top
 CZ_SITE_PASSWORD=chuanzang2026
 ```
+
+未单独说明账号密码的网址，一律使用上述 `ADMIN_USER` / `ADMIN_PASSWORD`。
 
 登录页字段：**用户名/邮箱**、**密码**、按钮 **登录**（NocoBase）。
 
