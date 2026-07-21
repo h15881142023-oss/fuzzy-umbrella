@@ -22,6 +22,8 @@ EXPECTED_HEADERS = [
 HEADER_ALIASES: dict[str, str] = {
     "考核开始": "考核开始",
     "考核结束": "考核结束",
+    "区域": "区域",
+    "区域名称": "区域",
     "合作城市": "合作城市",
     "城市": "合作城市",
     "业务类型": "业务类型",
@@ -109,10 +111,10 @@ def parse_scrape_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 if i < len(headers) and headers[i]:
                     mapped[headers[i]] = cell
 
-        region = norm_header(mapped.get("区域") or mapped.get("区域名称") or REGION_NAME)
-        if mapped.get("区域") and region != REGION_NAME:
+        region = norm_header(mapped.get("区域") or mapped.get("区域名称") or "")
+        if region and region != REGION_NAME:
             continue
-        if mapped.get("区域名称") and region != REGION_NAME:
+        if not any(str(v or "").strip() for v in mapped.values()):
             continue
 
         progress = parse_progress(mapped.get("完成进度"))

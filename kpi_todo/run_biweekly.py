@@ -42,6 +42,27 @@ SCRAPE_DIR = KPI_TODO_DIR / "scrape"
 OUTPUT_DIR = KPI_TODO_DIR / "output"
 
 
+def detect_non_target_regions(payload: dict) -> list[str]:
+    headers = payload.get("headers") or []
+    rows = payload.get("rows") or []
+    idx = None
+    for i, h in enumerate(headers):
+        hs = str(h or "").strip()
+        if hs in {"区域", "区域名称"}:
+            idx = i
+            break
+    if idx is None:
+        return []
+    regions = set()
+    for row in rows:
+        if not isinstance(row, list) or idx >= len(row):
+            continue
+        val = str(row[idx] or "").strip()
+        if val and val != REGION_NAME:
+            regions.add(val)
+    return sorted(regions)
+
+
 def build_summary(rows: list[dict], cutoff: date | None) -> str:
     incomplete = count_incomplete(rows)
     cutoff_text = cutoff.isoformat() if cutoff else date.today().isoformat()
@@ -86,6 +107,16 @@ def main() -> int:
         return 1
 
     payload = json.loads(args.scrape_json.read_text(encoding="utf-8"))
+    bad_regions = detect_non_target_regions(payload)
+    if bad_regions:
+        msg = (
+            "筛选校验失败：抓取结果包含非目标区域 "
+            f"{', '.join(bad_regions)}；已停止出图推送。"
+        )
+        print(msg, file=sys.stderr)
+        if not args.dry_run:
+            notify_text(args.webhook, msg)
+        return 1
     rows = parse_scrape_payload(payload)
     if not rows:
         msg = "筛选后无数据（请确认区域=川藏一区、周期=本月，且表格已刷新）。"
