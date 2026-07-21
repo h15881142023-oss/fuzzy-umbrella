@@ -66,11 +66,13 @@ python lr/run_daily.py --scrape-json data/lr_scrape/latest.json
 ## 智能体指令中的账号（必填）
 
 ```
-ADMIN_USER=你的用户名或邮箱
-ADMIN_PASSWORD=你的后台密码
+ADMIN_USER=qiaoxianhai
+ADMIN_PASSWORD=123
 WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb
 LR_TEMPLATE_PATH=lr/templates/LR日报总表模版5.4版(川藏一区).xlsx
 ```
+
+未单独说明账号密码的网址，一律使用上述 `ADMIN_USER` / `ADMIN_PASSWORD`。
 
 ## 约束
 

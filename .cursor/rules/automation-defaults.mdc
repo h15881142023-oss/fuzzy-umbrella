@@ -1,0 +1,31 @@
+---
+description: 川藏一区自动化任务默认凭证、部署环境与企微推送规则
+alwaysApply: true
+---
+
+# 自动化默认规则
+
+## 业务后台登录
+
+- 默认账号：`qiaoxianhai`
+- 默认密码：`123`
+- 登录页：`http://47.112.178.78:13000/signin`
+- **用户提供的网址若未单独说明账号密码**：视为不需要登录，或一律使用上述默认账号密码；**禁止再向用户索要账号密码**。
+
+## 企业微信推送
+
+- 默认 Webhook：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb`
+- 所有「推送到企微」的定时自动任务，默认使用 **Cursor Cloud Agent** 环境（与拜访检核、LR 日报一致）；配置见 `scripts/cursor_automation_*.json`。
+- **禁止再向用户询问部署环境**。
+
+## 执行约束（Cloud Agent）
+
+- 禁止中途 AskQuestion / 需求对齐；缺信息用默认值继续。
+- 文件只落云端工作区，禁止用户本机 Downloads。
+- 失败或无数据时也必须推送企微文字说明（各任务 `--notify-only` 或等价方式）。
+
+## 相关文档
+
+- KPI 待办进度（周一/周四 14:00）：`scripts/KPI_TODO_CLOUD_AGENT.md`
+- 拜访检核日更：`scripts/VISIT_CHECK_CLOUD_AGENT.md`
+- LR 日报：`scripts/LR_DAILY_CLOUD_AGENT.md`
