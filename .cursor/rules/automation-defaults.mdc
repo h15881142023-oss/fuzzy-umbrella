@@ -24,6 +24,10 @@ alwaysApply: true
 - 文件只落云端工作区，禁止用户本机 Downloads。
 - 失败或无数据时也必须推送企微文字说明（各任务 `--notify-only` 或等价方式）。
 
+## 任务别名
+
+- **KPI 待办进度** = 用户口中的「自配检核」待办表（同一后台页 `itgnwhaar7u`）
+
 ## 相关文档
 
 - KPI 待办进度（周一/周四 14:00）：`scripts/KPI_TODO_CLOUD_AGENT.md`
