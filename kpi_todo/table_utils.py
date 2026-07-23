@@ -140,6 +140,18 @@ def parse_scrape_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return out
 
 
+def count_noncompliant_cities(rows: list[dict[str, Any]]) -> int:
+    """有任一 todo 完成进度 < 1 的合作城市数。"""
+    bad: set[str] = set()
+    for row in rows:
+        p = parse_progress(row.get("完成进度"))
+        if p is not None and p < 1:
+            city = str(row.get("合作城市") or "").strip()
+            if city:
+                bad.add(city)
+    return len(bad)
+
+
 def count_incomplete(rows: list[dict[str, Any]]) -> int:
     n = 0
     for row in rows:
