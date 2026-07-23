@@ -28,7 +28,9 @@ from kpi_todo.table_image import render_table_png  # noqa: E402
 from kpi_todo.table_utils import (  # noqa: E402
     EXPECTED_HEADERS,
     count_incomplete,
+    format_progress_cell,
     latest_update_date,
+    parse_progress,
     parse_scrape_payload,
     rows_for_table,
 )
@@ -70,13 +72,27 @@ def build_summary(rows: list[dict], cutoff: date | None) -> str:
         status = f"截止 **{cutoff_text}** todo **均达成**"
     else:
         status = f"截止 **{cutoff_text}** 有 **{incomplete}** 项 todo 未达成（红色格=1项）"
-    return (
-        f"## 📋 川藏一区 KPI 待办进度\n\n"
-        f"- 区域：{REGION_NAME}\n"
-        f"- 周期：本月\n"
-        f"- 数据行数：{len(rows)}\n"
-        f"- {status}"
-    )
+
+    lines = [
+        f"## 川藏一区 KPI 待办进度",
+        "",
+        f"- 区域：{REGION_NAME}",
+        f"- 周期：本月",
+        f"- 数据行数：{len(rows)}",
+        f"- {status}",
+    ]
+    # 列出未达成项，方便核对
+    bad = []
+    for r in rows:
+        p = parse_progress(r.get("完成进度"))
+        if p is not None and p < 1:
+            city = r.get("合作城市") or ""
+            name = r.get("指标名称") or ""
+            bad.append(f"  - {city} · {name} · {format_progress_cell(p)}")
+    if bad:
+        lines.append("- 未达成明细：")
+        lines.extend(bad)
+    return "\n".join(lines)
 
 
 def notify_text(webhook: str, message: str) -> dict:

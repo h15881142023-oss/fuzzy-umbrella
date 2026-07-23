@@ -7,15 +7,19 @@ from typing import Any
 
 from config import REGION_NAME
 
+# 企微出图列（与后台一致的关键列；过长文本列不出图）
 EXPECTED_HEADERS = [
     "考核开始",
     "考核结束",
     "合作城市",
+    "渠道经理",
     "业务类型",
     "指标名称",
+    "判断标准",
     "业务目标",
     "已完成",
     "完成进度",
+    "考核状态",
     "更新日期",
 ]
 
@@ -26,11 +30,16 @@ HEADER_ALIASES: dict[str, str] = {
     "区域名称": "区域",
     "合作城市": "合作城市",
     "城市": "合作城市",
+    "渠道经理": "渠道经理",
+    "经理": "渠道经理",
     "业务类型": "业务类型",
+    "指标类型": "指标类型",
     "指标名称": "指标名称",
+    "判断标准": "判断标准",
     "业务目标": "业务目标",
     "已完成": "已完成",
     "完成进度": "完成进度",
+    "考核状态": "考核状态",
     "更新日期": "更新日期",
 }
 
@@ -107,7 +116,12 @@ def parse_scrape_payload(payload: dict[str, Any]) -> list[dict[str, Any]]:
                 if hk:
                     mapped[hk] = v
         else:
-            for i, cell in enumerate(row):
+            work = list(row)
+            if len(work) > len(headers) and str(work[0] or "").strip().isdigit():
+                work = work[1:]
+            if len(work) > len(headers):
+                work = work[: len(headers)]
+            for i, cell in enumerate(work):
                 if i < len(headers) and headers[i]:
                     mapped[headers[i]] = cell
 
@@ -140,13 +154,23 @@ def latest_update_date(rows: list[dict[str, Any]]) -> date | None:
     return max(dates) if dates else None
 
 
+def format_progress_cell(value: Any) -> str:
+    p = parse_progress(value)
+    if p is None:
+        return str(value or "").strip()
+    pct = p * 100
+    if abs(pct - round(pct)) < 1e-6:
+        return f"{int(round(pct))}%"
+    return f"{pct:.1f}%"
+
+
 def format_cell(value: Any) -> str:
     if value is None:
         return ""
     if isinstance(value, float):
-        if 0 <= value <= 1:
-            return f"{value:.4g}".rstrip("0").rstrip(".") if value != 1 else "1"
-        return f"{value:.2g}"
+        if abs(value - round(value)) < 1e-9:
+            return str(int(round(value)))
+        return f"{value:.4g}".rstrip("0").rstrip(".")
     if isinstance(value, date):
         return value.isoformat()
     if isinstance(value, datetime):
@@ -157,5 +181,12 @@ def format_cell(value: Any) -> str:
 def rows_for_table(rows: list[dict[str, Any]]) -> list[list[str]]:
     table: list[list[str]] = []
     for row in rows:
-        table.append([format_cell(row.get(h)) for h in EXPECTED_HEADERS])
+        cells: list[str] = []
+        for h in EXPECTED_HEADERS:
+            raw = row.get(h)
+            if h == "完成进度":
+                cells.append(format_progress_cell(raw))
+            else:
+                cells.append(format_cell(raw))
+        table.append(cells)
     return table
