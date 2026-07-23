@@ -7,6 +7,15 @@ Set-Location $Root
 New-Item -ItemType Directory -Force -Path "logs" | Out-Null
 $Log = "logs\store_morning_monitor_local.log"
 
+function Test-Cdp {
+  try {
+    $r = Invoke-WebRequest -Uri "http://127.0.0.1:9222/json/version" -TimeoutSec 2 -UseBasicParsing
+    return ($r.StatusCode -eq 200)
+  } catch {
+    return $false
+  }
+}
+
 Write-Step "Store morning start. Log: $Root\$Log"
 Write-LogLine $Log "start"
 try {
@@ -17,21 +26,30 @@ try {
     exit 1
 }
 
-# Ensure Chrome CDP 9222 is up (Power BI scrape needs it)
-Write-Step "Ensuring Chrome CDP on 9222 ..."
-$cdpOk = $false
-try {
-    $resp = Invoke-WebRequest -Uri "http://127.0.0.1:9222/json/version" -TimeoutSec 2 -UseBasicParsing
-    if ($resp.StatusCode -eq 200) { $cdpOk = $true }
-} catch {}
-
-if (-not $cdpOk) {
-    Write-Step "Starting Chrome via scripts\start_chrome_powerbi.ps1 ..."
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "scripts\start_chrome_powerbi.ps1") *>> $Log
-    Start-Sleep -Seconds 3
+Write-Step "Checking Chrome CDP 9222 ..."
+if (-not (Test-Cdp)) {
+    $starter = Join-Path $Root "scripts\start_chrome_powerbi.ps1"
+    if (-not (Test-Path $starter)) {
+        Write-Step "MISSING scripts\start_chrome_powerbi.ps1 - please update files first"
+        Write-LogLine $Log "missing start_chrome_powerbi.ps1"
+        exit 1
+    }
+    Write-Step "Starting ChromeAutomation for Power BI ..."
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $starter *>> $Log
+    for ($i=1; $i -le 20; $i++) {
+        if (Test-Cdp) { break }
+        Start-Sleep -Seconds 1
+    }
 }
 
-Write-Step "Running morning monitor (powerbi --once) ..."
+if (-not (Test-Cdp)) {
+    Write-Step "FAILED: Chrome CDP 9222 not available."
+    Write-Step "Install Google Chrome, then re-run. First time login Power BI in the opened window."
+    Write-LogLine $Log "cdp-unavailable"
+    exit 1
+}
+
+Write-Step "CDP OK. Running powerbi_subsidy_daily.py --once ..."
 if ($env:CZ_STORE_MORNING_CMD) {
     cmd /c $env:CZ_STORE_MORNING_CMD *>> $Log
 } else {
@@ -43,6 +61,6 @@ if ($code -eq 0) {
     Write-Step "SUCCESS. See $Log"
 } else {
     Write-Step "FAILED exit=$code. See $Log"
-    Write-Step "If first run: login Power BI in the ChromeAutomation window, then re-run this script."
+    Write-Step "If Chrome opened: login Power BI there, keep window open, then re-run this script."
 }
 exit $code
