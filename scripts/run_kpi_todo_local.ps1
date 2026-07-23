@@ -1,4 +1,4 @@
-# 本机：KPI/Todo 周报端到端（Windows）
+﻿# Local KPI/Todo weekly report (Windows)
 $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\_local_common.ps1"
 
@@ -17,7 +17,7 @@ try {
 
 & $py "kpi_todo\scrape_live.py" *>> $Log
 if ($LASTEXITCODE -ne 0) {
-    & $py "kpi_todo\run_biweekly.py" --notify-only --message "本机抓取失败，详见 logs/kpi_todo_local.log" *>> $Log
+    & $py "kpi_todo\run_biweekly.py" --notify-only --message "local scrape failed, see logs/kpi_todo_local.log" *>> $Log
     Write-LogLine $Log "exit=$LASTEXITCODE (scrape fail)"
     exit $LASTEXITCODE
 }

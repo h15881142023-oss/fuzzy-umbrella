@@ -1,4 +1,4 @@
-# 本机：拜访检核日更端到端（Windows）
+﻿# Local visit-check daily (Windows)
 $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\_local_common.ps1"
 

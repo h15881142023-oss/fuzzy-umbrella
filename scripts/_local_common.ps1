@@ -1,4 +1,4 @@
-# 本机自动化公共函数（Windows PowerShell）
+﻿# Shared helpers for Windows local automations
 $ErrorActionPreference = "Stop"
 
 function Get-RepoRoot {
@@ -21,7 +21,7 @@ function Ensure-Venv {
         } catch {}
     }
     if (-not $python) {
-        throw "未找到 Python。请先安装 Python 3，并勾选 Add python.exe to PATH。"
+        throw "Python not found. Install Python 3 and check Add python.exe to PATH."
     }
 
     if (-not (Test-Path ".venv\Scripts\python.exe")) {

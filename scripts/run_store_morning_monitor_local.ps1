@@ -1,4 +1,4 @@
-# 本机：自配门店早间监控（Windows）
+﻿# Local store morning monitor (Windows)
 $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\_local_common.ps1"
 
@@ -18,7 +18,7 @@ try {
 if ($env:CZ_STORE_MORNING_CMD) {
     cmd /c $env:CZ_STORE_MORNING_CMD *>> $Log
 } else {
-    # 默认：代补抓取一轮（若本机未配置 Chrome CDP，会失败并写日志）
+    # Default: one powerbi subsidy pass (needs local Chrome CDP)
     & $py "scrapers\powerbi_subsidy_daily.py" --once *>> $Log
 }
 $code = $LASTEXITCODE

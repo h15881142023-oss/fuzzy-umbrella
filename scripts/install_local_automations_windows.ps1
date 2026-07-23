@@ -1,5 +1,5 @@
-# 安装全部本机自动化到 Windows 任务计划程序
-# 用法（在仓库根目录）：
+﻿# Install all local automations into Windows Task Scheduler
+# Usage (from repo root):
 #   powershell -ExecutionPolicy Bypass -File scripts\install_local_automations_windows.ps1
 
 $ErrorActionPreference = "Stop"
@@ -16,7 +16,7 @@ function Register-CzTask {
     )
     $scriptPath = Join-Path $Root $ScriptRel
     if (-not (Test-Path $scriptPath)) {
-        throw "脚本不存在: $scriptPath"
+        throw "Script not found: $scriptPath"
     }
 
     $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
@@ -29,9 +29,11 @@ function Register-CzTask {
     }
     $out | Out-Host
     if ($LASTEXITCODE -ne 0) {
-        throw "创建任务失败: $Name；输出: $out"
+        throw "Failed to create task: $Name ; output: $out"
     }
-    Write-Host "已安装: $Name ($Schedule $StartTime$(if ($DayOfWeek) { " $DayOfWeek" }))"
+    $extra = ""
+    if ($DayOfWeek) { $extra = " $DayOfWeek" }
+    Write-Host "Installed: $Name ($Schedule $StartTime$extra)"
 }
 
 Register-CzTask -Name "ChuanzangVisitCheckLocal" `
@@ -55,10 +57,10 @@ Register-CzTask -Name "ChuanzangKpiTodoThuLocal" `
     -Schedule WEEKLY -DayOfWeek THU -StartTime "14:00"
 
 Write-Host ""
-Write-Host "全部 Windows 定时任务已安装。"
-Write-Host "请确认 Automations 面板里那 5 个 Cloud 任务已停用，避免重复执行。"
-Write-Host "手动试跑："
+Write-Host "All Windows scheduled tasks installed."
+Write-Host "Make sure the 5 Cloud Automations are disabled to avoid duplicates."
+Write-Host "Manual test:"
 Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\run_kpi_todo_local.ps1"
-Write-Host "卸载："
+Write-Host "Uninstall:"
 Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\uninstall_local_automations_windows.ps1"
-Write-Host "说明：scripts\LOCAL_AUTOMATIONS.md"
+Write-Host "Docs: scripts\LOCAL_AUTOMATIONS.md"

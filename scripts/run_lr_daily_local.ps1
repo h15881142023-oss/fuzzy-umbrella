@@ -1,4 +1,4 @@
-# 本机：LR 日报 / 日利润数据源端到端（Windows）
+﻿# Local LR daily + profit datasource (Windows)
 $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\_local_common.ps1"
 
