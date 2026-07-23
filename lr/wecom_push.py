@@ -1,6 +1,8 @@
 """企业微信 webhook：推送图片 + Excel。"""
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
 import subprocess
 import urllib.request
@@ -56,8 +58,17 @@ def push_lr_report(
     if md.get("errcode", 0) != 0:
         raise RuntimeError(f"markdown 推送失败: {md}")
 
-    img_id = upload_media(key, png, "image")
-    img_resp = post_json(webhook, {"msgtype": "image", "image": {"media_id": img_id}})
+    image = png.read_bytes()
+    img_resp = post_json(
+        webhook,
+        {
+            "msgtype": "image",
+            "image": {
+                "base64": base64.b64encode(image).decode("ascii"),
+                "md5": hashlib.md5(image).hexdigest(),
+            },
+        },
+    )
     if img_resp.get("errcode", 0) != 0:
         raise RuntimeError(f"图片推送失败: {img_resp}")
 

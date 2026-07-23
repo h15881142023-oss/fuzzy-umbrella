@@ -1,6 +1,9 @@
-# Cursor Cloud Agent — LR 日报（23:30）
+# LR 日报（23:30）— 已迁移本机
 
-每天在 **Cloud** 环境执行。数据量小，**直接从网页表格抓取**，不点导出。
+> **推荐**：本机 launchd，见 `scripts/LOCAL_AUTOMATIONS.md` 与 `scripts/run_lr_daily_local.sh`。  
+> 请停用 Cursor Cloud Automation「LR日报日更」「日利润数据源推送」。
+
+以下步骤保留作排查参考。数据量小，**直接从网页表格抓取**，不点导出。
 
 ## 目标
 

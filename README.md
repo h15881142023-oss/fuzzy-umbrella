@@ -14,6 +14,7 @@
 | 外网域名 | `https://1.chuanzangyiqu.top`（需 Cloudflare Tunnel） |
 | LR 日报 | 独立脚本 `lr/run_daily.py`（不挂网站） |
 | 开机自启 | Web/Excel **未**开机自启；代补抓取已装 launchd **每天 09:00** |
+| 定时自动化 | **本机 launchd**（见 `scripts/LOCAL_AUTOMATIONS.md`）；请停用 Cursor Cloud Automations |
 | 代补看板 | Power BI 五城四块表；快照日=页面大标题日期；历史不覆盖；缺日自动补齐 |
 
 页面路由与教程一致：`/kpi/catering`、`/evaluation`、`/notice` 等。
@@ -133,17 +134,44 @@ python scrapers/scrape_meituan_cdp.py
 
 `scrapers/*.py` 已接入 CDP；若页面结构特殊，请用 `discover_meituan_apis.py` 补齐 `meituan_endpoints.json`。
 
-## LR 日报
+## LR 日报 / 日利润数据源
 
-每天 **23:30** Cloud Agent 自动：抓取 [LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq) 网页表格 → 写入模板 `数据源(日)` → 推送「看板-单城」截图 + Excel 到企业微信。
+每天 **23:30** **本机**自动：抓取 [LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq) 网页表格 → 写入模板 `数据源(日)` → 推送「看板-单城」截图 + Excel 到企业微信。
 
 ```bash
-# 手动试跑（需先有抓取 JSON）
+# 端到端（推荐）
+bash scripts/run_lr_daily_local.sh
+
+# 仅填表试跑（需先有抓取 JSON）
 python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --dry-run
 ```
 
+- 本机总览：`scripts/LOCAL_AUTOMATIONS.md`
 - 说明：`scripts/LR_DAILY_CLOUD_AGENT.md`
-- Automation 预填：`scripts/cursor_automation_lr_daily.json`
+
+## KPI / Todo 周报
+
+每周一、周四 **14:00** 本机抓取 [KPI 待办页](http://47.112.178.78:13000/admin/itgnwhaar7u) → 标红图片 → 企微。
+
+```bash
+bash scripts/run_kpi_todo_local.sh
+```
+
+## 拜访检核日更
+
+每天 **09:00** 本机导出昨天拜访 Excel 并入库。
+
+```bash
+bash scripts/run_visit_check_local.sh
+```
+
+## 一键安装本机定时任务
+
+```bash
+bash scripts/install_local_automations_launchd.sh
+```
+
+安装后请到 https://cursor.com/automations **停用**原先 5 个 Cloud 自动化，避免重复执行。
 
 ## 健康检查
 

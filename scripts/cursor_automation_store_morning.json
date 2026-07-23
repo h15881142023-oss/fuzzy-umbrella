@@ -1,0 +1,27 @@
+{
+  "name": "自配门店早间监控（本机）",
+  "description": "本机 launchd：每天 08:30 早间监控。默认复用代补抓取。请停用旧 Cloud Automation。",
+  "workflow": {
+    "triggers": [
+      {
+        "cron": {
+          "cron": "30 8 * * *"
+        }
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      {
+        "text": "本任务已迁移到本机 launchd，不要在云端执行。\n\n请确认：\n1. 本机已安装：bash scripts/install_store_morning_monitor_launchd.sh\n2. 旧 Cloud Automation「自配门店早间监控（云端）」已停用\n3. 手动试跑：bash scripts/run_store_morning_monitor_local.sh\n\n默认命令：bash scripts/run_powerbi_subsidy_daily.sh --once\n可用环境变量 CZ_STORE_MORNING_CMD 覆盖。"
+      }
+    ],
+    "gitConfig": {
+      "repo": "h15881142023-oss/fuzzy-umbrella",
+      "branch": "main"
+    },
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": false
+  }
+}
