@@ -5,6 +5,12 @@ function Get-RepoRoot {
     return (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 }
 
+function Write-Step {
+    param([string]$Message)
+    $ts = Get-Date -Format "HH:mm:ss"
+    Write-Host "[$ts] $Message"
+}
+
 function Ensure-Venv {
     param([string]$Root)
     Set-Location $Root
@@ -25,6 +31,7 @@ function Ensure-Venv {
     }
 
     if (-not (Test-Path ".venv\Scripts\python.exe")) {
+        Write-Step "Creating .venv ..."
         if ($python -eq "py") {
             & py -3 -m venv .venv
         } else {
@@ -33,8 +40,11 @@ function Ensure-Venv {
     }
 
     $venvPy = Join-Path $Root ".venv\Scripts\python.exe"
+    Write-Step "Installing Python packages (first run may take several minutes) ..."
     & $venvPy -m pip install -q -r requirements.txt
-    & $venvPy -m playwright install chromium 2>$null | Out-Null
+    Write-Step "Installing Playwright Chromium (first run may take several minutes) ..."
+    & $venvPy -m playwright install chromium
+    Write-Step "Environment ready."
     return $venvPy
 }
 
