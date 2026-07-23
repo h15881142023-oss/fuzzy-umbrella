@@ -15,11 +15,6 @@
 | 拜访检核日更（Cloud） | `scripts/run_visit_check_local.sh` | 每天 09:00 |
 | 自配门店早间监控（云端） | `scripts/run_store_morning_monitor_local.sh` | 每天 08:30 |
 
-已知 Cloud Automation ID（可直接打开停用）：
-
-- 拜访检核：https://cursor.com/automations/89caebed-81bd-11f1-a7d1-d6b4613131ce
-- LR 日报：https://cursor.com/automations/0e10d6f8-844a-11f1-a7d1-d6b4613131ce
-
 ## 一键安装（Mac）
 
 在仓库根目录执行：
