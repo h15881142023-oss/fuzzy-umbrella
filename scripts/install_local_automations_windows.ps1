@@ -6,6 +6,16 @@ $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\_local_common.ps1"
 $Root = Get-RepoRoot
 
+function Invoke-SchtasksQuiet {
+    param([Parameter(Mandatory = $true)][string[]]$Args)
+    $prev = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    $out = & schtasks.exe @Args 2>&1
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $prev
+    return @{ Code = $code; Output = $out }
+}
+
 function Register-CzTask {
     param(
         [Parameter(Mandatory = $true)][string]$Name,
@@ -20,16 +30,18 @@ function Register-CzTask {
     }
 
     $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
-    schtasks /Delete /TN $Name /F 2>$null | Out-Null
+
+    # Delete if exists; ignore "not found"
+    [void](Invoke-SchtasksQuiet -Args @("/Delete", "/TN", $Name, "/F"))
 
     if ($Schedule -eq "DAILY") {
-        $out = schtasks /Create /TN $Name /TR $tr /SC DAILY /ST $StartTime /F 2>&1
+        $res = Invoke-SchtasksQuiet -Args @("/Create", "/TN", $Name, "/TR", $tr, "/SC", "DAILY", "/ST", $StartTime, "/F")
     } else {
-        $out = schtasks /Create /TN $Name /TR $tr /SC WEEKLY /D $DayOfWeek /ST $StartTime /F 2>&1
+        $res = Invoke-SchtasksQuiet -Args @("/Create", "/TN", $Name, "/TR", $tr, "/SC", "WEEKLY", "/D", $DayOfWeek, "/ST", $StartTime, "/F")
     }
-    $out | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        throw "Failed to create task: $Name ; output: $out"
+    if ($res.Output) { $res.Output | Out-Host }
+    if ($res.Code -ne 0) {
+        throw "Failed to create task: $Name ; exit=$($res.Code) ; output=$($res.Output)"
     }
     $extra = ""
     if ($DayOfWeek) { $extra = " $DayOfWeek" }

@@ -10,7 +10,7 @@ $names = @(
 )
 
 foreach ($n in $names) {
-    schtasks /Delete /TN $n /F 2>$null | Out-Null
+    & schtasks.exe /Delete /TN $n /F 2>$null | Out-Null
     Write-Host "Removed: $n"
 }
 
