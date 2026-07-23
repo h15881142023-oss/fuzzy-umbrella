@@ -71,7 +71,7 @@ python lr/run_daily.py --scrape-json data/lr_scrape/latest.json
 ```
 ADMIN_USER=你的用户名或邮箱
 ADMIN_PASSWORD=你的后台密码
-WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb
+LR_WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=c44fb1bf-ec7d-4c14-a397-7c9db0ac5a4f
 LR_TEMPLATE_PATH=lr/templates/LR日报总表模版5.4版(川藏一区).xlsx
 ```
 

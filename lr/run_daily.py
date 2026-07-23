@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parent
 BASE = ROOT.parent
 sys.path.insert(0, str(BASE))
 
-from config import LR_DIR, LR_TEMPLATE_DEFAULT, REGION_NAME  # noqa: E402
+from config import LR_DIR, LR_TEMPLATE_DEFAULT, LR_WECOM_WEBHOOK, REGION_NAME  # noqa: E402
 from lr.fill_template import fill_template  # noqa: E402
 from lr.kanban_image import export_kanban_png  # noqa: E402
 from lr.table_utils import filter_target_date, parse_scrape_payload  # noqa: E402
@@ -32,10 +32,7 @@ from lr.wecom_push import push_lr_report  # noqa: E402
 DEFAULT_TEMPLATE = Path(os.environ.get("LR_TEMPLATE_PATH", LR_TEMPLATE_DEFAULT))
 WORK_DIR = LR_DIR / "work"
 OUTPUT_DIR = LR_DIR / "output"
-DEFAULT_WEBHOOK = os.environ.get(
-    "WECOM_WEBHOOK",
-    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
-)
+DEFAULT_WEBHOOK = os.environ.get("LR_WECOM_WEBHOOK", LR_WECOM_WEBHOOK)
 
 
 def load_scrape(path: Path) -> dict:
