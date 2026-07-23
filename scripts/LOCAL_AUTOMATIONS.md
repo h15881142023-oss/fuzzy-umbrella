@@ -66,6 +66,13 @@ $env:CZ_VISIT_PUSH_API="1"
 powershell -ExecutionPolicy Bypass -File scripts\run_visit_check_local.ps1
 ```
 
+自配门店早间监控依赖本机 Chrome CDP（9222）+ 已登录的 Power BI：
+
+```powershell
+# 第一次：会自动打开 ChromeAutomation 窗口，请在里面登录 Power BI 后重跑
+powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local.ps1
+```
+
 ### 查看是否装上
 
 ```powershell
