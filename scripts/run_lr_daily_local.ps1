@@ -34,6 +34,8 @@ if ($code -ne 0) {
 }
 
 Write-Step "Filling Excel, WPS kanban screenshots, WeCom push ..."
+# 若已有抓取结果，可跳过抓取只跑后半段：
+#   .\.venv\Scripts\python.exe lr\run_daily.py --scrape-json data\lr_scrape\latest.json --target-date 2026-07-22
 $code = Invoke-PythonLogged -PythonExe $py -Arguments @(
     "lr\run_daily.py",
     "--scrape-json", "data\lr_scrape\latest.json",
@@ -45,7 +47,12 @@ if ($code -eq 0) {
 } else {
     Write-Step "FAILED exit=$code. See $Log (tail below)"
     if (Test-Path $Log) {
-        Get-Content -Path $Log -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
+        Get-Content -Path $Log -Tail 60 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
+    }
+    $wpsLog = Join-Path $Root "lr\output\wps_export.log"
+    if (Test-Path $wpsLog) {
+        Write-Step "---- lr/output/wps_export.log ----"
+        Get-Content -Path $wpsLog -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
     }
 }
 exit $code

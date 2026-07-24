@@ -1,4 +1,4 @@
-"""将「看板-单城」导出为五城 PNG（Windows 优先 WPS/Excel COM）。"""
+"""将「看板-单城」导出为五城 PNG（Windows 优先 Python COM + 剪贴板）。"""
 from __future__ import annotations
 
 import os
@@ -59,35 +59,44 @@ def _render_with_pillow(xlsx: Path, out_png: Path, city: str | None = None) -> P
     return out_png
 
 
-def export_kanban_pngs_wps(
+def export_kanban_pngs_wps_ps1(
     xlsx: Path,
     out_dir: Path,
     target: date,
     cities: list[str] | None = None,
 ) -> list[Path]:
-    """Windows：WPS/Excel 重算并导出五城看板 PNG。"""
+    """Fallback：PowerShell COM 脚本（参数经 UTF-8 JSON，避免命令行乱码）。"""
+    import json
+
     cities = cities or list(CITIES)
     if not EXPORT_PS1.exists():
-        raise FileNotFoundError(f"缺少导出脚本: {EXPORT_PS1}")
+        raise FileNotFoundError(f"missing export script: {EXPORT_PS1}")
     out_dir.mkdir(parents=True, exist_ok=True)
     xlsx_abs = xlsx.resolve()
     out_abs = out_dir.resolve()
     log_path = out_abs / "wps_export.log"
-    # 经 cmd 重定向，避免嵌套 PowerShell 管道编码问题；参数写进临时脚本更稳
-    cities_arg = ",".join(cities)
-    ps_cmd = (
-        f'& "{EXPORT_PS1}" '
-        f'-XlsxPath "{xlsx_abs}" '
-        f'-OutDir "{out_abs}" '
-        f"-Month {target.month} "
-        f'-Region "{REGION_NAME}" '
-        f'-Cities "{cities_arg}"'
-    )
+    cfg_path = out_abs / "_export_kanban_cfg.json"
+    cfg = {
+        "xlsx": str(xlsx_abs),
+        "outDir": str(out_abs),
+        "month": target.month,
+        "region": REGION_NAME,
+        "cities": cities,
+        "sheet": KANBAN_SHEET,
+        "range": "B1:R37",
+    }
+    cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # ASCII-only wrapper to avoid PS parse errors on GBK systems
     wrapper = out_abs / "_export_kanban_once.ps1"
-    wrapper.write_text(ps_cmd + "\n", encoding="utf-8-sig")
+    wrapper.write_text(
+        f'& "{EXPORT_PS1}" -ConfigJson "{cfg_path}"\n',
+        encoding="ascii",
+        errors="strict",
+    )
     cmdline = (
-        f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{wrapper}" '
-        f'>> "{log_path}" 2>&1'
+        f'chcp 65001 >NUL & powershell.exe -NoProfile -ExecutionPolicy Bypass '
+        f'-File "{wrapper}" > "{log_path}" 2>&1'
     )
     proc = subprocess.run(
         ["cmd.exe", "/c", cmdline],
@@ -100,11 +109,11 @@ def export_kanban_pngs_wps(
     log_text = ""
     if log_path.exists():
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
+        if not log_text.strip():
+            log_text = log_path.read_text(encoding="gbk", errors="replace")
     if proc.returncode != 0:
         raise RuntimeError(
-            f"WPS 导出失败 code={proc.returncode}\n"
-            f"LOG:\n{log_text[-4000:]}\n"
-            f"CMD_STDERR:\n{proc.stderr}"
+            f"WPS PS1 export failed code={proc.returncode}\nLOG:\n{log_text[-4000:]}"
         )
     pngs: list[Path] = []
     for city in cities:
@@ -113,12 +122,38 @@ def export_kanban_pngs_wps(
         if not cand.exists():
             matches = sorted(out_dir.glob(f"看板-单城_{safe}_*.png"))
             if not matches:
-                raise FileNotFoundError(
-                    f"未生成看板图: {city} / {out_dir}\nLOG:\n{log_text[-4000:]}"
-                )
+                raise FileNotFoundError(f"PNG missing for {city}\nLOG:\n{log_text[-4000:]}")
             cand = matches[-1]
         pngs.append(cand)
     return pngs
+
+
+def export_kanban_pngs_wps(
+    xlsx: Path,
+    out_dir: Path,
+    target: date,
+    cities: list[str] | None = None,
+) -> list[Path]:
+    """Windows：优先 Python COM + 剪贴板；失败再回退 PowerShell。"""
+    cities = cities or list(CITIES)
+    errors: list[str] = []
+
+    try:
+        from lr.export_kanban_com import export_kanban_pngs_com
+
+        print("[lr] try Python COM + clipboard export ...", flush=True)
+        return export_kanban_pngs_com(xlsx, out_dir, target, cities)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"com: {exc}")
+        print(f"[lr] COM export failed: {exc}", flush=True)
+
+    try:
+        print("[lr] fallback PowerShell export ...", flush=True)
+        return export_kanban_pngs_wps_ps1(xlsx, out_dir, target, cities)
+    except Exception as exc:  # noqa: BLE001
+        errors.append(f"ps1: {exc}")
+
+    raise RuntimeError("Kanban PNG export failed. " + " || ".join(errors))
 
 
 def export_kanban_pngs(
@@ -129,7 +164,7 @@ def export_kanban_pngs(
     *,
     allow_pillow_fallback: bool = False,
 ) -> list[Path]:
-    """导出五城看板图。Windows 走 WPS；其它平台仅在允许时用 Pillow 占位。"""
+    """导出五城看板图。Windows 走 WPS/Excel；其它平台仅在允许时用 Pillow 占位。"""
     cities = cities or list(CITIES)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -144,7 +179,6 @@ def export_kanban_pngs(
 
     pngs: list[Path] = []
     for city in cities:
-        # 无法重算公式，仅导出缓存值 + 城市名标注
         wb = load_workbook(xlsx)
         ws = wb[KANBAN_SHEET]
         ws["C2"] = target.month
