@@ -9,6 +9,8 @@ logs/
 scrapers/_last_runs/
 data/visit_exports/
 data/lr_scrape/latest.json
+data/lr_scrape/*.json
+!data/lr_scrape/sample_*.json
 data/kpi_todo_scrape/latest.json
 lr/work/
 lr/output/
