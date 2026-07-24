@@ -59,6 +59,13 @@ powershell -ExecutionPolicy Bypass -File scripts\run_visit_check_local.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local.ps1
 ```
 
+LR 试跑指定日期（例如 23 号数据未齐时用 22 号）：
+
+```powershell
+# 需已安装 WPS；会抓数 → 填「数据源(日)」→ WPS 重算导出五城看板图 → 企微只推图+Excel
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_daily_local.ps1 -TargetDate 2026-07-22
+```
+
 拜访检核若要推线上 API：
 
 ```powershell

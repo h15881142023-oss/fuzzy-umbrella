@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-"""川藏一区 LR 日报：网页抓取 JSON → 填模板 → 看板截图 → 企业微信。
-
-Cloud Agent 推荐流程：
-1. 浏览器打开 LR 日利润表，筛选区域=川藏一区、日期=昨天
-2. 直接抓取表格 headers/rows，保存 JSON
-3. 本脚本消费 JSON，写入模板并推送
+"""川藏一区 LR 日报：网页抓取 JSON → 填模板 → WPS 五城看板截图 → 企业微信（只推图+Excel）。
 
 用法：
-  python lr/run_daily.py --scrape-json data/lr_scrape/latest.json
+  python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --target-date 2026-07-22
   python lr/run_daily.py --scrape-json sample.json --dry-run
 """
 from __future__ import annotations
@@ -23,9 +18,9 @@ ROOT = Path(__file__).resolve().parent
 BASE = ROOT.parent
 sys.path.insert(0, str(BASE))
 
-from config import LR_DIR, LR_TEMPLATE_DEFAULT, LR_WECOM_WEBHOOK, REGION_NAME  # noqa: E402
+from config import CITIES, LR_DIR, LR_TEMPLATE_DEFAULT, LR_WECOM_WEBHOOK, REGION_NAME  # noqa: E402
 from lr.fill_template import fill_template  # noqa: E402
-from lr.kanban_image import export_kanban_png  # noqa: E402
+from lr.kanban_image import export_kanban_pngs  # noqa: E402
 from lr.table_utils import filter_target_date, parse_scrape_payload  # noqa: E402
 from lr.wecom_push import push_lr_report  # noqa: E402
 
@@ -46,6 +41,16 @@ def main() -> int:
     parser.add_argument("--target-date", help="YYYY-MM-DD，默认昨天")
     parser.add_argument("--webhook", default=DEFAULT_WEBHOOK)
     parser.add_argument("--dry-run", action="store_true", help="只生成文件，不推送企微")
+    parser.add_argument(
+        "--pillow-fallback",
+        action="store_true",
+        help="非 Windows 时允许 Pillow 占位图（调试用，非真实看板样式）",
+    )
+    parser.add_argument(
+        "--skip-images",
+        action="store_true",
+        help="只填 Excel、不截图（云端无 WPS 时可用）",
+    )
     args = parser.parse_args()
 
     target = (
@@ -76,13 +81,29 @@ def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     filled = fill_template(args.template, rows, target, WORK_DIR)
-    png = export_kanban_png(filled, OUTPUT_DIR / f"看板-单城_{target.isoformat()}.png")
+
+    pngs: list[Path] = []
+    if not args.skip_images:
+        allow_pillow = args.pillow_fallback or os.environ.get("LR_ALLOW_PILLOW") == "1"
+        try:
+            pngs = export_kanban_pngs(
+                filled,
+                OUTPUT_DIR,
+                target,
+                list(CITIES),
+                allow_pillow_fallback=allow_pillow,
+            )
+        except RuntimeError as exc:
+            print(f"看板截图失败: {exc}", file=sys.stderr)
+            if not args.dry_run:
+                return 1
+            print("dry-run 下继续（无 PNG）", file=sys.stderr)
 
     summary = {
         "target_date": target.isoformat(),
         "cities": sorted({str(r.get("组织结构")) for r in rows}),
         "xlsx": str(filled),
-        "png": str(png),
+        "pngs": [str(p) for p in pngs],
         "rows": len(rows),
     }
     print(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -91,15 +112,12 @@ def main() -> int:
         print("dry-run: 跳过企业微信推送")
         return 0
 
-    title = (
-        f"## 📊 川藏一区 LR 日报（{target}）\n\n"
-        f"- 区域：{REGION_NAME}\n"
-        f"- 写入工作表：`数据源(日)`\n"
-        f"- 城市：{', '.join(summary['cities'])}\n"
-        f"- 附件：看板截图 + 填好数据的 Excel"
-    )
-    push_lr_report(args.webhook, title=title, png=png, xlsx=filled)
-    print("企业微信推送成功")
+    if not pngs:
+        print("无看板图片，拒绝推送（避免只发残缺消息）", file=sys.stderr)
+        return 1
+
+    push_lr_report(args.webhook, pngs=pngs, xlsx=filled)
+    print("企业微信推送成功（仅图片+Excel）")
     return 0
 
 

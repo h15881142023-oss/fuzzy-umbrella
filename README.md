@@ -136,14 +136,17 @@ python scrapers/scrape_meituan_cdp.py
 
 ## LR 日报 / 日利润数据源
 
-每天 **23:30** **本机**自动：抓取 [LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq) 网页表格 → 写入模板 `数据源(日)` → 推送「看板-单城」截图 + Excel 到企业微信。
+每天 **23:30** **本机**自动：抓取 [LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq) → 写入模板 `数据源(日)` → **WPS 重算并导出五城「看板-单城」图** → 企业微信**只推图片+Excel（无文案）**。
 
-```bash
-# 端到端（推荐）
-bash scripts/run_lr_daily_local.sh
+```powershell
+# Windows 端到端（推荐）
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_daily_local.ps1
 
-# 仅填表试跑（需先有抓取 JSON）
-python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --dry-run
+# 指定日期试跑（例：2026-07-22）
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_daily_local.ps1 -TargetDate 2026-07-22
+
+# 仅填表（无 WPS 时）
+python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --target-date 2026-07-22 --skip-images --dry-run
 ```
 
 - 本机总览：`scripts/LOCAL_AUTOMATIONS.md`

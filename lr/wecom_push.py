@@ -1,4 +1,4 @@
-"""企业微信 webhook：推送图片 + Excel。"""
+"""企业微信 webhook：只推图片 + Excel（无文案）。"""
 from __future__ import annotations
 
 import base64
@@ -42,24 +42,9 @@ def upload_media(webhook_key: str, path: Path, media_type: str) -> str:
     return body["media_id"]
 
 
-def push_lr_report(
-    webhook: str,
-    *,
-    title: str,
-    png: Path,
-    xlsx: Path,
-) -> dict:
-    key = webhook.rsplit("key=", 1)[-1]
-
-    md = post_json(
-        webhook,
-        {"msgtype": "markdown", "markdown": {"content": title}},
-    )
-    if md.get("errcode", 0) != 0:
-        raise RuntimeError(f"markdown 推送失败: {md}")
-
+def push_image(webhook: str, png: Path) -> dict:
     image = png.read_bytes()
-    img_resp = post_json(
+    resp = post_json(
         webhook,
         {
             "msgtype": "image",
@@ -69,12 +54,43 @@ def push_lr_report(
             },
         },
     )
-    if img_resp.get("errcode", 0) != 0:
-        raise RuntimeError(f"图片推送失败: {img_resp}")
+    if resp.get("errcode", 0) != 0:
+        raise RuntimeError(f"图片推送失败: {png.name} -> {resp}")
+    return resp
 
-    file_id = upload_media(key, xlsx, "file")
-    file_resp = post_json(webhook, {"msgtype": "file", "file": {"media_id": file_id}})
-    if file_resp.get("errcode", 0) != 0:
-        raise RuntimeError(f"文件推送失败: {file_resp}")
 
-    return {"markdown": md, "image": img_resp, "file": file_resp}
+def push_file(webhook: str, path: Path) -> dict:
+    key = webhook.rsplit("key=", 1)[-1]
+    file_id = upload_media(key, path, "file")
+    resp = post_json(webhook, {"msgtype": "file", "file": {"media_id": file_id}})
+    if resp.get("errcode", 0) != 0:
+        raise RuntimeError(f"文件推送失败: {resp}")
+    return resp
+
+
+def push_lr_report(
+    webhook: str,
+    *,
+    pngs: list[Path] | Path | None = None,
+    xlsx: Path,
+    title: str | None = None,  # 兼容旧参数，已忽略
+    png: Path | None = None,  # 兼容旧单图参数
+) -> dict:
+    """推送多张看板图 + Excel；不发送 markdown 文案。"""
+    del title  # 明确不推文案
+    images: list[Path] = []
+    if png is not None:
+        images.append(Path(png))
+    if pngs is None:
+        pass
+    elif isinstance(pngs, (str, Path)):
+        images.append(Path(pngs))
+    else:
+        images.extend(Path(p) for p in pngs)
+
+    if not images:
+        raise ValueError("至少需要一张 PNG")
+
+    img_resps = [push_image(webhook, p) for p in images]
+    file_resp = push_file(webhook, xlsx)
+    return {"images": img_resps, "file": file_resp, "image_count": len(images)}

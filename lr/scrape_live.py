@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""本机：登录后台，筛选川藏一区+昨天，抓取 LR 日利润表 JSON。"""
+"""本机：登录后台，筛选川藏一区+目标日，抓取 LR 日利润表 JSON。"""
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 import time
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -50,39 +51,96 @@ SCRAPE_JS = """
     headers: best.headers,
     rows: best.rows,
     scraped_at: new Date().toISOString(),
-    filters: { region: '川藏一区', date: '昨天' }
+    filters: { region: '川藏一区', date: 'target' }
   };
 })()
 """
 
 
-def _set_filter_by_label(page, label: str, value: str) -> bool:
-  script = """
-({ label, value }) => {
-  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-  const norm = (s) => String(s || '').replace(/\\s+/g, '');
-  return (async () => {
-    const labels = Array.from(document.querySelectorAll('.ant-form-item-label label, .ant-form-item-label'));
-    const target = labels.find((el) => norm(el.innerText).includes(norm(label)));
-    if (!target) return false;
-    const item = target.closest('.ant-form-item');
-    const selector = item?.querySelector('.ant-select-selector, .ant-picker-input input, input');
-    if (!selector) return false;
-    selector.click();
-    await sleep(400);
-    const options = Array.from(document.querySelectorAll('.ant-select-item-option-content'));
-    const opt = options.find((el) => norm(el.innerText) === norm(value) || norm(el.innerText).includes(norm(value)));
-    if (!opt) return false;
-    opt.click();
-    await sleep(400);
-    return true;
-  })();
-}
-"""
+def _set_region_filter(page, region: str) -> bool:
+  """区域控件是 input（非 ant-select）。"""
   try:
-    return bool(page.evaluate(script, {"label": label, "value": value}))
+    item = page.locator(".ant-form-item").filter(has_text="区域").first
+    inp = item.locator("input").first
+    if inp.count() == 0:
+      return False
+    inp.click()
+    inp.fill(region)
+    time.sleep(0.4)
+    # 下拉选项（若有）
+    opt = page.locator(".ant-select-item-option-content, [role=option]", has_text=region)
+    if opt.count():
+      opt.first.click()
+    else:
+      inp.press("Enter")
+    time.sleep(0.5)
+    return True
   except Exception:
     return False
+
+
+def _set_date_filter(page, target: date) -> dict:
+  """日期：相对词（昨天/今天）或「指定日期」+ DatePicker。"""
+  yesterday = date.today() - timedelta(days=1)
+  today = date.today()
+  tried: list[dict] = []
+
+  try:
+    date_item = page.locator(".ant-form-item").filter(has_text="日期").first
+    date_item.locator(".ant-select").first.click()
+    time.sleep(0.4)
+  except Exception as exc:
+    return {"ok": False, "value": None, "tried": [{"error": str(exc)}]}
+
+  # 相对日期快捷项
+  relative: str | None = None
+  if target == yesterday:
+    relative = "昨天"
+  elif target == today:
+    relative = "今天"
+
+  if relative:
+    try:
+      opt = page.locator(
+        ".ant-select-dropdown:not(.ant-select-dropdown-hidden) [role=option]",
+        has_text=relative,
+      ).first
+      opt.click()
+      time.sleep(0.6)
+      tried.append({"value": relative, "ok": True})
+      return {"ok": True, "value": relative, "tried": tried}
+    except Exception as exc:
+      tried.append({"value": relative, "ok": False, "error": str(exc)})
+      # 重新打开下拉
+      try:
+        date_item.locator(".ant-select").first.click()
+        time.sleep(0.4)
+      except Exception:
+        pass
+
+  # 指定日期
+  try:
+    page.locator(
+      ".ant-select-dropdown:not(.ant-select-dropdown-hidden) [role=option]",
+      has_text="指定日期",
+    ).first.click()
+    time.sleep(0.6)
+    picker = page.locator(".ant-picker input").first
+    picker.click()
+    picker.fill("")
+    iso = target.isoformat()
+    picker.type(iso, delay=30)
+    picker.press("Enter")
+    time.sleep(0.4)
+    page.keyboard.press("Tab")
+    time.sleep(0.4)
+    val = picker.input_value()
+    ok = iso in (val or "")
+    tried.append({"value": f"指定日期:{iso}", "ok": ok, "picker": val})
+    return {"ok": ok, "value": f"指定日期:{iso}", "tried": tried}
+  except Exception as exc:
+    tried.append({"value": "指定日期", "ok": False, "error": str(exc)})
+    return {"ok": False, "value": None, "tried": tried}
 
 
 def scrape(out_path: Path | None = None, target_date: date | None = None) -> dict:
@@ -108,15 +166,18 @@ def scrape(out_path: Path | None = None, target_date: date | None = None) -> dic
     page.goto(LR_ADMIN_URL, wait_until="networkidle", timeout=120000)
     time.sleep(3)
 
-    region_ok = _set_filter_by_label(page, "区域", REGION_NAME)
-    # 优先选「昨天」，失败再尝试具体日期
-    date_ok = _set_filter_by_label(page, "日期", "昨天")
-    if not date_ok:
-      date_ok = _set_filter_by_label(page, "日期", date_label)
-    time.sleep(45)
+    region_ok = _set_region_filter(page, REGION_NAME)
+    date_info = _set_date_filter(page, target)
+    # 表格异步加载
+    time.sleep(35)
 
     payload = page.evaluate(SCRAPE_JS)
-    payload["filter_apply"] = {"region_ok": region_ok, "date_ok": date_ok}
+    payload["filter_apply"] = {
+      "region_ok": region_ok,
+      "date_ok": date_info["ok"],
+      "date_value": date_info["value"],
+      "date_tried": date_info["tried"],
+    }
     payload["page_url"] = page.url
     payload["target_date"] = date_label
     browser.close()
@@ -125,17 +186,33 @@ def scrape(out_path: Path | None = None, target_date: date | None = None) -> dic
     raise RuntimeError(f"抓取到 0 行数据，headers={payload.get('headers')}")
 
   out_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+  # 同时更新 latest.json，方便本机流水线
+  latest = LR_SCRAPE_DIR / "latest.json"
+  if out_path.resolve() != latest.resolve():
+    latest.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
   return payload
 
 
 def main() -> int:
+  parser = argparse.ArgumentParser(description="抓取 LR 日利润表")
+  parser.add_argument("--target-date", help="YYYY-MM-DD，默认昨天")
+  parser.add_argument("--out", type=Path, default=None, help="输出 JSON 路径")
+  args = parser.parse_args()
+  target = (
+    datetime.strptime(args.target_date, "%Y-%m-%d").date()
+    if args.target_date
+    else date.today() - timedelta(days=1)
+  )
   try:
-    payload = scrape()
+    payload = scrape(out_path=args.out, target_date=target)
+    out = args.out or (LR_SCRAPE_DIR / "latest.json")
     print(json.dumps({
       "ok": True,
+      "target_date": target.isoformat(),
       "rows": len(payload.get("rows", [])),
       "headers": payload.get("headers"),
-      "out": str(LR_SCRAPE_DIR / "latest.json"),
+      "filter_apply": payload.get("filter_apply"),
+      "out": str(out),
     }, ensure_ascii=False, indent=2))
     return 0
   except Exception as exc:
