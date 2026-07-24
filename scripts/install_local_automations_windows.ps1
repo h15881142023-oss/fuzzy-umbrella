@@ -31,7 +31,6 @@ function Register-CzTask {
 
     $tr = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`""
 
-    # Delete if exists; ignore "not found"
     [void](Invoke-SchtasksQuiet -Args @("/Delete", "/TN", $Name, "/F"))
 
     if ($Schedule -eq "DAILY") {
@@ -56,9 +55,17 @@ Register-CzTask -Name "ChuanzangStoreMorningLocal" `
     -ScriptRel "scripts\run_store_morning_monitor_local.ps1" `
     -Schedule DAILY -StartTime "08:30"
 
-Register-CzTask -Name "ChuanzangLrDailyLocal" `
-    -ScriptRel "scripts\run_lr_daily_local.ps1" `
+# 两个 LR 任务必须分开，禁止合并
+Register-CzTask -Name "ChuanzangLrDatasourceLocal" `
+    -ScriptRel "scripts\run_lr_datasource_local.ps1" `
+    -Schedule DAILY -StartTime "23:15"
+
+Register-CzTask -Name "ChuanzangLrProfitFillLocal" `
+    -ScriptRel "scripts\run_lr_profit_fill_local.ps1" `
     -Schedule DAILY -StartTime "23:30"
+
+# 清理旧的合并任务名（若存在）
+[void](Invoke-SchtasksQuiet -Args @("/Delete", "/TN", "ChuanzangLrDailyLocal", "/F"))
 
 Register-CzTask -Name "ChuanzangKpiTodoMonLocal" `
     -ScriptRel "scripts\run_kpi_todo_local.ps1" `
@@ -70,9 +77,8 @@ Register-CzTask -Name "ChuanzangKpiTodoThuLocal" `
 
 Write-Host ""
 Write-Host "All Windows scheduled tasks installed."
-Write-Host "Make sure the 5 Cloud Automations are disabled to avoid duplicates."
-Write-Host "Manual test:"
-Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\run_kpi_todo_local.ps1"
-Write-Host "Uninstall:"
-Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\uninstall_local_automations_windows.ps1"
+Write-Host "LR tasks (separate):"
+Write-Host "  ChuanzangLrDatasourceLocal  23:15  利润数据源推送"
+Write-Host "  ChuanzangLrProfitFillLocal  23:30  利润填写推送"
+Write-Host "Disable Cloud Automations to avoid duplicates."
 Write-Host "Docs: scripts\LOCAL_AUTOMATIONS.md"

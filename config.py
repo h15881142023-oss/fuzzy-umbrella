@@ -57,10 +57,16 @@ WECOM_WEBHOOK = os.environ.get(
     "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
 )
 
-# LR 日利润数据源 / 日报推送专用 webhook
+# 利润填写推送（LR 日报：填表 + 五城看板图 + Excel）
 LR_WECOM_WEBHOOK = os.environ.get(
     "LR_WECOM_WEBHOOK",
     "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+)
+
+# 利润数据源推送（仅推原始日利润表五城数据，与填写推送分离）
+LR_DATASOURCE_WECOM_WEBHOOK = os.environ.get(
+    "LR_DATASOURCE_WECOM_WEBHOOK",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=c44fb1bf-ec7d-4c14-a397-7c9db0ac5a4f",
 )
 
 # 拜访检核：后台导出目录（Cloud Agent 工作区；禁止落到用户 Downloads）

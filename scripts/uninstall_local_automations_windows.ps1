@@ -5,6 +5,8 @@ $names = @(
     "ChuanzangVisitCheckLocal",
     "ChuanzangStoreMorningLocal",
     "ChuanzangLrDailyLocal",
+    "ChuanzangLrDatasourceLocal",
+    "ChuanzangLrProfitFillLocal",
     "ChuanzangKpiTodoMonLocal",
     "ChuanzangKpiTodoThuLocal"
 )

@@ -134,19 +134,21 @@ python scrapers/scrape_meituan_cdp.py
 
 `scrapers/*.py` 已接入 CDP；若页面结构特殊，请用 `discover_meituan_apis.py` 补齐 `meituan_endpoints.json`。
 
-## LR 日报 / 日利润数据源
+## 利润填写推送 / 利润数据源推送（两个独立任务）
 
-每天 **23:30** **本机**自动：抓取 [LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq) → 写入模板 `数据源(日)` → **WPS 重算并导出五城「看板-单城」图** → 企业微信**只推图片+Excel（无文案）**。
+| 任务 | 时间 | 脚本 | 做什么 |
+|---|---|---|---|
+| **利润数据源推送** | 每天 23:15 | `scripts/run_lr_datasource_local.ps1` | 抓取日利润表 → 推五城原始 Excel（不填模板、不截图） |
+| **利润填写推送** | 每天 23:30 | `scripts/run_lr_profit_fill_local.ps1` | 抓取 → 写入模板 `数据源(日)` → WPS 五城看板图 → 企微 5 图 + Excel |
+
+后台表：[LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq)
 
 ```powershell
-# Windows 端到端（推荐）
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_daily_local.ps1
+# 数据源推送
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_datasource_local.ps1 -TargetDate 2026-07-22
 
-# 指定日期试跑（例：2026-07-22）
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_daily_local.ps1 -TargetDate 2026-07-22
-
-# 仅填表（无 WPS 时）
-python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --target-date 2026-07-22 --skip-images --dry-run
+# 填写推送
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -TargetDate 2026-07-22
 ```
 
 - 本机总览：`scripts/LOCAL_AUTOMATIONS.md`
