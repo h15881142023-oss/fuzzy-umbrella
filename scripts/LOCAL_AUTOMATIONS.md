@@ -26,10 +26,14 @@
 
 ### 安装定时任务
 
+**必须用管理员 PowerShell**（开始菜单搜索 PowerShell → 右键「以管理员身份运行」）：
+
 ```powershell
 cd C:\Users\Administrator\Documents\fuzzy-umbrella
 powershell -ExecutionPolicy Bypass -File scripts\install_local_automations_windows.ps1
 ```
+
+脚本若检测到无管理员权限，会自动弹 UAC 提权；点「是」即可。
 
 卸载：
 
