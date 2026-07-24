@@ -70,39 +70,52 @@ def export_kanban_pngs_wps(
     if not EXPORT_PS1.exists():
         raise FileNotFoundError(f"缺少导出脚本: {EXPORT_PS1}")
     out_dir.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        str(EXPORT_PS1),
-        "-XlsxPath",
-        str(xlsx),
-        "-OutDir",
-        str(out_dir),
-        "-Month",
-        str(target.month),
-        "-Region",
-        REGION_NAME,
-        "-Cities",
-        ",".join(cities),
-    ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
+    xlsx_abs = xlsx.resolve()
+    out_abs = out_dir.resolve()
+    log_path = out_abs / "wps_export.log"
+    # 经 cmd 重定向，避免嵌套 PowerShell 管道编码问题；参数写进临时脚本更稳
+    cities_arg = ",".join(cities)
+    ps_cmd = (
+        f'& "{EXPORT_PS1}" '
+        f'-XlsxPath "{xlsx_abs}" '
+        f'-OutDir "{out_abs}" '
+        f"-Month {target.month} "
+        f'-Region "{REGION_NAME}" '
+        f'-Cities "{cities_arg}"'
+    )
+    wrapper = out_abs / "_export_kanban_once.ps1"
+    wrapper.write_text(ps_cmd + "\n", encoding="utf-8-sig")
+    cmdline = (
+        f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{wrapper}" '
+        f'>> "{log_path}" 2>&1'
+    )
+    proc = subprocess.run(
+        ["cmd.exe", "/c", cmdline],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=600,
+    )
+    log_text = ""
+    if log_path.exists():
+        log_text = log_path.read_text(encoding="utf-8", errors="replace")
     if proc.returncode != 0:
         raise RuntimeError(
-            f"WPS 导出失败 code={proc.returncode}\nSTDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+            f"WPS 导出失败 code={proc.returncode}\n"
+            f"LOG:\n{log_text[-4000:]}\n"
+            f"CMD_STDERR:\n{proc.stderr}"
         )
     pngs: list[Path] = []
     for city in cities:
         safe = "".join("_" if c in '\\/:*?"<>|' else c for c in city)
-        # script names: 看板-单城_{city}_{month}.png
         cand = out_dir / f"看板-单城_{safe}_{target.month}.png"
         if not cand.exists():
-            # also accept target-date suffix variants
             matches = sorted(out_dir.glob(f"看板-单城_{safe}_*.png"))
             if not matches:
-                raise FileNotFoundError(f"未生成看板图: {city} / {out_dir}\n{proc.stdout}")
+                raise FileNotFoundError(
+                    f"未生成看板图: {city} / {out_dir}\nLOG:\n{log_text[-4000:]}"
+                )
             cand = matches[-1]
         pngs.append(cand)
     return pngs

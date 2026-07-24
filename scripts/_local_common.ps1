@@ -11,6 +11,12 @@ function Write-Step {
     Write-Host "[$ts] $Message"
 }
 
+function Write-LogLine {
+    param([string]$LogPath, [string]$Message)
+    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    Add-Content -Path $LogPath -Value "==== $ts $Message ====" -Encoding UTF8
+}
+
 function Ensure-Venv {
     param([string]$Root)
     Set-Location $Root
@@ -48,8 +54,37 @@ function Ensure-Venv {
     return $venvPy
 }
 
-function Write-LogLine {
-    param([string]$LogPath, [string]$Message)
-    $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    Add-Content -Path $LogPath -Value "==== $ts $Message ====" -Encoding UTF8
+function Invoke-PythonLogged {
+    <#
+    .SYNOPSIS
+      Run python with args; append stdout/stderr to log via cmd.exe.
+      Avoids PowerShell *>> / 2>&1 NativeCommandError + _readerthread crashes on GBK consoles.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$PythonExe,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$LogPath
+    )
+
+    $env:PYTHONIOENCODING = "utf-8"
+    $env:PYTHONUTF8 = "1"
+    $env:PYTHONUNBUFFERED = "1"
+
+    $argLine = ($Arguments | ForEach-Object {
+        $a = [string]$_
+        if ($a -match '[\s"]') { '"' + ($a -replace '"', '\"') + '"' } else { $a }
+    }) -join " "
+
+    $logAbs = $LogPath
+    if (-not [System.IO.Path]::IsPathRooted($logAbs)) {
+        $logAbs = Join-Path (Get-Location) $LogPath
+    }
+
+    Write-LogLine $logAbs ("run: " + $PythonExe + " " + $argLine)
+    # cmd redirection keeps binary pipes out of PowerShell's stream reader
+    $cmdline = '"' + $PythonExe + '" ' + $argLine + ' >> "' + $logAbs + '" 2>&1'
+    cmd.exe /c $cmdline | Out-Null
+    $code = $LASTEXITCODE
+    if ($null -eq $code) { $code = 0 }
+    return [int]$code
 }

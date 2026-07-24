@@ -35,7 +35,8 @@ if (-not (Test-Cdp)) {
         exit 1
     }
     Write-Step "Starting ChromeAutomation for Power BI ..."
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $starter *>> $Log
+    $starterLog = Join-Path $Root "logs\chrome_powerbi_start.log"
+    cmd.exe /c ("powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"" + $starter + "`" >> `"" + $starterLog + "`" 2>&1") | Out-Null
     for ($i=1; $i -le 20; $i++) {
         if (Test-Cdp) { break }
         Start-Sleep -Seconds 1
@@ -51,16 +52,17 @@ if (-not (Test-Cdp)) {
 
 Write-Step "CDP OK. Running powerbi_subsidy_daily.py --once ..."
 if ($env:CZ_STORE_MORNING_CMD) {
-    cmd /c $env:CZ_STORE_MORNING_CMD *>> $Log
+    cmd.exe /c ($env:CZ_STORE_MORNING_CMD + " >> `"" + (Join-Path $Root $Log) + "`" 2>&1") | Out-Null
+    $code = $LASTEXITCODE
 } else {
-    & $py "scrapers\powerbi_subsidy_daily.py" --once *>> $Log
+    $code = Invoke-PythonLogged -PythonExe $py -Arguments @("scrapers\powerbi_subsidy_daily.py", "--once") -LogPath $Log
 }
-$code = $LASTEXITCODE
 Write-LogLine $Log "exit=$code"
 if ($code -eq 0) {
     Write-Step "SUCCESS. See $Log"
 } else {
     Write-Step "FAILED exit=$code. See $Log"
     Write-Step "If Chrome opened: login Power BI there, keep window open, then re-run this script."
+    if (Test-Path $Log) { Get-Content -Path $Log -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
 }
 exit $code

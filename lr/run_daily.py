@@ -11,8 +11,16 @@ import argparse
 import json
 import os
 import sys
+import traceback
 from datetime import date, datetime, timedelta
 from pathlib import Path
+
+# Windows 控制台/管道避免中文 UnicodeEncodeError
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    except Exception:
+        pass
 
 ROOT = Path(__file__).resolve().parent
 BASE = ROOT.parent
@@ -80,12 +88,15 @@ def main() -> int:
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    print(f"[lr] fill template -> {WORK_DIR} target={target}", flush=True)
     filled = fill_template(args.template, rows, target, WORK_DIR)
+    print(f"[lr] filled: {filled}", flush=True)
 
     pngs: list[Path] = []
     if not args.skip_images:
         allow_pillow = args.pillow_fallback or os.environ.get("LR_ALLOW_PILLOW") == "1"
         try:
+            print("[lr] export kanban pngs (WPS/Excel) ...", flush=True)
             pngs = export_kanban_pngs(
                 filled,
                 OUTPUT_DIR,
@@ -93,11 +104,13 @@ def main() -> int:
                 list(CITIES),
                 allow_pillow_fallback=allow_pillow,
             )
-        except RuntimeError as exc:
-            print(f"看板截图失败: {exc}", file=sys.stderr)
+            print(f"[lr] pngs: {[str(p) for p in pngs]}", flush=True)
+        except Exception as exc:
+            print(f"看板截图失败: {exc}", file=sys.stderr, flush=True)
+            traceback.print_exc()
             if not args.dry_run:
                 return 1
-            print("dry-run 下继续（无 PNG）", file=sys.stderr)
+            print("dry-run 下继续（无 PNG）", file=sys.stderr, flush=True)
 
     summary = {
         "target_date": target.isoformat(),
@@ -106,20 +119,27 @@ def main() -> int:
         "pngs": [str(p) for p in pngs],
         "rows": len(rows),
     }
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    print(json.dumps(summary, ensure_ascii=False, indent=2), flush=True)
 
     if args.dry_run:
-        print("dry-run: 跳过企业微信推送")
+        print("dry-run: 跳过企业微信推送", flush=True)
         return 0
 
     if not pngs:
-        print("无看板图片，拒绝推送（避免只发残缺消息）", file=sys.stderr)
+        print("无看板图片，拒绝推送（避免只发残缺消息）", file=sys.stderr, flush=True)
         return 1
 
+    print("[lr] push wecom ...", flush=True)
     push_lr_report(args.webhook, pngs=pngs, xlsx=filled)
-    print("企业微信推送成功（仅图片+Excel）")
+    print("企业微信推送成功（仅图片+Excel）", flush=True)
     return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except SystemExit:
+        raise
+    except Exception:
+        traceback.print_exc()
+        raise SystemExit(1)

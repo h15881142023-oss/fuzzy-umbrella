@@ -18,20 +18,26 @@ try {
 }
 
 Write-Step "Exporting visit Excel (may take 2-4 minutes) ..."
-& $py "scrapers\visit_check_scrape_live.py" *>> $Log
-if ($LASTEXITCODE -ne 0) {
-    Write-LogLine $Log "exit=$LASTEXITCODE (export fail)"
+$code = Invoke-PythonLogged -PythonExe $py -Arguments @("scrapers\visit_check_scrape_live.py") -LogPath $Log
+if ($code -ne 0) {
+    Write-LogLine $Log "exit=$code (export fail)"
     Write-Step "FAILED export. See $Log"
-    exit $LASTEXITCODE
+    if (Test-Path $Log) { Get-Content -Path $Log -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
+    exit $code
 }
 
 Write-Step "Importing into local DB / API ..."
+$pyArgs = @("scrapers\visit_check_daily.py")
 if ($env:CZ_VISIT_PUSH_API -eq "1") {
-    & $py "scrapers\visit_check_daily.py" --push-api @args *>> $Log
-} else {
-    & $py "scrapers\visit_check_daily.py" @args *>> $Log
+    $pyArgs += "--push-api"
 }
-$code = $LASTEXITCODE
+if ($args) { $pyArgs += $args }
+$code = Invoke-PythonLogged -PythonExe $py -Arguments $pyArgs -LogPath $Log
 Write-LogLine $Log "exit=$code"
-if ($code -eq 0) { Write-Step "SUCCESS. See $Log" } else { Write-Step "FAILED exit=$code. See $Log" }
+if ($code -eq 0) {
+    Write-Step "SUCCESS. See $Log"
+} else {
+    Write-Step "FAILED exit=$code. See $Log"
+    if (Test-Path $Log) { Get-Content -Path $Log -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
+}
 exit $code
