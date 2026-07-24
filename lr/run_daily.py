@@ -129,15 +129,10 @@ def main() -> int:
         print("无看板图片，拒绝推送（避免只发残缺消息）", file=sys.stderr, flush=True)
         return 1
 
-    print("[lr] push wecom (1 combined image + excel) ...", flush=True)
-    result = push_lr_report(
-        args.webhook,
-        pngs=pngs,
-        xlsx=filled,
-        combined_out=OUTPUT_DIR / f"看板-单城_五城拼接_{target.isoformat()}.png",
-    )
-    print(json.dumps({"wecom": result}, ensure_ascii=False, indent=2), flush=True)
-    print("企业微信推送成功（单图拼合+Excel）", flush=True)
+    print("[lr] push wecom (5 images + excel) ...", flush=True)
+    result = push_lr_report(args.webhook, pngs=pngs, xlsx=filled)
+    print(json.dumps({"wecom": {"image_count": result.get("image_count"), "file": result.get("file")}}, ensure_ascii=False), flush=True)
+    print("企业微信推送成功（5图+Excel）", flush=True)
     return 0
 
 
