@@ -60,7 +60,7 @@ WECOM_WEBHOOK = os.environ.get(
 # LR 日利润数据源 / 日报推送专用 webhook
 LR_WECOM_WEBHOOK = os.environ.get(
     "LR_WECOM_WEBHOOK",
-    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=c44fb1bf-ec7d-4c14-a397-7c9db0ac5a4f",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
 )
 
 # 拜访检核：后台导出目录（Cloud Agent 工作区；禁止落到用户 Downloads）

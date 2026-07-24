@@ -15,7 +15,7 @@ alwaysApply: true
 ## 企业微信推送
 
 - 默认 Webhook（Todo 周报等）：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb`
-- LR 日利润数据源/日报专用：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=c44fb1bf-ec7d-4c14-a397-7c9db0ac5a4f`（`LR_WECOM_WEBHOOK`）
+- LR 日利润数据源/日报：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb`（`LR_WECOM_WEBHOOK`，与 Todo 同群）
 - 推送到企微的定时自动任务，**默认在本机执行**（Windows 用任务计划程序，Mac 用 launchd；见 `scripts/LOCAL_AUTOMATIONS.md`）。
 - **禁止再向用户询问部署环境**。
 
