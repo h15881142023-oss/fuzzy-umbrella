@@ -3,17 +3,12 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\sync_store_morning_from_cdn.ps1
 #   powershell -ExecutionPolicy Bypass -File scripts\sync_store_morning_from_cdn.ps1 -Commit <full_or_short_sha>
 param(
-    [string]$Commit = ""
+    [string]$Commit = "e67a921f8766a787530d19103513876f6d3e4f30"
 )
 
 $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $Root
-
-if (-not $Commit) {
-    # Prefer branch tip via raw; CDN pin set after each hotfix commit.
-    $Commit = "cursor/automations-to-local-7100"
-}
 
 $short = if ($Commit.Length -ge 7 -and $Commit -notmatch "/") { $Commit.Substring(0, 7) } else { $Commit }
 $urls = @(
