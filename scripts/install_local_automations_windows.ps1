@@ -82,6 +82,7 @@ function Register-CzTask {
         -AllowStartIfOnBatteries `
         -DontStopIfGoingOnBatteries `
         -StartWhenAvailable `
+        -WakeToRun `
         -MultipleInstances IgnoreNew
 
     Remove-CzTaskQuiet -Name $Name

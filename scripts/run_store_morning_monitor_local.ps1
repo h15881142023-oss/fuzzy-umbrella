@@ -1,4 +1,6 @@
-﻿# Local store morning monitor (Windows)
+﻿# Local store morning monitor (Windows) — 自配门店早间监控
+# Schedule: daily 08:30 (ChuanzangStoreMorningLocal)
+# Needs: Google Chrome + ChromeAutomation profile logged into Power BI (CDP 9222)
 $ErrorActionPreference = "Continue"
 . "$PSScriptRoot\_local_common.ps1"
 
@@ -37,7 +39,8 @@ if (-not (Test-Cdp)) {
     Write-Step "Starting ChromeAutomation for Power BI ..."
     $starterLog = Join-Path $Root "logs\chrome_powerbi_start.log"
     cmd.exe /c ("powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"" + $starter + "`" >> `"" + $starterLog + "`" 2>&1") | Out-Null
-    for ($i=1; $i -le 20; $i++) {
+    # 冷启动 + 登录态恢复可能较慢
+    for ($i=1; $i -le 60; $i++) {
         if (Test-Cdp) { break }
         Start-Sleep -Seconds 1
     }
@@ -62,7 +65,7 @@ if ($code -eq 0) {
     Write-Step "SUCCESS. See $Log"
 } else {
     Write-Step "FAILED exit=$code. See $Log"
-    Write-Step "If Chrome opened: login Power BI there, keep window open, then re-run this script."
+    Write-Step "If Chrome opened: login Power BI there, keep the ChromeAutomation window, then re-run."
     if (Test-Path $Log) { Get-Content -Path $Log -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
 }
 exit $code
