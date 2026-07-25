@@ -49,12 +49,32 @@ def _yesterday() -> date:
 
 
 def _inject(session) -> None:
-    session.evaluate(POWERBI_HELPERS_JS, await_promise=False)
+    session.evaluate(POWERBI_HELPERS_JS, await_promise=False, timeout=30)
+
+
+def _login_hint(session) -> str | None:
+    try:
+        info = session.evaluate(
+            """(() => {
+              const u = location.href || '';
+              const t = (document.body && document.body.innerText || '').slice(0, 500);
+              const need =
+                /login|signin|oauth|登录|登陆|验证|account\\.microsoft|login\\.microsoftonline/i.test(u + t);
+              return { href: u, need, title: document.title || '' };
+            })()""",
+            await_promise=False,
+            timeout=20,
+        ) or {}
+    except Exception as exc:  # noqa: BLE001
+        return f"page_probe_fail: {exc}"
+    if info.get("need"):
+        return f"Power BI 似乎未登录或停在登录页: {info.get('href')}"
+    return None
 
 
 def _status(session) -> dict:
     _inject(session)
-    return session.evaluate("window.__CZ_PBI.status()", await_promise=False) or {}
+    return session.evaluate("window.__CZ_PBI.status()", await_promise=False, timeout=30) or {}
 
 
 def _page_date(session) -> date | None:
@@ -76,6 +96,7 @@ def _goto_subsidy_tab(session) -> None:
           return !!tab;
         })()""",
         await_promise=False,
+        timeout=30,
     )
     time.sleep(3)
 
@@ -88,15 +109,24 @@ def _reload(session, wait: float = 8.0) -> None:
 
 
 def _prepare_latest(session) -> dict:
+    hint = _login_hint(session)
+    if hint:
+        raise RuntimeError(hint + "；请在 ChromeAutomation 窗口登录后重跑")
     _inject(session)
+    # 等切片器渲染
+    time.sleep(3)
     area = session.evaluate(
         f"window.__CZ_PBI.ensureArea({AREA!r})",
         await_promise=True,
+        timeout=90,
     )
-    latest = session.evaluate("window.__CZ_PBI.setLatestDateMode(true)", await_promise=True)
+    latest = session.evaluate(
+        "window.__CZ_PBI.setLatestDateMode(true)",
+        await_promise=True,
+        timeout=90,
+    )
     time.sleep(2)
     return {"area": area, "latest": latest, "status": _status(session)}
-
 
 def _missing_dates(page_d: date) -> list[date]:
     """从库内最早日期到 page_d，凡缺任一标准城的日期都要补。"""
@@ -176,12 +206,29 @@ def wait_until_t1(session, *, once: bool) -> date:
     """刷新并等到页面日期 == 昨天。"""
     target = _yesterday()
     while True:
-        _reload(session, wait=10)
-        prep = _prepare_latest(session)
+        _reload(session, wait=12)
+        prep = None
+        last_err: Exception | None = None
+        for attempt in range(1, 4):
+            try:
+                prep = _prepare_latest(session)
+                last_err = None
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+                _log(f"prepare_latest 失败({attempt}/3): {exc}")
+                time.sleep(3)
+                _reload(session, wait=10)
+        if last_err is not None:
+            if once:
+                raise SystemExit(f"prepare_latest 失败: {last_err}")
+            _log(f"prepare 连续失败，{POLL_SEC // 60} 分钟后重试…")
+            time.sleep(POLL_SEC)
+            continue
+
         page_d = _page_date(session)
-        _log(f"页面日期={page_d} 目标t-1={target} prep={prep.get('status')}")
+        _log(f"页面日期={page_d} 目标t-1={target} prep={prep.get('status') if prep else None}")
         if page_d and page_d >= target:
-            # 正常应等于 t-1；若数据已到 t-1 或更晚（罕见），以页面为准继续
             if page_d > target:
                 _log(f"警告：页面日期 {page_d} 晚于 t-1 {target}，仍按页面日期抓取")
             return page_d
@@ -202,7 +249,13 @@ def run(*, once: bool = False) -> int:
         return 1
 
     try:
-        session.navigate(POWERBI_URL, wait_sec=10)
+        session.navigate(POWERBI_URL, wait_sec=15)
+        hint = _login_hint(session)
+        if hint:
+            _log(hint)
+            db.log_sync("powerbi_subsidy_daily", "fail", hint)
+            write_status("powerbi_subsidy_daily", {"ok": False, "error": hint})
+            return 1
         _goto_subsidy_tab(session)
         page_d = wait_until_t1(session, once=once)
         missing = _missing_dates(page_d)

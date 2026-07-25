@@ -34,8 +34,9 @@ class CDPSession:
     _events: list[dict] = field(default_factory=list, init=False)
 
     def __post_init__(self) -> None:
-        self._ws = websocket.create_connection(self.ws_url, timeout=60)
-        self._ws.settimeout(60)
+        # Power BI 切筛选器可能超过 60s；默认放宽，单次 call 仍可覆盖
+        self._ws = websocket.create_connection(self.ws_url, timeout=120)
+        self._ws.settimeout(120)
 
     def close(self) -> None:
         try:
@@ -43,13 +44,21 @@ class CDPSession:
         except Exception:
             pass
 
-    def call(self, method: str, params: Optional[dict] = None, timeout: float = 60) -> dict:
+    def call(self, method: str, params: Optional[dict] = None, timeout: float = 120) -> dict:
         self._msg_id += 1
         mid = self._msg_id
         self._ws.send(json.dumps({"id": mid, "method": method, "params": params or {}}))
         deadline = time.time() + timeout
         while time.time() < deadline:
-            raw = self._ws.recv()
+            remain = max(0.5, deadline - time.time())
+            try:
+                self._ws.settimeout(min(30.0, remain))
+                raw = self._ws.recv()
+            except Exception as exc:
+                # websocket-client 超时异常名因版本而异
+                if "timed out" in str(exc).lower() or type(exc).__name__.endswith("TimeoutException"):
+                    continue
+                raise CDPError(f"{method} recv failed: {exc}") from exc
             data = json.loads(raw)
             if data.get("id") == mid:
                 if "error" in data:
@@ -57,7 +66,7 @@ class CDPSession:
                 return data.get("result", {})
             if "method" in data:
                 self._events.append(data)
-        raise CDPError(f"{method} 超时")
+        raise CDPError(f"{method} 超时 ({timeout:.0f}s)")
 
     def drain_events(self) -> list[dict]:
         events, self._events = self._events, []
@@ -75,7 +84,21 @@ class CDPSession:
         self.call("Page.reload", {"ignoreCache": True})
         time.sleep(wait_sec)
 
-    def evaluate(self, expression: str, await_promise: bool = True) -> Any:
+    def evaluate(
+        self,
+        expression: str,
+        await_promise: bool = True,
+        timeout: float = 120,
+    ) -> Any:
+        # 页面内再加一层超时，避免 Promise 永不 settle 拖死 CDP
+        if await_promise:
+            ms = max(5000, int(timeout * 1000) - 5000)
+            expression = (
+                "Promise.race(["
+                f"Promise.resolve().then(() => ({expression})),"
+                f"new Promise((_,rej)=>setTimeout(()=>rej(new Error('page_js_timeout_{ms}ms')),{ms}))"
+                "])"
+            )
         result = self.call(
             "Runtime.evaluate",
             {
@@ -83,6 +106,7 @@ class CDPSession:
                 "awaitPromise": await_promise,
                 "returnByValue": True,
             },
+            timeout=timeout,
         )
         if result.get("exceptionDetails"):
             raise CDPError(str(result["exceptionDetails"]))
