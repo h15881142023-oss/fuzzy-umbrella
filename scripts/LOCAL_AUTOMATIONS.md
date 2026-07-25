@@ -59,10 +59,26 @@ Get-ScheduledTaskInfo -TaskName ChuanzangStoreMorningLocal |
 Get-Content logs\store_morning_monitor_local.log -Tail 40 -Encoding UTF8 -ErrorAction SilentlyContinue
 powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local.ps1
 
-# 若报「未登录」但地址仍是 reportEmbed：多半是旧版误判，先同步脚本再重跑
-powershell -ExecutionPolicy Bypass -File scripts\update_local_automation_files.ps1
-# 或指定 commit（jsDelivr）同步 scraper：
-# Invoke-WebRequest "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@<sha>/scrapers/powerbi_subsidy_daily.py" -OutFile scrapers\powerbi_subsidy_daily.py
+# 若报「未登录」但地址仍是 reportEmbed：本地缺新脚本时，先一键拉文件（不依赖本地 .ps1）
+$sha = "e67a921"
+$base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
+@(
+  "scrapers/powerbi_subsidy_daily.py",
+  "scrapers/powerbi_page_js.py",
+  "scrapers/cdp_client.py",
+  "scripts/run_store_morning_monitor_local.ps1",
+  "scripts/start_chrome_powerbi.ps1",
+  "scripts/_local_common.ps1",
+  "scripts/sync_store_morning_from_cdn.ps1"
+) | ForEach-Object {
+  $out = $_ -replace "/", "\"
+  New-Item -ItemType Directory -Force -Path (Split-Path $out) | Out-Null
+  Invoke-WebRequest "$base/$_" -OutFile $out -UseBasicParsing
+  Write-Host "OK $out"
+}
+# 确认 ChromeAutomation 能看到「补贴监测」后重跑：
+powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local.ps1
+Get-Content logs\store_morning_monitor_local.log -Tail 50 -Encoding UTF8
 ```
 
 ### 查看是否装上

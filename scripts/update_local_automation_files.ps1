@@ -15,7 +15,9 @@ $relFiles = @(
   "scripts/start_chrome_powerbi.ps1",
   "scripts/run_store_morning_monitor_local.ps1",
   "scripts/_local_common.ps1",
-  "scripts/run_visit_check_local.ps1"
+  "scripts/run_visit_check_local.ps1",
+  "scripts/sync_store_morning_from_cdn.ps1",
+  "scripts/LOCAL_AUTOMATIONS.md"
 )
 
 $mirrors = @(
