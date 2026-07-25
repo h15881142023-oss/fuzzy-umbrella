@@ -30,9 +30,42 @@ if (-not $XlsxPath -or -not $OutDir -or $Month -le 0) {
     throw "Missing XlsxPath/OutDir/Month (or ConfigJson)"
 }
 
+function Get-ClsidForProgId([string]$ProgId) {
+    $paths = @(
+        "Registry::HKEY_CLASSES_ROOT\$ProgId\CLSID",
+        "Registry::HKEY_CLASSES_ROOT\WOW6432Node\$ProgId\CLSID",
+        "Registry::HKEY_LOCAL_MACHINE\Software\Classes\$ProgId\CLSID",
+        "Registry::HKEY_LOCAL_MACHINE\Software\Classes\WOW6432Node\$ProgId\CLSID"
+    )
+    foreach ($p in $paths) {
+        try {
+            $v = (Get-ItemProperty -LiteralPath $p -ErrorAction Stop).'(default)'
+            if ($v -and $v -match '^\{.+\}$') { return [string]$v }
+        } catch {}
+    }
+    return $null
+}
+
 function Get-OfficeApp {
     $errors = @()
-    foreach ($progId in @("Ket.Application", "et.Application", "Excel.Application")) {
+    $progIds = @(
+        "KET.Application", "Ket.Application", "KET.Application.9", "Ket.Application.9",
+        "Excel.Application", "Excel.Application.12", "Excel.Application.11",
+        "et.Application", "et.Application.9"
+    )
+    # Also pick up whatever is registered
+    try {
+        Get-ChildItem Registry::HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.PSChildName -like "Ket.Application*" -or
+                $_.PSChildName -like "KET.Application*" -or
+                $_.PSChildName -like "et.Application*" -or
+                $_.PSChildName -like "Excel.Application*"
+            } | ForEach-Object { $progIds += $_.PSChildName }
+    } catch {}
+    $progIds = $progIds | Select-Object -Unique
+
+    foreach ($progId in $progIds) {
         try {
             $app = New-Object -ComObject $progId
             if ($app) {
@@ -41,6 +74,18 @@ function Get-OfficeApp {
             }
         } catch {
             $errors += ("{0}: {1}" -f $progId, $_.Exception.Message)
+        }
+        $clsid = Get-ClsidForProgId $progId
+        if ($clsid) {
+            try {
+                $app = [Activator]::CreateInstance([Type]::GetTypeFromCLSID($clsid))
+                if ($app) {
+                    Write-Output ("office_progid={0} clsid={1}" -f $progId, $clsid)
+                    return @{ App = $app; ProgId = "$progId/$clsid" }
+                }
+            } catch {
+                $errors += ("{0}/{1}: {2}" -f $progId, $clsid, $_.Exception.Message)
+            }
         }
     }
     throw ("WPS/Excel COM not found. " + ($errors -join " | "))

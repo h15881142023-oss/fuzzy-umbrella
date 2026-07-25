@@ -64,5 +64,8 @@ if ($found) {
     Write-Host "Next: install/repair WPS Office (表格), open 表格 once, then rerun diagnose."
 }
 Write-Host ""
-Write-Host "Python check:"
-Write-Host "  .\.venv\Scripts\python.exe -c `"import win32com.client; print(win32com.client.Dispatch('Ket.Application'))`""
+Write-Host "Python check (ProgID + CLSID):"
+Write-Host "  .\.venv\Scripts\python.exe -c `"import sys; from lr.export_kanban_com import _resolve_clsid,_candidate_prog_ids; print('py', 64 if sys.maxsize>2**32 else 32); print([(p,_resolve_clsid(p)) for p in _candidate_prog_ids()[:6]])`""
+Write-Host "If PowerShell OK but Python FAIL: export will use PS1 first (LR_KANBAN_EXPORT=ps1,com)."
+Write-Host "Retry filled workbook only:"
+Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-07-24"

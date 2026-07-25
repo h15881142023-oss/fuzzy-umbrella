@@ -36,6 +36,8 @@ if ($code -ne 0) {
 }
 
 Write-Step "Fill template + WPS kanban + WeCom (5 images + excel) ..."
+# PowerShell COM 优先：避免 64 位 Python 对 32 位 WPS 报「无效的类字符串」
+$env:LR_KANBAN_EXPORT = "ps1,com"
 $code = Invoke-PythonLogged -PythonExe $py -Arguments @(
     "lr\run_daily.py",
     "--scrape-json", "data\lr_scrape\latest.json",

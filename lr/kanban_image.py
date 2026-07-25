@@ -134,24 +134,40 @@ def export_kanban_pngs_wps(
     target: date,
     cities: list[str] | None = None,
 ) -> list[Path]:
-    """Windows：优先 Python COM + 剪贴板；失败再回退 PowerShell。"""
+    """Windows：导出看板 PNG。
+
+    默认先走 PowerShell COM（与 diagnose_wps_com.ps1 同路径，64 位 Python
+    读不到 32 位 WPS ProgID 时更稳），失败再试 Python COM；可用
+    LR_KANBAN_EXPORT=com|ps1 强制顺序。
+    """
     cities = cities or list(CITIES)
     errors: list[str] = []
+    mode = (os.environ.get("LR_KANBAN_EXPORT") or "ps1,com").strip().lower()
+    order = [x.strip() for x in mode.split(",") if x.strip()]
+    if not order:
+        order = ["ps1", "com"]
 
-    try:
+    def _try_com() -> list[Path]:
         from lr.export_kanban_com import export_kanban_pngs_com
 
         print("[lr] try Python COM + clipboard export ...", flush=True)
         return export_kanban_pngs_com(xlsx, out_dir, target, cities)
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"com: {exc}")
-        print(f"[lr] COM export failed: {exc}", flush=True)
 
-    try:
-        print("[lr] fallback PowerShell export ...", flush=True)
+    def _try_ps1() -> list[Path]:
+        print("[lr] try PowerShell COM export ...", flush=True)
         return export_kanban_pngs_wps_ps1(xlsx, out_dir, target, cities)
-    except Exception as exc:  # noqa: BLE001
-        errors.append(f"ps1: {exc}")
+
+    runners = {"com": _try_com, "ps1": _try_ps1, "powershell": _try_ps1}
+    for name in order:
+        fn = runners.get(name)
+        if not fn:
+            errors.append(f"unknown export mode: {name}")
+            continue
+        try:
+            return fn()
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{name}: {exc}")
+            print(f"[lr] {name} export failed: {exc}", flush=True)
 
     raise RuntimeError("Kanban PNG export failed. " + " || ".join(errors))
 

@@ -20,6 +20,9 @@ $files = @(
     "lr/kanban_image.py",
     "lr/run_daily.py",
     "scripts/export_lr_kanban_wps.ps1",
+    "scripts/run_lr_profit_fill_local.ps1",
+    "scripts/run_lr_kanban_push_existing.ps1",
+    "scripts/diagnose_wps_com.ps1",
     "requirements.txt"
 )
 

@@ -50,6 +50,27 @@ powershell -ExecutionPolicy Bypass -File scripts\run_lr_datasource_local.ps1 -Ta
 # 利润填写推送（填表+五城图+Excel）
 powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -TargetDate 2026-07-22
 
+# 表已填好但 COM 出图失败（无效的类字符串）时：只导出看板并推送
+# 先同步 hotfix（本机没有 sync 脚本时用下面一键下载；把 REPLACE_SHA 换成最新 short sha）
+$sha = "REPLACE_SHA"
+$base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
+@(
+  "lr/export_kanban_com.py",
+  "lr/kanban_image.py",
+  "lr/run_daily.py",
+  "scripts/export_lr_kanban_wps.ps1",
+  "scripts/run_lr_profit_fill_local.ps1",
+  "scripts/run_lr_kanban_push_existing.ps1",
+  "scripts/diagnose_wps_com.ps1"
+) | ForEach-Object {
+  $out = $_ -replace "/", "\"
+  New-Item -ItemType Directory -Force -Path (Split-Path $out) | Out-Null
+  Invoke-WebRequest "$base/$_" -OutFile $out -UseBasicParsing
+  Write-Host "OK $out"
+}
+powershell -ExecutionPolicy Bypass -File scripts\diagnose_wps_com.ps1
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-07-24
+
 powershell -ExecutionPolicy Bypass -File scripts\run_kpi_todo_local.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_visit_check_local.ps1
 

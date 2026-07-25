@@ -46,7 +46,12 @@ def load_scrape(path: Path) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="LR 日报：抓取 JSON → 填表 → 推送")
-    parser.add_argument("--scrape-json", type=Path, required=True, help="浏览器抓取的 headers/rows JSON")
+    parser.add_argument("--scrape-json", type=Path, help="浏览器抓取的 headers/rows JSON")
+    parser.add_argument(
+        "--filled-xlsx",
+        type=Path,
+        help="已填好的 LR 日报 xlsx（跳过抓取填表，只导出看板+推送）",
+    )
     parser.add_argument("--template", type=Path, default=DEFAULT_TEMPLATE)
     parser.add_argument("--target-date", help="YYYY-MM-DD，默认昨天")
     parser.add_argument("--webhook", default=DEFAULT_WEBHOOK)
@@ -69,30 +74,41 @@ def main() -> int:
         else date.today() - timedelta(days=1)
     )
 
-    if not args.template.exists():
-        print(f"模板不存在: {args.template}", file=sys.stderr)
-        return 1
-    if not args.scrape_json.exists():
-        print(f"抓取文件不存在: {args.scrape_json}", file=sys.stderr)
-        return 1
-
-    payload = load_scrape(args.scrape_json)
-    rows_all = parse_scrape_payload(payload)
-    rows = filter_target_date(rows_all, target)
-    if not rows:
-        print(
-            f"未找到 {REGION_NAME} 五城在 {target} 的数据；"
-            f"抓取共 {len(rows_all)} 行",
-            file=sys.stderr,
-        )
-        return 1
-
     WORK_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"[lr] fill template -> {WORK_DIR} target={target}", flush=True)
-    filled = fill_template(args.template, rows, target, WORK_DIR)
-    print(f"[lr] filled: {filled}", flush=True)
+    filled: Path
+    if args.filled_xlsx:
+        filled = args.filled_xlsx
+        if not filled.exists():
+            print(f"filled xlsx 不存在: {filled}", file=sys.stderr)
+            return 1
+        print(f"[lr] reuse filled xlsx: {filled} target={target}", flush=True)
+    else:
+        if not args.scrape_json:
+            print("需要 --scrape-json 或 --filled-xlsx", file=sys.stderr)
+            return 1
+        if not args.template.exists():
+            print(f"模板不存在: {args.template}", file=sys.stderr)
+            return 1
+        if not args.scrape_json.exists():
+            print(f"抓取文件不存在: {args.scrape_json}", file=sys.stderr)
+            return 1
+
+        payload = load_scrape(args.scrape_json)
+        rows_all = parse_scrape_payload(payload)
+        rows = filter_target_date(rows_all, target)
+        if not rows:
+            print(
+                f"未找到 {REGION_NAME} 五城在 {target} 的数据；"
+                f"抓取共 {len(rows_all)} 行",
+                file=sys.stderr,
+            )
+            return 1
+
+        print(f"[lr] fill template -> {WORK_DIR} target={target}", flush=True)
+        filled = fill_template(args.template, rows, target, WORK_DIR)
+        print(f"[lr] filled: {filled}", flush=True)
 
     pngs: list[Path] = []
     if not args.skip_images:
@@ -116,11 +132,12 @@ def main() -> int:
 
     summary = {
         "target_date": target.isoformat(),
-        "cities": sorted({str(r.get("组织结构")) for r in rows}),
         "xlsx": str(filled),
         "pngs": [str(p) for p in pngs],
-        "rows": len(rows),
     }
+    if not args.filled_xlsx:
+        summary["cities"] = sorted({str(r.get("组织结构")) for r in rows})
+        summary["rows"] = len(rows)
     print(json.dumps(summary, ensure_ascii=False, indent=2), flush=True)
 
     if args.dry_run:

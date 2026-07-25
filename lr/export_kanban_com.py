@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import glob
 import os
+import struct
 import subprocess
+import sys
 import time
 import winreg
 from datetime import date
@@ -27,27 +29,42 @@ BASE_PROG_IDS = (
     "et.Application.9",
 )
 
+_HKCR_ROOTS = (
+    (winreg.HKEY_CLASSES_ROOT, ""),
+    (winreg.HKEY_CLASSES_ROOT, r"WOW6432Node"),
+    (winreg.HKEY_LOCAL_MACHINE, r"Software\Classes"),
+    (winreg.HKEY_LOCAL_MACHINE, r"Software\Classes\WOW6432Node"),
+    (winreg.HKEY_CURRENT_USER, r"Software\Classes"),
+    (winreg.HKEY_CURRENT_USER, r"Software\Classes\WOW6432Node"),
+)
+
 
 def _prog_ids_from_registry() -> list[str]:
     found: list[str] = []
-    prefixes = ("Ket.Application", "et.Application", "Excel.Application")
-    try:
-        key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "")
-    except OSError:
-        return found
-    try:
-        i = 0
-        while True:
-            try:
-                name = winreg.EnumKey(key, i)
-            except OSError:
-                break
-            i += 1
-            if any(name == p or name.startswith(p + ".") for p in prefixes):
-                if name not in found:
-                    found.append(name)
-    finally:
-        winreg.CloseKey(key)
+    prefixes = ("Ket.Application", "KET.Application", "et.Application", "Excel.Application")
+    for hive, sub in (
+        (winreg.HKEY_CLASSES_ROOT, ""),
+        (winreg.HKEY_CLASSES_ROOT, r"WOW6432Node"),
+        (winreg.HKEY_LOCAL_MACHINE, r"Software\Classes"),
+        (winreg.HKEY_LOCAL_MACHINE, r"Software\Classes\WOW6432Node"),
+    ):
+        try:
+            key = winreg.OpenKey(hive, sub) if sub else winreg.OpenKey(hive, "")
+        except OSError:
+            continue
+        try:
+            i = 0
+            while True:
+                try:
+                    name = winreg.EnumKey(key, i)
+                except OSError:
+                    break
+                i += 1
+                if any(name == p or name.startswith(p + ".") for p in prefixes):
+                    if name not in found:
+                        found.append(name)
+        finally:
+            winreg.CloseKey(key)
     return found
 
 
@@ -60,6 +77,32 @@ def _candidate_prog_ids() -> list[str]:
     if forced:
         ordered.insert(0, forced)
     return ordered
+
+
+def _read_reg_default(hive: int, path: str) -> str | None:
+    try:
+        key = winreg.OpenKey(hive, path)
+    except OSError:
+        return None
+    try:
+        val, _ = winreg.QueryValueEx(key, None)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    except OSError:
+        return None
+    finally:
+        winreg.CloseKey(key)
+    return None
+
+
+def _resolve_clsid(prog_id: str) -> str | None:
+    """ProgID → {CLSID}；同时查 WOW6432Node（32 位 WPS + 64 位 Python 常见）。"""
+    for hive, root in _HKCR_ROOTS:
+        path = f"{root}\\{prog_id}\\CLSID" if root else f"{prog_id}\\CLSID"
+        clsid = _read_reg_default(hive, path)
+        if clsid and clsid.startswith("{") and clsid.endswith("}"):
+            return clsid
+    return None
 
 
 def _find_et_exes() -> list[Path]:
@@ -80,6 +123,26 @@ def _find_et_exes() -> list[Path]:
     return out
 
 
+def _pe_bits(exe: Path) -> int | None:
+    try:
+        with exe.open("rb") as f:
+            if f.read(2) != b"MZ":
+                return None
+            f.seek(0x3C)
+            pe_off = struct.unpack("<I", f.read(4))[0]
+            f.seek(pe_off)
+            if f.read(4) != b"PE\0\0":
+                return None
+            machine = struct.unpack("<H", f.read(2))[0]
+        if machine == 0x14C:
+            return 32
+        if machine == 0x8664:
+            return 64
+    except OSError:
+        return None
+    return None
+
+
 def _try_regserver(et_exe: Path) -> None:
     try:
         subprocess.run(
@@ -91,6 +154,22 @@ def _try_regserver(et_exe: Path) -> None:
         )
     except Exception:
         pass
+
+
+def _try_create(prog_or_clsid: str, label: str, errors: list[str]):
+    import win32com.client  # type: ignore
+
+    for factory_name, factory in (
+        ("Dispatch", lambda p: win32com.client.Dispatch(p)),
+        ("DispatchEx", lambda p: win32com.client.DispatchEx(p)),
+        ("dynamic.Dispatch", lambda p: win32com.client.dynamic.Dispatch(p)),
+    ):
+        try:
+            app = factory(prog_or_clsid)
+            return app, f"{label}/{factory_name}"
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"{label}/{factory_name}: {exc}")
+    return None, ""
 
 
 def _dispatch_app():
@@ -106,18 +185,22 @@ def _dispatch_app():
     errors: list[str] = []
     et_exes = _find_et_exes()
     candidates = _candidate_prog_ids()
+    py_bits = 64 if sys.maxsize > 2**32 else 32
+    et_bits = [_pe_bits(p) for p in et_exes[:3]]
+    errors.append(f"python_bits={py_bits} et_bits={et_bits}")
 
-    # 1) 直接 Dispatch（优先 KET / Excel；诊断里这两类通常 OK）
+    # 1) ProgID + CLSID（含 Wow6432Node）直接创建
     for prog_id in candidates:
-        for factory_name, factory in (
-            ("Dispatch", lambda p: win32com.client.Dispatch(p)),
-            ("DispatchEx", lambda p: win32com.client.DispatchEx(p)),
-        ):
-            try:
-                app = factory(prog_id)
-                return app, f"{prog_id}/{factory_name}"
-            except Exception as exc:  # noqa: BLE001
-                errors.append(f"{prog_id}/{factory_name}: {exc}")
+        app, how = _try_create(prog_id, prog_id, errors)
+        if app is not None:
+            return app, how
+        clsid = _resolve_clsid(prog_id)
+        if clsid:
+            app, how = _try_create(clsid, f"{prog_id}->{clsid}", errors)
+            if app is not None:
+                return app, how
+        else:
+            errors.append(f"{prog_id}: CLSID not found in HKCR/WOW6432Node")
 
     # 2) regserver + 启动 et.exe 后再附着
     for et in et_exes[:2]:
@@ -128,28 +211,38 @@ def _dispatch_app():
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-            time.sleep(4)
+            time.sleep(5)
             for prog_id in candidates:
-                try:
-                    app = win32com.client.GetActiveObject(prog_id)
-                    return app, f"{prog_id}/GetActiveObject after {et.name}"
-                except Exception as exc:  # noqa: BLE001
-                    errors.append(f"GetActiveObject {prog_id}@{et}: {exc}")
-                try:
-                    app = win32com.client.Dispatch(prog_id)
-                    return app, f"{prog_id}/Dispatch after start {et.name}"
-                except Exception as exc:  # noqa: BLE001
-                    errors.append(f"Dispatch-after-start {prog_id}: {exc}")
+                clsid = _resolve_clsid(prog_id)
+                for token, label in (
+                    (prog_id, prog_id),
+                    (clsid, f"{prog_id}->{clsid}" if clsid else None),
+                ):
+                    if not token or not label:
+                        continue
+                    try:
+                        app = win32com.client.GetActiveObject(token)
+                        return app, f"{label}/GetActiveObject after {et.name}"
+                    except Exception as exc:  # noqa: BLE001
+                        errors.append(f"GetActiveObject {label}@{et.name}: {exc}")
+                    app, how = _try_create(token, f"{label}/after-start", errors)
+                    if app is not None:
+                        return app, how
         except Exception as exc:  # noqa: BLE001
             errors.append(f"start {et}: {exc}")
 
     et_msg = ", ".join(str(p) for p in et_exes[:3]) or "(et.exe not found)"
+    # 保留头尾错误：前面常是 ProgID 失败根因，后面是附着失败
+    head = errors[:8]
+    tail = errors[-8:] if len(errors) > 8 else []
+    mid = ["..."] if len(errors) > 16 else []
+    shown = head + mid + [e for e in tail if e not in head]
     hint = (
-        " 若 PowerShell 里 Ket/Excel 已 OK 而 Python 仍失败，多半是 32/64 位不一致；"
-        "请用仓库 .venv 的 python 重试。"
+        " 若 PowerShell 里 Ket/Excel 已 OK 而 Python 仍失败，多半是 32/64 位不一致或仅注册在 WOW6432Node；"
+        "已尝试 CLSID；将自动回退 PowerShell 导出。"
         f" et.exe={et_msg}"
     )
-    raise RuntimeError("Cannot create WPS/Excel COM. " + " | ".join(errors[-10:]) + hint)
+    raise RuntimeError("Cannot create WPS/Excel COM. " + " | ".join(shown) + hint)
 
 
 def _save_clipboard_png(path: Path) -> None:
@@ -217,8 +310,11 @@ def export_kanban_pngs_com(
         f"xlsx={xlsx_abs}",
         f"month={target.month}",
         f"cities={cities}",
+        f"python_bits={64 if sys.maxsize > 2**32 else 32}",
         f"prog_candidates={_candidate_prog_ids()[:12]}",
         f"et_exes={[str(p) for p in _find_et_exes()[:5]]}",
+        f"et_bits={[ _pe_bits(p) for p in _find_et_exes()[:5] ]}",
+        f"clsid_sample={{ {', '.join(f'{p}={_resolve_clsid(p)}' for p in _candidate_prog_ids()[:4])} }}",
     ]
 
     app = None
