@@ -52,6 +52,11 @@ powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -T
 
 powershell -ExecutionPolicy Bypass -File scripts\run_kpi_todo_local.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_visit_check_local.ps1
+
+# 自配早间监控（08:30）：需 ChromeAutomation 已登录 Power BI
+Get-ScheduledTaskInfo -TaskName ChuanzangStoreMorningLocal |
+  Select-Object LastRunTime, LastTaskResult, NextRunTime
+Get-Content logs\store_morning_monitor_local.log -Tail 40 -Encoding UTF8 -ErrorAction SilentlyContinue
 powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local.ps1
 ```
 
@@ -60,6 +65,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local
 ```powershell
 schtasks /Query /TN ChuanzangLrDatasourceLocal
 schtasks /Query /TN ChuanzangLrProfitFillLocal
+schtasks /Query /TN ChuanzangStoreMorningLocal
 schtasks /Query /TN ChuanzangVisitCheckLocal
 ```
 
