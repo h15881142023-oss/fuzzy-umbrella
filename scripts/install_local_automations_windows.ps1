@@ -72,10 +72,11 @@ function Register-CzTask {
     }
 
     # Interactive：登录桌面时运行（WPS 截图需要）
+    # 注意：必须用 Limited，不要 Highest——提权后 WPS COM 常报「无效的类字符串」
     $principal = New-ScheduledTaskPrincipal `
         -UserId $env:USERNAME `
         -LogonType Interactive `
-        -RunLevel Highest
+        -RunLevel Limited
 
     $settings = New-ScheduledTaskSettingsSet `
         -AllowStartIfOnBatteries `
