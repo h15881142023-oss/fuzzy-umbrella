@@ -94,16 +94,21 @@ def _try_regserver(et_exe: Path) -> None:
 
 
 def _dispatch_app():
+    import pythoncom  # type: ignore
     import win32com.client  # type: ignore
+
+    # 任务计划/部分终端未初始化 COM 会直接 Invalid class string
+    try:
+        pythoncom.CoInitialize()
+    except Exception:
+        pass
 
     errors: list[str] = []
     et_exes = _find_et_exes()
+    candidates = _candidate_prog_ids()
 
-    # 1) 若找到 et.exe，先尝试 /regserver 再 Dispatch
-    for et in et_exes[:2]:
-        _try_regserver(et)
-
-    for prog_id in _candidate_prog_ids():
+    # 1) 直接 Dispatch（优先 KET / Excel；诊断里这两类通常 OK）
+    for prog_id in candidates:
         for factory_name, factory in (
             ("Dispatch", lambda p: win32com.client.Dispatch(p)),
             ("DispatchEx", lambda p: win32com.client.DispatchEx(p)),
@@ -114,8 +119,9 @@ def _dispatch_app():
             except Exception as exc:  # noqa: BLE001
                 errors.append(f"{prog_id}/{factory_name}: {exc}")
 
-    # 2) 启动 et.exe 后再 GetActiveObject / Dispatch
+    # 2) regserver + 启动 et.exe 后再附着
     for et in et_exes[:2]:
+        _try_regserver(et)
         try:
             subprocess.Popen(
                 [str(et)],
@@ -123,7 +129,7 @@ def _dispatch_app():
                 stderr=subprocess.DEVNULL,
             )
             time.sleep(4)
-            for prog_id in _candidate_prog_ids():
+            for prog_id in candidates:
                 try:
                     app = win32com.client.GetActiveObject(prog_id)
                     return app, f"{prog_id}/GetActiveObject after {et.name}"
@@ -139,10 +145,9 @@ def _dispatch_app():
 
     et_msg = ", ".join(str(p) for p in et_exes[:3]) or "(et.exe not found)"
     hint = (
-        " WPS COM 未注册。"
-        "请用【普通权限】PowerShell 运行: "
-        "powershell -ExecutionPolicy Bypass -File scripts\\diagnose_wps_com.ps1"
-        f" ; et.exe candidates={et_msg}"
+        " 若 PowerShell 里 Ket/Excel 已 OK 而 Python 仍失败，多半是 32/64 位不一致；"
+        "请用仓库 .venv 的 python 重试。"
+        f" et.exe={et_msg}"
     )
     raise RuntimeError("Cannot create WPS/Excel COM. " + " | ".join(errors[-10:]) + hint)
 
