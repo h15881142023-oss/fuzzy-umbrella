@@ -1,7 +1,9 @@
 """Windows：通过 WPS/Excel COM 重算「看板-单城」并用剪贴板导出 PNG。"""
 from __future__ import annotations
 
+import os
 import time
+import winreg
 from datetime import date
 from pathlib import Path
 
@@ -9,24 +11,88 @@ from config import CITIES, REGION_NAME
 
 KANBAN_SHEET = "看板-单城"
 RANGE_ADDRESS = "B1:R37"
-PROG_IDS = (
-    "Ket.Application",  # WPS 表格
+
+# 常见 ProgID；再叠加注册表扫描结果
+BASE_PROG_IDS = (
+    "Ket.Application",
     "et.Application",
     "Excel.Application",
+    "Ket.Application.9",
+    "Ket.Application.12",
+    "et.Application.9",
+    "et.Application.12",
 )
+
+
+def _prog_ids_from_registry() -> list[str]:
+    found: list[str] = []
+    roots = [
+        (winreg.HKEY_CLASSES_ROOT, r""),
+        (winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Classes"),
+        (winreg.HKEY_CURRENT_USER, r"SOFTWARE\Classes"),
+    ]
+    prefixes = ("Ket.Application", "et.Application", "Excel.Application")
+    for hive, sub in roots:
+        try:
+            base = winreg.OpenKey(hive, sub) if sub else winreg.ConnectRegistry(None, hive)
+            if sub == "" and hive == winreg.HKEY_CLASSES_ROOT:
+                key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "")
+            else:
+                key = base if sub == "" else winreg.OpenKey(hive, sub)
+        except OSError:
+            continue
+        try:
+            i = 0
+            while True:
+                try:
+                    name = winreg.EnumKey(key, i)
+                except OSError:
+                    break
+                i += 1
+                if any(name == p or name.startswith(p + ".") for p in prefixes):
+                    if name not in found:
+                        found.append(name)
+        finally:
+            try:
+                winreg.CloseKey(key)
+            except OSError:
+                pass
+    return found
+
+
+def _candidate_prog_ids() -> list[str]:
+    ordered: list[str] = []
+    for pid in list(BASE_PROG_IDS) + _prog_ids_from_registry():
+        if pid not in ordered:
+            ordered.append(pid)
+    # 环境变量可强制指定，例如 LR_WPS_PROGID=Ket.Application
+    forced = os.environ.get("LR_WPS_PROGID", "").strip()
+    if forced:
+        ordered.insert(0, forced)
+    return ordered
 
 
 def _dispatch_app():
     import win32com.client  # type: ignore
 
     errors: list[str] = []
-    for prog_id in PROG_IDS:
-        try:
-            app = win32com.client.Dispatch(prog_id)
-            return app, prog_id
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{prog_id}: {exc}")
-    raise RuntimeError("Cannot create WPS/Excel COM. " + " | ".join(errors))
+    for prog_id in _candidate_prog_ids():
+        for factory in (
+            lambda p: win32com.client.Dispatch(p),
+            lambda p: win32com.client.DispatchEx(p),
+            lambda p: win32com.client.gencache.EnsureDispatch(p),
+        ):
+            try:
+                app = factory(prog_id)
+                return app, prog_id
+            except Exception as exc:  # noqa: BLE001
+                errors.append(f"{prog_id}: {exc}")
+                continue
+    hint = (
+        " WPS COM 未注册。请在本机普通（非管理员）窗口手动打开一次 WPS 表格，"
+        "或设置环境变量 LR_WPS_PROGID。计划任务务必用「只在用户登录时运行」且不要勾选最高权限。"
+    )
+    raise RuntimeError("Cannot create WPS/Excel COM. " + " | ".join(errors[-8:]) + hint)
 
 
 def _save_clipboard_png(path: Path) -> None:
@@ -35,7 +101,6 @@ def _save_clipboard_png(path: Path) -> None:
     img = ImageGrab.grabclipboard()
     if img is None:
         raise RuntimeError("Clipboard empty after CopyPicture")
-    # Some WPS versions return a list of paths; reject that
     if isinstance(img, list):
         raise RuntimeError(f"Clipboard returned files instead of image: {img}")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,7 +121,6 @@ def _copy_range_to_clipboard(ws, address: str) -> None:
     except Exception:
         pass
     rng = ws.Range(address)
-    # xlScreen=1, xlBitmap=2
     try:
         rng.CopyPicture(1, 2)
     except Exception:
@@ -92,7 +156,12 @@ def export_kanban_pngs_com(
     out_dir.mkdir(parents=True, exist_ok=True)
     xlsx_abs = str(xlsx.resolve())
     log_path = out_dir / "wps_export.log"
-    lines: list[str] = [f"xlsx={xlsx_abs}", f"month={target.month}", f"cities={cities}"]
+    lines: list[str] = [
+        f"xlsx={xlsx_abs}",
+        f"month={target.month}",
+        f"cities={cities}",
+        f"prog_candidates={_candidate_prog_ids()[:12]}",
+    ]
 
     app = None
     wb = None
@@ -108,7 +177,6 @@ def export_kanban_pngs_com(
         except Exception:
             pass
 
-        # UpdateLinks=0, ReadOnly=False
         wb = app.Workbooks.Open(xlsx_abs, 0, False)
         try:
             ws = wb.Worksheets(sheet_name)
