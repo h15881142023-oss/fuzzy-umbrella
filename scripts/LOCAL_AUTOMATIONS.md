@@ -58,6 +58,11 @@ Get-ScheduledTaskInfo -TaskName ChuanzangStoreMorningLocal |
   Select-Object LastRunTime, LastTaskResult, NextRunTime
 Get-Content logs\store_morning_monitor_local.log -Tail 40 -Encoding UTF8 -ErrorAction SilentlyContinue
 powershell -ExecutionPolicy Bypass -File scripts\run_store_morning_monitor_local.ps1
+
+# 若报「未登录」但地址仍是 reportEmbed：多半是旧版误判，先同步脚本再重跑
+powershell -ExecutionPolicy Bypass -File scripts\update_local_automation_files.ps1
+# 或指定 commit（jsDelivr）同步 scraper：
+# Invoke-WebRequest "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@<sha>/scrapers/powerbi_subsidy_daily.py" -OutFile scrapers\powerbi_subsidy_daily.py
 ```
 
 ### 查看是否装上

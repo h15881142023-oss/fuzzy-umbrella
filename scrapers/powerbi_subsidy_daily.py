@@ -52,24 +52,78 @@ def _inject(session) -> None:
     session.evaluate(POWERBI_HELPERS_JS, await_promise=False, timeout=30)
 
 
-def _login_hint(session) -> str | None:
+def _probe_page(session) -> dict:
+    """探测当前页是否已进入报表（避免 body 里「登录/验证」误判）。"""
     try:
         info = session.evaluate(
             """(() => {
-              const u = location.href || '';
-              const t = (document.body && document.body.innerText || '').slice(0, 500);
-              const need =
-                /login|signin|oauth|登录|登陆|验证|account\\.microsoft|login\\.microsoftonline/i.test(u + t);
-              return { href: u, need, title: document.title || '' };
+              const href = location.href || '';
+              const host = (location.hostname || '').toLowerCase();
+              const title = document.title || '';
+              const text = (document.body && document.body.innerText || '').slice(0, 1200);
+              const hasSubsidyTab = [...document.querySelectorAll('button,[role="tab"]')]
+                .some((el) => ((el.textContent || '').replace(/\\s+/g, ' ').trim()) === '补贴监测');
+              const hasSlicer = !!document.querySelector('.slicerItemContainer, .slicer-dropdown-menu, [aria-label*="区域"]');
+              const hasVisual = !!document.querySelector('.visualContainer, .visual-container');
+              const hasPageDate = /\\d{4}\\/\\d{1,2}\\/\\d{1,2}/.test(text);
+              const reportReady = hasSubsidyTab || hasSlicer || hasVisual || hasPageDate;
+
+              const loginHost =
+                /(^|\\.)login\\.microsoftonline\\.com$|(^|\\.)login\\.live\\.com$|(^|\\.)account\\.microsoft\\.com$|(^|\\.)login\\.windows\\.net$/i.test(host);
+              const loginPath =
+                /\\/(common|organizations|consumers)\\/oauth2\\//i.test(href) ||
+                /[?&#]wa=wsignin/i.test(href);
+              const titleLooksLogin = /sign\\s*in|log\\s*in|登录|登陆/i.test(title);
+              // 仅看标题/真实登录域，不扫 body：报表文案常含「验证/登录」导致误判
+              const onLoginPage = loginHost || loginPath || (titleLooksLogin && !reportReady && !/powerbi\\.com/i.test(host));
+
+              return {
+                href, host, title, reportReady, onLoginPage,
+                hasSubsidyTab, hasSlicer, hasVisual, hasPageDate,
+              };
             })()""",
             await_promise=False,
             timeout=20,
         ) or {}
+        return info
     except Exception as exc:  # noqa: BLE001
-        return f"page_probe_fail: {exc}"
-    if info.get("need"):
+        return {"error": str(exc), "reportReady": False, "onLoginPage": False}
+
+
+def _login_hint(session) -> str | None:
+    info = _probe_page(session)
+    if info.get("error"):
+        return f"page_probe_fail: {info['error']}"
+    if info.get("reportReady"):
+        return None
+    if info.get("onLoginPage"):
         return f"Power BI 似乎未登录或停在登录页: {info.get('href')}"
     return None
+
+
+def _wait_report_ready(session, *, timeout_sec: float = 90.0) -> dict:
+    """navigate/autoAuth 后等待报表控件出现；仅在确认登录页时提前失败。"""
+    deadline = time.time() + timeout_sec
+    last: dict = {}
+    while time.time() < deadline:
+        last = _probe_page(session)
+        if last.get("reportReady"):
+            return last
+        if last.get("onLoginPage"):
+            raise RuntimeError(
+                f"Power BI 似乎未登录或停在登录页: {last.get('href')}；"
+                "请在 ChromeAutomation 窗口完成登录后保持窗口开启再重跑"
+            )
+        time.sleep(2.5)
+    # 超时仍未 ready：若仍在 powerbi 报表域，交给后续 prepare（可能是加载慢）
+    href = str(last.get("href") or "")
+    if "powerbi.com" in href and "reportEmbed" in href and not last.get("onLoginPage"):
+        _log(f"报表控件等待超时，继续尝试 prepare: {last}")
+        return last
+    raise RuntimeError(
+        f"Power BI 报表未就绪: href={last.get('href')} title={last.get('title')!r} "
+        f"probe={ {k: last.get(k) for k in ('hasSubsidyTab','hasSlicer','hasVisual','hasPageDate','onLoginPage')} }"
+    )
 
 
 def _status(session) -> dict:
@@ -109,6 +163,7 @@ def _reload(session, wait: float = 8.0) -> None:
 
 
 def _prepare_latest(session) -> dict:
+    _wait_report_ready(session, timeout_sec=45)
     hint = _login_hint(session)
     if hint:
         raise RuntimeError(hint + "；请在 ChromeAutomation 窗口登录后重跑")
@@ -227,6 +282,13 @@ def wait_until_t1(session, *, once: bool) -> date:
             continue
 
         page_d = _page_date(session)
+        if page_d is None:
+            # 切片器刚切完时日期可能尚未渲染，多等几轮
+            for _ in range(6):
+                time.sleep(2)
+                page_d = _page_date(session)
+                if page_d is not None:
+                    break
         _log(f"页面日期={page_d} 目标t-1={target} prep={prep.get('status') if prep else None}")
         if page_d and page_d >= target:
             if page_d > target:
@@ -249,9 +311,12 @@ def run(*, once: bool = False) -> int:
         return 1
 
     try:
-        session.navigate(POWERBI_URL, wait_sec=15)
-        hint = _login_hint(session)
-        if hint:
+        session.navigate(POWERBI_URL, wait_sec=18)
+        try:
+            probe = _wait_report_ready(session, timeout_sec=90)
+            _log(f"报表探测: { {k: probe.get(k) for k in ('hasSubsidyTab','hasSlicer','hasVisual','hasPageDate','onLoginPage')} }")
+        except RuntimeError as exc:
+            hint = str(exc)
             _log(hint)
             db.log_sync("powerbi_subsidy_daily", "fail", hint)
             write_status("powerbi_subsidy_daily", {"ok": False, "error": hint})

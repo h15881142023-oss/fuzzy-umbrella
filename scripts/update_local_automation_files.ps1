@@ -9,6 +9,9 @@ Set-Location $Root
 $branch = "cursor/automations-to-local-7100"
 $relFiles = @(
   "scrapers/visit_check_scrape_live.py",
+  "scrapers/powerbi_subsidy_daily.py",
+  "scrapers/powerbi_page_js.py",
+  "scrapers/cdp_client.py",
   "scripts/start_chrome_powerbi.ps1",
   "scripts/run_store_morning_monitor_local.ps1",
   "scripts/_local_common.ps1",
