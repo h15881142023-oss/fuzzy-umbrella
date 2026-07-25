@@ -14,14 +14,17 @@ from config import CITIES, REGION_NAME
 KANBAN_SHEET = "看板-单城"
 RANGE_ADDRESS = "B1:R37"
 
+# 注意：本机诊断常见为 KET.Application / Excel.Application 可用，et.Application 反而不注册
 BASE_PROG_IDS = (
+    "KET.Application",
     "Ket.Application",
-    "et.Application",
-    "Excel.Application",
+    "KET.Application.9",
     "Ket.Application.9",
-    "Ket.Application.12",
+    "Excel.Application",
+    "Excel.Application.12",
+    "Excel.Application.11",
+    "et.Application",
     "et.Application.9",
-    "et.Application.12",
 )
 
 
