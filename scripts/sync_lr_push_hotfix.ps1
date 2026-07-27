@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 Set-Location $Root
 
-$sha = "8e20be0"
+$sha = "848a757"
 if ($Commit -ne "HEAD" -and $Commit.Length -ge 7) { $sha = $Commit.Substring(0, 7) }
 $base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
 
