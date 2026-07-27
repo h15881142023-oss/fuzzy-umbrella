@@ -1,6 +1,5 @@
-# 利润填写推送（≠ 利润数据源推送）
-# 抓取 → 填 LR 模板「数据源(日)」→ WPS 五城看板截图 → 企微 5 图 + Excel
-# 默认计划：每天 23:30
+# LR profit fill push: scrape -> fill template -> WPS kanban png -> WeCom. ASCII header.
+# Default schedule: daily 23:30
 param(
     [string]$TargetDate = ""
 )
@@ -50,7 +49,7 @@ if ($code -ne 0) {
 $Xlsx = Resolve-LrFilledXlsx -Root $Root -TargetDate $TargetDate
 if (-not $Xlsx) {
     Write-LogLine $Log "missing xlsx after fill for target=$TargetDate"
-    Write-Step "MISSING filled xlsx for $TargetDate (see lr\work\last_filled.json or lr\work\*_$TargetDate.xlsx)"
+    Write-Step "MISSING filled xlsx for $TargetDate (see lr\work\last_filled.json)"
     exit 1
 }
 Write-Step "Filled xlsx: $Xlsx"

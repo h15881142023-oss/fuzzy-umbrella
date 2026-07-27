@@ -13,6 +13,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$script:pngPrefix = "kanban"
 
 if ($ConfigJson -and (Test-Path $ConfigJson)) {
     $cfg = Get-Content -LiteralPath $ConfigJson -Encoding UTF8 -Raw | ConvertFrom-Json
@@ -133,20 +134,36 @@ function Clear-ClipboardSafe {
 }
 
 function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
-    $range = $Worksheet.Range($Address)
     if (Test-Path -LiteralPath $PngPath) { Remove-Item -LiteralPath $PngPath -Force }
 
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
 
+    $app = $Worksheet.Application
+    try { $app.Visible = $true } catch {}
+    try { $app.WindowState = 1 } catch {}
+    try { $Worksheet.Activate() | Out-Null } catch {}
+    try { $app.ActiveWindow.Activate() | Out-Null } catch {}
+
+    $range = $Worksheet.Range($Address)
+    try { $range.Select() | Out-Null } catch {}
+
+    $pairs = @(
+        @(1, 2),
+        @(1, -4147),
+        @(2, 2)
+    )
+
     $lastErr = $null
-    for ($try = 1; $try -le 8; $try++) {
+    for ($try = 1; $try -le 10; $try++) {
+        $fmt = $pairs[($try - 1) % $pairs.Count]
         try {
             Clear-ClipboardSafe
-            $range.CopyPicture(1, 2) | Out-Null
-            Start-Sleep -Milliseconds (350 + $try * 80)
+            try { $app.CutCopyMode = $false } catch {}
+            $range.CopyPicture($fmt[0], $fmt[1]) | Out-Null
+            Start-Sleep -Milliseconds (450 + $try * 100)
             if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) {
-                throw "Clipboard has no image after CopyPicture (try $try)"
+                throw "Clipboard has no image after CopyPicture (try $try fmt=$($fmt -join ','))"
             }
             $img = [System.Windows.Forms.Clipboard]::GetImage()
             if (-not $img) { throw "GetImage returned null (try $try)" }
@@ -158,7 +175,7 @@ function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
             return
         } catch {
             $lastErr = $_
-            Start-Sleep -Milliseconds 300
+            Start-Sleep -Milliseconds 400
         }
     }
     throw $lastErr

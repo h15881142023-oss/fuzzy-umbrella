@@ -1,4 +1,4 @@
-# 仅用已填好的 LR 日报 xlsx：WPS/PowerShell STA 导出五城图 + 企微推送（跳过抓取填表）
+# Push filled LR workbook: STA kanban export + WeCom (5 png + xlsx). ASCII-only.
 param(
     [string]$TargetDate = "",
     [string]$Xlsx = ""
@@ -24,7 +24,7 @@ if (-not $Xlsx) {
     exit 1
 }
 
-Write-Step "LR kanban export+push from existing xlsx=$Xlsx target=$TargetDate"
+Write-Step "LR kanban export+push xlsx=$Xlsx target=$TargetDate"
 Write-LogLine $Log "start kanban-push-existing xlsx=$Xlsx target=$TargetDate"
 try {
     $py = Ensure-Venv -Root $Root
@@ -40,6 +40,9 @@ $code = $LASTEXITCODE
 if ($code -ne 0) {
     Write-LogLine $Log "exit=$code (kanban export fail)"
     Write-Step "FAILED kanban export exit=$code"
+    if (Test-Path "lr\output\wps_export.log") {
+        Get-Content "lr\output\wps_export.log" -Tail 50 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
+    }
     exit $code
 }
 
@@ -55,6 +58,5 @@ if ($code -eq 0) {
 } else {
     Write-Step "FAILED exit=$code. See $Log"
     if (Test-Path $Log) { Get-Content -Path $Log -Tail 80 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
-    Write-Step "Also run: powershell -STA -ExecutionPolicy Bypass -File scripts\diagnose_wps_com.ps1"
 }
 exit $code
