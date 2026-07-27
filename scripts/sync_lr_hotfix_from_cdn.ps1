@@ -2,7 +2,7 @@
 # Usage (from repo root):
 #   powershell -ExecutionPolicy Bypass -File scripts\sync_lr_hotfix_from_cdn.ps1
 param(
-    [string]$Commit = "f353e14c8b8e8f0e8b8e8f0e8b8e8f0e8b8e8f0e"
+    [string]$Commit = "f353e1433d9d41afdfc2d041d9e0dd0afbc5860d"
 )
 
 $ErrorActionPreference = "Stop"
