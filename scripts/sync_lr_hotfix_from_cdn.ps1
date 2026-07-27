@@ -24,6 +24,7 @@ $files = @(
     "scripts/run_lr_profit_fill_local.ps1",
     "scripts/run_lr_kanban_push_existing.ps1",
     "scripts/run_lr_profit_fill_backfill.ps1",
+    "scripts/_local_common.ps1",
     "scripts/diagnose_wps_com.ps1",
     "requirements.txt"
 )

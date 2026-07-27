@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -T
 
 # 表已填好但 COM 出图失败（无效的类字符串）时：只导出看板并推送
 # 先同步 hotfix（本机没有 sync 脚本时用下面一键下载；把 REPLACE_SHA 换成最新 short sha）
-$sha = "8fe5c2d"
+$sha = "4ad99fa"
 $base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
 @(
   "lr/export_kanban_com.py",
@@ -63,6 +63,7 @@ $base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
   "scripts/run_lr_profit_fill_local.ps1",
   "scripts/run_lr_kanban_push_existing.ps1",
   "scripts/run_lr_profit_fill_backfill.ps1",
+  "scripts/_local_common.ps1",
   "scripts/diagnose_wps_com.ps1"
 ) | ForEach-Object {
   $out = $_ -replace "/", "\"

@@ -17,8 +17,6 @@ if (-not $TargetDate) {
     $TargetDate = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
 }
 
-$Xlsx = Join-Path $Root ("lr\work\LR日报_{0}.xlsx" -f $TargetDate)
-
 Write-Step "LR PROFIT FILL start target=$TargetDate. Log: $Root\$Log"
 Write-LogLine $Log "start profit-fill target=$TargetDate"
 try {
@@ -49,11 +47,13 @@ if ($code -ne 0) {
     Write-Step "FAILED fill exit=$code. See $Log"
     exit $code
 }
-if (-not (Test-Path -LiteralPath $Xlsx)) {
-    Write-LogLine $Log "missing xlsx after fill: $Xlsx"
-    Write-Step "MISSING filled xlsx: $Xlsx"
+$Xlsx = Resolve-LrFilledXlsx -Root $Root -TargetDate $TargetDate
+if (-not $Xlsx) {
+    Write-LogLine $Log "missing xlsx after fill for target=$TargetDate"
+    Write-Step "MISSING filled xlsx for $TargetDate (see lr\work\last_filled.json or lr\work\*_$TargetDate.xlsx)"
     exit 1
 }
+Write-Step "Filled xlsx: $Xlsx"
 
 Write-Step "WPS kanban export (PowerShell STA COM) ..."
 $exportPs1 = Join-Path $PSScriptRoot "run_lr_kanban_export.ps1"

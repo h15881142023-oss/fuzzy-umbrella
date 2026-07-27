@@ -16,11 +16,11 @@ if (-not $TargetDate) {
     $TargetDate = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
 }
 if (-not $Xlsx) {
-    $Xlsx = Join-Path $Root ("lr\work\LR日报_{0}.xlsx" -f $TargetDate)
+    $Xlsx = Resolve-LrFilledXlsx -Root $Root -TargetDate $TargetDate
 }
-if (-not (Test-Path -LiteralPath $Xlsx)) {
-    Write-Step "MISSING xlsx: $Xlsx"
-    Write-LogLine $Log "missing filled xlsx: $Xlsx"
+if (-not $Xlsx) {
+    Write-Step "MISSING xlsx for $TargetDate (run fill first or pass -Xlsx)"
+    Write-LogLine $Log "missing filled xlsx for target=$TargetDate"
     exit 1
 }
 

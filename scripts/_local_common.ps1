@@ -54,6 +54,36 @@ function Ensure-Venv {
     return $venvPy
 }
 
+function Resolve-LrFilledXlsx {
+    <#
+    .SYNOPSIS
+      Locate filled LR workbook for a date without hardcoding Chinese in PS1 (GBK mojibake).
+      Uses lr/work/last_filled.json from Python, else newest *_{date}.xlsx in lr/work.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [Parameter(Mandatory = $true)][string]$TargetDate
+    )
+    $marker = Join-Path $Root "lr\work\last_filled.json"
+    if (Test-Path -LiteralPath $marker) {
+        try {
+            $j = Get-Content -LiteralPath $marker -Encoding UTF8 -Raw | ConvertFrom-Json
+            if ($j.target_date -eq $TargetDate -and $j.xlsx) {
+                $p = [string]$j.xlsx
+                if (Test-Path -LiteralPath $p) {
+                    return (Resolve-Path -LiteralPath $p).Path
+                }
+            }
+        } catch {}
+    }
+    $work = Join-Path $Root "lr\work"
+    if (-not (Test-Path -LiteralPath $work)) { return $null }
+    $hits = @(Get-ChildItem -LiteralPath $work -Filter "*_$TargetDate.xlsx" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending)
+    if ($hits.Count -gt 0) { return $hits[0].FullName }
+    return $null
+}
+
 function Invoke-PythonLogged {
     <#
     .SYNOPSIS

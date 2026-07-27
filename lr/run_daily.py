@@ -38,6 +38,18 @@ DEFAULT_TEMPLATE = Path(os.environ.get("LR_TEMPLATE_PATH", LR_TEMPLATE_DEFAULT))
 WORK_DIR = LR_DIR / "work"
 OUTPUT_DIR = LR_DIR / "output"
 DEFAULT_WEBHOOK = os.environ.get("LR_WECOM_WEBHOOK", LR_WECOM_WEBHOOK)
+FILL_MARKER = WORK_DIR / "last_filled.json"
+
+
+def _write_fill_marker(filled: Path, target: date) -> None:
+    WORK_DIR.mkdir(parents=True, exist_ok=True)
+    FILL_MARKER.write_text(
+        json.dumps(
+            {"target_date": target.isoformat(), "xlsx": str(filled.resolve())},
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
 
 
 def load_scrape(path: Path) -> dict:
@@ -130,6 +142,7 @@ def main() -> int:
         print(f"[lr] fill template -> {WORK_DIR} target={target}", flush=True)
         filled = fill_template(args.template, rows, target, WORK_DIR)
         print(f"[lr] filled: {filled}", flush=True)
+        _write_fill_marker(filled, target)
 
     if args.fill_only:
         summary = {
