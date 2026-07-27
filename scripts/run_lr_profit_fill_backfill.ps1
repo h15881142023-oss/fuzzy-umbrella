@@ -1,11 +1,6 @@
-# 利润填写推送：按日期区间补跑（抓取 → 填表 → 看板 → 企微）
-# 默认：2026-07-22 .. 2026-07-25（含）
-# 用法：
-#   powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1
-#   powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1 -FromDate 2026-07-20 -ToDate 2026-07-25
-#   powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1 -FromDate 2026-07-24 -ToDate 2026-07-25 -StopOnError
+# LR profit fill backfill: scrape/fill/export/push for a date range. ASCII-only.
 param(
-    [string]$FromDate = "2026-07-22",
+    [string]$FromDate = "2026-07-23",
     [string]$ToDate = "2026-07-25",
     [switch]$StopOnError
 )
@@ -40,7 +35,8 @@ try {
     exit 1
 }
 
-$env:LR_KANBAN_EXPORT = "ps1,com"
+$fillPs1 = Join-Path $PSScriptRoot "run_lr_profit_fill_local.ps1"
+$pushPs1 = Join-Path $PSScriptRoot "run_lr_kanban_push_existing.ps1"
 $ok = @()
 $fail = @()
 $cur = $from
@@ -48,14 +44,15 @@ while ($cur -le $to) {
     $d = $cur.ToString("yyyy-MM-dd")
     Write-Step "==== backfill day $d ===="
     Write-LogLine $Log "backfill day=$d begin"
-    $code = 1
-    try {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "run_lr_profit_fill_local.ps1") -TargetDate $d
-        $code = $LASTEXITCODE
-    } catch {
-        Write-LogLine $Log "backfill day=$d exception: $_"
-        $code = 1
+    $xlsx = Resolve-LrFilledXlsx -Root $Root -TargetDate $d
+    if ($xlsx) {
+        Write-Step "reuse filled xlsx, export+push only: $xlsx"
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $pushPs1 -TargetDate $d -Xlsx $xlsx
+    } else {
+        Write-Step "full pipeline scrape+fill+export+push"
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fillPs1 -TargetDate $d
     }
+    $code = $LASTEXITCODE
     if ($code -eq 0) {
         $ok += $d
         Write-LogLine $Log "backfill day=$d ok"
