@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""Download LR push hotfix files as raw bytes (encoding-safe on GBK Windows)."""
+from __future__ import annotations
+
+import sys
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+SHA = "HEAD"
+BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
+
+FILES = [
+    "lr/write_kanban_export_cfg.py",
+    "lr/verify_kanban_pngs.py",
+    "lr/run_daily.py",
+    "scripts/_local_common.ps1",
+    "scripts/export_lr_kanban_wps.ps1",
+    "scripts/run_lr_kanban_export.ps1",
+    "scripts/run_lr_kanban_push_existing.ps1",
+    "scripts/run_lr_profit_fill_local.ps1",
+]
+
+
+def fetch(url: str) -> bytes:
+    req = urllib.request.Request(url, headers={"User-Agent": "fuzzy-umbrella-hotfix/1.0"})
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        data = resp.read()
+    if len(data) < 40:
+        raise RuntimeError(f"download too short: {url}")
+    return data
+
+
+def main() -> int:
+    global SHA, BASE
+    if len(sys.argv) > 1 and sys.argv[1].strip():
+        SHA = sys.argv[1].strip()
+        if len(SHA) > 7 and not SHA.startswith("cursor/"):
+            SHA = SHA[:7]
+        BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
+
+    ok = 0
+    for rel in FILES:
+        url = f"{BASE}/{rel.replace(chr(92), '/')}"
+        out = ROOT / rel.replace("/", "\\") if sys.platform == "win32" else ROOT / rel
+        out.parent.mkdir(parents=True, exist_ok=True)
+        data = fetch(url)
+        out.write_bytes(data)
+        print(f"OK {out} ({len(data)} bytes)")
+        ok += 1
+    print(f"done {ok} files from {BASE}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
