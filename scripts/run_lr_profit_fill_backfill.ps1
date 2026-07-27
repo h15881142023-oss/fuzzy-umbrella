@@ -1,8 +1,9 @@
-# LR profit fill backfill: scrape/fill/export/push for a date range. ASCII-only.
+# LR profit fill backfill: always full scrape+fill+export+push in date order. ASCII-only.
 param(
     [string]$FromDate = "2026-07-23",
     [string]$ToDate = "2026-07-25",
-    [switch]$StopOnError
+    [switch]$StopOnError,
+    [switch]$ForceRefill
 )
 
 $ErrorActionPreference = "Continue"
@@ -10,7 +11,8 @@ $ErrorActionPreference = "Continue"
 
 $Root = Get-RepoRoot
 Set-Location $Root
-New-Item -ItemType Directory -Force -Path "logs","data\lr_scrape","lr\work","lr\output" | Out-Null
+$Work = Join-Path $Root "lr\work"
+New-Item -ItemType Directory -Force -Path "logs","data\lr_scrape",$Work,"lr\output" | Out-Null
 $Log = "logs\lr_profit_fill_local.log"
 
 try {
@@ -25,8 +27,32 @@ if ($from -gt $to) {
     exit 1
 }
 
-Write-Step "LR PROFIT FILL BACKFILL $FromDate .. $ToDate (StopOnError=$StopOnError)"
-Write-LogLine $Log "start backfill from=$FromDate to=$ToDate"
+if ($ForceRefill) {
+    Write-Step "ForceRefill: remove existing workbooks in range"
+    $curClean = $from
+    $months = @{}
+    while ($curClean -le $to) {
+        $d = $curClean.ToString("yyyy-MM-dd")
+        $daily = Join-Path $Work ("LR日报_{0}.xlsx" -f $d)
+        if (Test-Path -LiteralPath $daily) {
+            Remove-Item -LiteralPath $daily -Force
+            Write-Step "removed $daily"
+        }
+        $mk = $curClean.ToString("yyyy-MM")
+        if (-not $months.ContainsKey($mk)) {
+            $months[$mk] = $true
+            $monthly = Join-Path $Work ("LR日报_{0}.xlsx" -f $mk)
+            if (Test-Path -LiteralPath $monthly) {
+                Remove-Item -LiteralPath $monthly -Force
+                Write-Step "removed $monthly"
+            }
+        }
+        $curClean = $curClean.AddDays(1)
+    }
+}
+
+Write-Step "LR PROFIT FILL BACKFILL $FromDate .. $ToDate (ForceRefill=$ForceRefill)"
+Write-LogLine $Log "start backfill from=$FromDate to=$ToDate force=$ForceRefill"
 try {
     $null = Ensure-Venv -Root $Root
 } catch {
@@ -36,22 +62,14 @@ try {
 }
 
 $fillPs1 = Join-Path $PSScriptRoot "run_lr_profit_fill_local.ps1"
-$pushPs1 = Join-Path $PSScriptRoot "run_lr_kanban_push_existing.ps1"
 $ok = @()
 $fail = @()
 $cur = $from
 while ($cur -le $to) {
     $d = $cur.ToString("yyyy-MM-dd")
-    Write-Step "==== backfill day $d ===="
+    Write-Step "==== backfill day $d (full pipeline, cumulative fill) ===="
     Write-LogLine $Log "backfill day=$d begin"
-    $xlsx = Resolve-LrFilledXlsx -Root $Root -TargetDate $d
-    if ($xlsx) {
-        Write-Step "reuse filled xlsx, export+push only: $xlsx"
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $pushPs1 -TargetDate $d -Xlsx $xlsx
-    } else {
-        Write-Step "full pipeline scrape+fill+export+push"
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fillPs1 -TargetDate $d
-    }
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $fillPs1 -TargetDate $d
     $code = $LASTEXITCODE
     if ($code -eq 0) {
         $ok += $d

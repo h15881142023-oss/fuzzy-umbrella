@@ -11,6 +11,7 @@ SHA = "HEAD"
 BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
 
 FILES = [
+    "lr/fill_template.py",
     "lr/write_kanban_export_cfg.py",
     "lr/verify_kanban_pngs.py",
     "lr/run_daily.py",

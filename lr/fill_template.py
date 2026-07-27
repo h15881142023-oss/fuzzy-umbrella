@@ -1,6 +1,7 @@
 """将抓取结果写入 LR 模板「数据源(日)」（只写录入列，保留公式列）。"""
 from __future__ import annotations
 
+import shutil
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,61 @@ HEADER_ROW = 3
 # 模板里 A–V（1–22）为网页录入列；其后多为公式/手工费用，不可覆盖
 MAX_INPUT_COL = 22
 FORMULA_TEMPLATE_ROW = 4
+
+
+def monthly_master_path(out_dir: Path, target: date) -> Path:
+    return out_dir / f"LR日报_{target.year}-{target.month:02d}.xlsx"
+
+
+def _latest_prior_workbook(out_dir: Path, target: date) -> Path | None:
+    """同月、日期早于 target 的最近一份日报（用于累积填表）。"""
+    best: Path | None = None
+    best_day: date | None = None
+    for path in out_dir.glob("LR日报_*.xlsx"):
+        suffix = path.stem.removeprefix("LR日报_")
+        if len(suffix) == 7 and suffix[4] == "-":
+            continue
+        try:
+            day = date.fromisoformat(suffix)
+        except ValueError:
+            continue
+        if day.year != target.year or day.month != target.month or day >= target:
+            continue
+        if best_day is None or day > best_day:
+            best_day = day
+            best = path
+    return best
+
+
+def _resolve_base_workbook(template: Path, out_dir: Path, target: date) -> Path:
+    monthly = monthly_master_path(out_dir, target)
+    if monthly.exists():
+        return monthly
+    prior = _latest_prior_workbook(out_dir, target)
+    if prior and prior.exists():
+        return prior
+    return template
+
+
+def count_filled_days(out_path: Path) -> int:
+    """统计数据源(日)里已有多少个不同日期（五城齐算一天）。"""
+    wb = load_workbook(out_path, read_only=True, data_only=True)
+    try:
+        if DATA_SHEET not in wb.sheetnames:
+            return 0
+        ws = wb[DATA_SHEET]
+        col_map = _header_col_map(ws)
+        day_col = col_map.get("日", 3)
+        days: set[str] = set()
+        for r in range(HEADER_ROW + 1, ws.max_row + 1):
+            region = norm_header(ws.cell(r, col_map.get("区域", 1)).value)
+            city = norm_header(ws.cell(r, col_map.get("组织结构", 2)).value)
+            day = _read_row_day(ws.cell(r, day_col).value)
+            if region == REGION_NAME and city in CITIES and day:
+                days.add(day.isoformat())
+        return len(days)
+    finally:
+        wb.close()
 
 
 def _header_col_map(ws) -> dict[str, int]:
@@ -81,10 +137,14 @@ def fill_template(
     target: date,
     out_dir: Path,
 ) -> Path:
-    """复制模板并写入目标日五城数据，返回输出路径。"""
+    """写入目标日五城；同月累积：在已有 workbook 上追加/更新，而非每天从空白模板复制。"""
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"LR日报_{target.isoformat()}.xlsx"
-    sanitize_for_openpyxl(template, out_path)
+    base = _resolve_base_workbook(template, out_dir, target)
+    if base == template:
+        sanitize_for_openpyxl(template, out_path)
+    else:
+        shutil.copy2(base, out_path)
 
     wb = load_workbook(out_path)
     if DATA_SHEET not in wb.sheetnames:
@@ -137,4 +197,7 @@ def fill_template(
     _set_kanban_month_city(wb, target)
     wb.save(out_path)
     wb.close()
+
+    monthly = monthly_master_path(out_dir, target)
+    shutil.copy2(out_path, monthly)
     return out_path
