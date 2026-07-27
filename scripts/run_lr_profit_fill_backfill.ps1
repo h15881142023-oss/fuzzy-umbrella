@@ -33,19 +33,14 @@ if ($ForceRefill) {
     $months = @{}
     while ($curClean -le $to) {
         $d = $curClean.ToString("yyyy-MM-dd")
-        $daily = Join-Path $Work ("LR日报_{0}.xlsx" -f $d)
-        if (Test-Path -LiteralPath $daily) {
-            Remove-Item -LiteralPath $daily -Force
-            Write-Step "removed $daily"
-        }
+        Get-ChildItem -LiteralPath $Work -Filter "*_$d.xlsx" -ErrorAction SilentlyContinue |
+            ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force; Write-Step ("removed " + $_.Name) }
         $mk = $curClean.ToString("yyyy-MM")
         if (-not $months.ContainsKey($mk)) {
             $months[$mk] = $true
-            $monthly = Join-Path $Work ("LR日报_{0}.xlsx" -f $mk)
-            if (Test-Path -LiteralPath $monthly) {
-                Remove-Item -LiteralPath $monthly -Force
-                Write-Step "removed $monthly"
-            }
+            Get-ChildItem -LiteralPath $Work -Filter "*$mk.xlsx" -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match "${mk}\.xlsx$" } |
+                ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force; Write-Step ("removed " + $_.Name) }
         }
         $curClean = $curClean.AddDays(1)
     }
