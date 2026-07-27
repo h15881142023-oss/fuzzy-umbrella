@@ -248,34 +248,50 @@ def _dispatch_app():
 def _save_clipboard_png(path: Path) -> None:
     from PIL import ImageGrab
 
-    img = ImageGrab.grabclipboard()
-    if img is None:
-        raise RuntimeError("Clipboard empty after CopyPicture")
-    if isinstance(img, list):
-        raise RuntimeError(f"Clipboard returned files instead of image: {img}")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        path.unlink()
-    img.save(path, format="PNG")
-    if not path.exists() or path.stat().st_size < 100:
-        raise RuntimeError(f"PNG too small or missing: {path}")
+    last: Exception | None = None
+    for attempt in range(1, 10):
+        try:
+            img = ImageGrab.grabclipboard()
+            if img is None:
+                raise RuntimeError("Clipboard empty after CopyPicture")
+            if isinstance(img, list):
+                raise RuntimeError(f"Clipboard returned files instead of image: {img}")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists():
+                path.unlink()
+            img.save(path, format="PNG")
+            if not path.exists() or path.stat().st_size < 100:
+                raise RuntimeError(f"PNG too small or missing: {path}")
+            return
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            time.sleep(0.25 + attempt * 0.05)
+    raise RuntimeError(f"failed to read clipboard after retries: {last}")
 
 
 def _copy_range_to_clipboard(ws, address: str) -> None:
-    try:
-        import win32clipboard  # type: ignore
+    import win32clipboard  # type: ignore
 
-        win32clipboard.OpenClipboard()
-        win32clipboard.EmptyClipboard()
-        win32clipboard.CloseClipboard()
-    except Exception:
-        pass
+    for attempt in range(1, 10):
+        try:
+            try:
+                win32clipboard.OpenClipboard()
+                win32clipboard.EmptyClipboard()
+                win32clipboard.CloseClipboard()
+            except Exception:
+                pass
+            rng = ws.Range(address)
+            try:
+                rng.CopyPicture(1, 2)
+            except Exception:
+                rng.CopyPicture(Appearance=1, Format=2)
+            time.sleep(0.35 + attempt * 0.05)
+            return
+        except Exception:
+            time.sleep(0.25 + attempt * 0.05)
     rng = ws.Range(address)
-    try:
-        rng.CopyPicture(1, 2)
-    except Exception:
-        rng.CopyPicture(Appearance=1, Format=2)
-    time.sleep(0.35)
+    rng.CopyPicture(1, 2)
+    time.sleep(0.5)
 
 
 def _calculate(app, wb) -> None:

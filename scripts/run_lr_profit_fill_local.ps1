@@ -17,6 +17,8 @@ if (-not $TargetDate) {
     $TargetDate = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
 }
 
+$Xlsx = Join-Path $Root ("lr\work\LR日报_{0}.xlsx" -f $TargetDate)
+
 Write-Step "LR PROFIT FILL start target=$TargetDate. Log: $Root\$Log"
 Write-LogLine $Log "start profit-fill target=$TargetDate"
 try {
@@ -35,13 +37,43 @@ if ($code -ne 0) {
     exit $code
 }
 
-Write-Step "Fill template + WPS kanban + WeCom (5 images + excel) ..."
-# PowerShell COM 优先：避免 64 位 Python 对 32 位 WPS 报「无效的类字符串」
-$env:LR_KANBAN_EXPORT = "ps1,com"
+Write-Step "Fill template (fill-only) ..."
 $code = Invoke-PythonLogged -PythonExe $py -Arguments @(
     "lr\run_daily.py",
     "--scrape-json", "data\lr_scrape\latest.json",
-    "--target-date", $TargetDate
+    "--target-date", $TargetDate,
+    "--fill-only"
+) -LogPath $Log
+if ($code -ne 0) {
+    Write-LogLine $Log "exit=$code (fill fail)"
+    Write-Step "FAILED fill exit=$code. See $Log"
+    exit $code
+}
+if (-not (Test-Path -LiteralPath $Xlsx)) {
+    Write-LogLine $Log "missing xlsx after fill: $Xlsx"
+    Write-Step "MISSING filled xlsx: $Xlsx"
+    exit 1
+}
+
+Write-Step "WPS kanban export (PowerShell STA COM) ..."
+$exportPs1 = Join-Path $PSScriptRoot "run_lr_kanban_export.ps1"
+& powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -Xlsx $Xlsx -TargetDate $TargetDate
+$code = $LASTEXITCODE
+if ($code -ne 0) {
+    Write-LogLine $Log "exit=$code (kanban export fail)"
+    Write-Step "FAILED kanban export exit=$code. See lr\output\wps_export.log"
+    if (Test-Path "lr\output\wps_export.log") {
+        Get-Content "lr\output\wps_export.log" -Tail 50 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
+    }
+    exit $code
+}
+
+Write-Step "WeCom push (5 images + excel) ..."
+$code = Invoke-PythonLogged -PythonExe $py -Arguments @(
+    "lr\run_daily.py",
+    "--filled-xlsx", $Xlsx,
+    "--target-date", $TargetDate,
+    "--push-only"
 ) -LogPath $Log
 Write-LogLine $Log "exit=$code"
 if ($code -eq 0) {

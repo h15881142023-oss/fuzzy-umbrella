@@ -1,6 +1,5 @@
 # Export kanban sheet PNGs via WPS/Excel COM (Windows).
-# Prefer: python lr/export_kanban_com.py path (called from Python).
-# This script accepts -ConfigJson to avoid Chinese args on the command line.
+# Must run in STA apartment for clipboard (use: powershell -STA -File ...)
 param(
     [string]$ConfigJson = "",
     [string]$XlsxPath = "",
@@ -30,6 +29,32 @@ if (-not $XlsxPath -or -not $OutDir -or $Month -le 0) {
     throw "Missing XlsxPath/OutDir/Month (or ConfigJson)"
 }
 
+function Find-EtExe {
+    $patterns = @(
+        "$env:LOCALAPPDATA\Kingsoft\WPS Office\*\office6\et.exe",
+        "$env:ProgramFiles\Kingsoft\WPS Office\*\office6\et.exe",
+        "${env:ProgramFiles(x86)}\Kingsoft\WPS Office\*\office6\et.exe"
+    )
+    foreach ($p in $patterns) {
+        $hit = Get-Item $p -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
+}
+
+function Ensure-WpsRegistered {
+    $et = Find-EtExe
+    if (-not $et) { return }
+    Write-Host "regserver $et"
+    try {
+        Start-Process -FilePath $et -ArgumentList "/regserver" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+    } catch {}
+    try {
+        Start-Process -FilePath $et -WindowStyle Normal -ErrorAction SilentlyContinue | Out-Null
+        Start-Sleep -Seconds 3
+    } catch {}
+}
+
 function Get-ClsidForProgId([string]$ProgId) {
     $paths = @(
         "Registry::HKEY_CLASSES_ROOT\$ProgId\CLSID",
@@ -53,7 +78,6 @@ function Get-OfficeApp {
         "Excel.Application", "Excel.Application.12", "Excel.Application.11",
         "et.Application", "et.Application.9"
     )
-    # Also pick up whatever is registered
     try {
         Get-ChildItem Registry::HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue |
             Where-Object {
@@ -69,7 +93,7 @@ function Get-OfficeApp {
         try {
             $app = New-Object -ComObject $progId
             if ($app) {
-                Write-Output "office_progid=$progId"
+                Write-Host "office_progid=$progId"
                 return @{ App = $app; ProgId = $progId }
             }
         } catch {
@@ -80,7 +104,7 @@ function Get-OfficeApp {
             try {
                 $app = [Activator]::CreateInstance([Type]::GetTypeFromCLSID($clsid))
                 if ($app) {
-                    Write-Output ("office_progid={0} clsid={1}" -f $progId, $clsid)
+                    Write-Host "office_progid=${progId} clsid=$clsid"
                     return @{ App = $app; ProgId = "$progId/$clsid" }
                 }
             } catch {
@@ -91,23 +115,48 @@ function Get-OfficeApp {
     throw ("WPS/Excel COM not found. " + ($errors -join " | "))
 }
 
+function Clear-ClipboardSafe {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+    for ($i = 0; $i -lt 12; $i++) {
+        try {
+            [System.Windows.Forms.Clipboard]::Clear()
+            return
+        } catch {
+            Start-Sleep -Milliseconds 250
+        }
+    }
+}
+
 function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
     $range = $Worksheet.Range($Address)
     if (Test-Path -LiteralPath $PngPath) { Remove-Item -LiteralPath $PngPath -Force }
 
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
-    $range.CopyPicture(1, 2) | Out-Null
-    Start-Sleep -Milliseconds 400
-    if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) {
-        throw "Clipboard has no image after CopyPicture"
+
+    $lastErr = $null
+    for ($try = 1; $try -le 8; $try++) {
+        try {
+            Clear-ClipboardSafe
+            $range.CopyPicture(1, 2) | Out-Null
+            Start-Sleep -Milliseconds (350 + $try * 80)
+            if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) {
+                throw "Clipboard has no image after CopyPicture (try $try)"
+            }
+            $img = [System.Windows.Forms.Clipboard]::GetImage()
+            if (-not $img) { throw "GetImage returned null (try $try)" }
+            $img.Save($PngPath, [System.Drawing.Imaging.ImageFormat]::Png)
+            $img.Dispose()
+            if (-not (Test-Path -LiteralPath $PngPath)) {
+                throw "PNG export failed: $PngPath"
+            }
+            return
+        } catch {
+            $lastErr = $_
+            Start-Sleep -Milliseconds 300
+        }
     }
-    $img = [System.Windows.Forms.Clipboard]::GetImage()
-    $img.Save($PngPath, [System.Drawing.Imaging.ImageFormat]::Png)
-    $img.Dispose()
-    if (-not (Test-Path -LiteralPath $PngPath)) {
-        throw "PNG export failed: $PngPath"
-    }
+    throw $lastErr
 }
 
 if (-not (Test-Path -LiteralPath $XlsxPath)) { throw "Xlsx not found: $XlsxPath" }
@@ -115,8 +164,9 @@ $xlsx = (Resolve-Path -LiteralPath $XlsxPath).Path
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $outAbs = (Resolve-Path -LiteralPath $OutDir).Path
 $cityList = @($Cities.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-Write-Output ("xlsx=$xlsx out=$outAbs month=$Month cities=$($cityList -join '|')")
+Write-Host "xlsx=$xlsx out=$outAbs month=$Month cities=$($cityList -join '|')"
 
+Ensure-WpsRegistered
 $office = Get-OfficeApp
 $app = $office.App
 try { $app.Visible = $true } catch {}
@@ -135,15 +185,15 @@ try {
     foreach ($city in $cityList) {
         $ws.Range("C3").Value2 = $city
         try { $app.CalculateFull() } catch { try { $wb.Application.Calculate() } catch {} }
-        Start-Sleep -Milliseconds 500
+        Start-Sleep -Milliseconds 600
         $safe = ($city -replace '[\\/:*?"<>|]', '_')
         $png = Join-Path $outAbs ("看板-单城_{0}_{1}.png" -f $safe, $Month)
         Export-RangePng -Worksheet $ws -Address $RangeAddress -PngPath $png
-        Write-Output "exported=$png"
+        Write-Host "exported=$png"
     }
     $wb.Save()
     $wb.Close($true)
-    Write-Output ("ok count={0} prog={1}" -f $cityList.Count, $office.ProgId)
+    Write-Host "ok count=$($cityList.Count) prog=$($office.ProgId)"
 } finally {
     try { $app.Quit() } catch {}
     try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {}

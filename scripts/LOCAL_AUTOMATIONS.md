@@ -59,6 +59,7 @@ $base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
   "lr/kanban_image.py",
   "lr/run_daily.py",
   "scripts/export_lr_kanban_wps.ps1",
+  "scripts/run_lr_kanban_export.ps1",
   "scripts/run_lr_profit_fill_local.ps1",
   "scripts/run_lr_kanban_push_existing.ps1",
   "scripts/run_lr_profit_fill_backfill.ps1",
@@ -73,6 +74,7 @@ powershell -ExecutionPolicy Bypass -File scripts\diagnose_wps_com.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-07-24
 
 # 补齐利润填写推送：默认 2026-07-22 .. 2026-07-25（含），单日失败继续下一天
+# 看板导出在 PowerShell -STA 线程（剪贴板），勿用管理员窗口
 powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1
 # 或指定区间：
 # powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1 -FromDate 2026-07-20 -ToDate 2026-07-25

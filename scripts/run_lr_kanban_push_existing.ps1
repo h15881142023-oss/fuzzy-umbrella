@@ -1,7 +1,4 @@
-# 仅用已填好的 LR 日报 xlsx：WPS/PowerShell 导出五城图 + 企微推送（跳过抓取填表）
-# 用法：
-#   powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-07-24
-#   powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -Xlsx "lr\work\LR日报_2026-07-24.xlsx" -TargetDate 2026-07-24
+# 仅用已填好的 LR 日报 xlsx：WPS/PowerShell STA 导出五城图 + 企微推送（跳过抓取填表）
 param(
     [string]$TargetDate = "",
     [string]$Xlsx = ""
@@ -19,7 +16,7 @@ if (-not $TargetDate) {
     $TargetDate = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
 }
 if (-not $Xlsx) {
-    $Xlsx = "lr\work\LR日报_$TargetDate.xlsx"
+    $Xlsx = Join-Path $Root ("lr\work\LR日报_{0}.xlsx" -f $TargetDate)
 }
 if (-not (Test-Path -LiteralPath $Xlsx)) {
     Write-Step "MISSING xlsx: $Xlsx"
@@ -37,13 +34,20 @@ try {
     exit 1
 }
 
-# Prefer PowerShell COM path (works when Python ProgID fails with 无效的类字符串)
-$env:LR_KANBAN_EXPORT = "ps1,com"
+$exportPs1 = Join-Path $PSScriptRoot "run_lr_kanban_export.ps1"
+& powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -Xlsx $Xlsx -TargetDate $TargetDate
+$code = $LASTEXITCODE
+if ($code -ne 0) {
+    Write-LogLine $Log "exit=$code (kanban export fail)"
+    Write-Step "FAILED kanban export exit=$code"
+    exit $code
+}
 
 $code = Invoke-PythonLogged -PythonExe $py -Arguments @(
     "lr\run_daily.py",
     "--filled-xlsx", $Xlsx,
-    "--target-date", $TargetDate
+    "--target-date", $TargetDate,
+    "--push-only"
 ) -LogPath $Log
 Write-LogLine $Log "exit=$code"
 if ($code -eq 0) {
@@ -51,6 +55,6 @@ if ($code -eq 0) {
 } else {
     Write-Step "FAILED exit=$code. See $Log"
     if (Test-Path $Log) { Get-Content -Path $Log -Tail 80 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
-    Write-Step "Also run: powershell -ExecutionPolicy Bypass -File scripts\diagnose_wps_com.ps1"
+    Write-Step "Also run: powershell -STA -ExecutionPolicy Bypass -File scripts\diagnose_wps_com.ps1"
 }
 exit $code

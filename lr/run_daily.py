@@ -66,7 +66,24 @@ def main() -> int:
         action="store_true",
         help="只填 Excel、不截图（云端无 WPS 时可用）",
     )
+    parser.add_argument(
+        "--fill-only",
+        action="store_true",
+        help="只抓取填表，不导出看板、不推送",
+    )
+    parser.add_argument(
+        "--push-only",
+        action="store_true",
+        help="只企微推送（需 --filled-xlsx，且 lr/output 下已有五城 PNG）",
+    )
     args = parser.parse_args()
+
+    if args.push_only and not args.filled_xlsx:
+        print("push-only 需要 --filled-xlsx", file=sys.stderr)
+        return 1
+    if args.fill_only and args.push_only:
+        print("不能同时 --fill-only 与 --push-only", file=sys.stderr)
+        return 1
 
     target = (
         datetime.strptime(args.target_date, "%Y-%m-%d").date()
@@ -78,12 +95,16 @@ def main() -> int:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     filled: Path
+    rows: list = []
     if args.filled_xlsx:
         filled = args.filled_xlsx
         if not filled.exists():
             print(f"filled xlsx 不存在: {filled}", file=sys.stderr)
             return 1
         print(f"[lr] reuse filled xlsx: {filled} target={target}", flush=True)
+    elif args.push_only:
+        print("push-only 需要 --filled-xlsx", file=sys.stderr)
+        return 1
     else:
         if not args.scrape_json:
             print("需要 --scrape-json 或 --filled-xlsx", file=sys.stderr)
@@ -110,8 +131,28 @@ def main() -> int:
         filled = fill_template(args.template, rows, target, WORK_DIR)
         print(f"[lr] filled: {filled}", flush=True)
 
+    if args.fill_only:
+        summary = {
+            "target_date": target.isoformat(),
+            "xlsx": str(filled),
+            "mode": "fill-only",
+            "cities": sorted({str(r.get("组织结构")) for r in rows}),
+            "rows": len(rows),
+        }
+        print(json.dumps(summary, ensure_ascii=False, indent=2), flush=True)
+        return 0
+
     pngs: list[Path] = []
-    if not args.skip_images:
+    if args.push_only:
+        for city in CITIES:
+            safe = "".join("_" if c in '\\/:*?"<>|' else c for c in city)
+            cand = OUTPUT_DIR / f"看板-单城_{safe}_{target.month}.png"
+            if not cand.exists():
+                print(f"push-only 缺少 PNG: {cand}", file=sys.stderr)
+                return 1
+            pngs.append(cand)
+        print(f"[lr] push-only pngs: {[str(p) for p in pngs]}", flush=True)
+    elif not args.skip_images:
         allow_pillow = args.pillow_fallback or os.environ.get("LR_ALLOW_PILLOW") == "1"
         try:
             print("[lr] export kanban pngs (WPS/Excel) ...", flush=True)

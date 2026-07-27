@@ -95,7 +95,7 @@ def export_kanban_pngs_wps_ps1(
         errors="strict",
     )
     cmdline = (
-        f'chcp 65001 >NUL & powershell.exe -NoProfile -ExecutionPolicy Bypass '
+        f'chcp 65001 >NUL & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass '
         f'-File "{wrapper}" > "{log_path}" 2>&1'
     )
     proc = subprocess.run(
