@@ -1,10 +1,8 @@
-# Export LR kanban PNGs in STA PowerShell (Windows).
-# Keep this script ASCII-only to avoid GBK mojibake parser issues.
+# Export LR kanban PNGs in STA PowerShell. ASCII-only script body.
 param(
     [Parameter(Mandatory = $true)][string]$Xlsx,
     [Parameter(Mandatory = $true)][string]$TargetDate,
-    [string]$OutDir = "lr\output",
-    [string]$Region = "川藏一区"
+    [string]$OutDir = "lr\output"
 )
 
 $ErrorActionPreference = "Stop"
@@ -18,31 +16,31 @@ if (-not (Test-Path -LiteralPath $Xlsx)) {
 }
 
 try {
-    $dt = [datetime]::ParseExact($TargetDate, "yyyy-MM-dd", $null)
+    $null = [datetime]::ParseExact($TargetDate, "yyyy-MM-dd", $null)
 } catch {
     Write-Step "Invalid TargetDate: $TargetDate"
     exit 1
 }
 
-$cities = @("仁寿县", "南溪", "叙永", "彭州市", "合江县")
+$py = Join-Path $Root ".venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $py)) {
+    Write-Step "MISSING venv python: $py"
+    exit 1
+}
+
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $outAbs = (Resolve-Path -LiteralPath $OutDir).Path
-$xlsxAbs = (Resolve-Path -LiteralPath $Xlsx).Path
-$logPath = Join-Path $outAbs "wps_export.log"
 $cfgPath = Join-Path $outAbs "_export_kanban_cfg.json"
+$logPath = Join-Path $outAbs "wps_export.log"
 
-$cfg = @{
-    xlsx   = $xlsxAbs
-    outDir = $outAbs
-    month  = [int]$dt.Month
-    region = $Region
-    cities = $cities
-    sheet  = "看板-单城"
-    range  = "B1:R37"
+$xlsxAbs = (Resolve-Path -LiteralPath $Xlsx).Path
+& $py "lr\write_kanban_export_cfg.py" "--xlsx" $xlsxAbs "--target-date" $TargetDate "--out-dir" $outAbs "--config" $cfgPath
+if ($LASTEXITCODE -ne 0) {
+    Write-Step "write_kanban_export_cfg failed"
+    exit 1
 }
-$cfg | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $cfgPath -Encoding UTF8
 
-Write-Step ("Kanban export STA: xlsx={0} month={1}" -f $xlsxAbs, $dt.Month)
+Write-Step ("Kanban export STA: xlsx={0} date={1}" -f $xlsxAbs, $TargetDate)
 $exportPs1 = Join-Path $PSScriptRoot "export_lr_kanban_wps.ps1"
 
 try {
@@ -59,17 +57,13 @@ try {
     exit 1
 }
 
-foreach ($city in $cities) {
-    $safe = ($city -replace '[\\/:*?"<>|]', '_')
-    $png = Join-Path $outAbs ("看板-单城_{0}_{1}.png" -f $safe, $dt.Month)
-    if (-not (Test-Path -LiteralPath $png)) {
-        Write-Step ("MISSING png after export: {0}" -f $png)
-        if (Test-Path -LiteralPath $logPath) {
-            Get-Content -LiteralPath $logPath -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
-        }
-        exit 1
+& $py "lr\verify_kanban_pngs.py" "--config" $cfgPath
+if ($LASTEXITCODE -ne 0) {
+    if (Test-Path -LiteralPath $logPath) {
+        Get-Content -LiteralPath $logPath -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
     }
+    exit 1
 }
 
-Write-Step ("Kanban export OK ({0} pngs)" -f $cities.Count)
+Write-Step "Kanban export OK"
 exit 0

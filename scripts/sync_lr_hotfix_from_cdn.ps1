@@ -19,6 +19,8 @@ $files = @(
     "lr/export_kanban_com.py",
     "lr/kanban_image.py",
     "lr/run_daily.py",
+    "lr/write_kanban_export_cfg.py",
+    "lr/verify_kanban_pngs.py",
     "scripts/export_lr_kanban_wps.ps1",
     "scripts/run_lr_kanban_export.ps1",
     "scripts/run_lr_profit_fill_local.ps1",

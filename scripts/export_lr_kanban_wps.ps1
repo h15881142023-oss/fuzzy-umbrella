@@ -7,7 +7,7 @@ param(
     [int]$Month = 0,
     [string]$Region = "",
     [string]$Cities = "",
-    [string]$SheetName = "看板-单城",
+    [string]$SheetName = "",
     [string]$RangeAddress = "B1:R37"
 )
 
@@ -23,11 +23,16 @@ if ($ConfigJson -and (Test-Path $ConfigJson)) {
     $Cities = [string]($cfg.cities -join ",")
     if ($cfg.sheet) { $SheetName = [string]$cfg.sheet }
     if ($cfg.range) { $RangeAddress = [string]$cfg.range }
+    if ($cfg.pngPrefix) { $script:pngPrefix = [string]$cfg.pngPrefix } else { $script:pngPrefix = "kanban" }
 }
 
 if (-not $XlsxPath -or -not $OutDir -or $Month -le 0) {
     throw "Missing XlsxPath/OutDir/Month (or ConfigJson)"
 }
+if (-not $SheetName) {
+    throw "Missing sheet name in ConfigJson"
+}
+if (-not $script:pngPrefix) { $script:pngPrefix = "kanban" }
 
 function Find-EtExe {
     $patterns = @(
@@ -187,7 +192,7 @@ try {
         try { $app.CalculateFull() } catch { try { $wb.Application.Calculate() } catch {} }
         Start-Sleep -Milliseconds 600
         $safe = ($city -replace '[\\/:*?"<>|]', '_')
-        $png = Join-Path $outAbs ("看板-单城_{0}_{1}.png" -f $safe, $Month)
+        $png = Join-Path $outAbs ("{0}_{1}_{2}.png" -f $script:pngPrefix, $safe, $Month)
         Export-RangePng -Worksheet $ws -Address $RangeAddress -PngPath $png
         Write-Host "exported=$png"
     }
