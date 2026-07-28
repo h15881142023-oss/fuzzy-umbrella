@@ -59,11 +59,110 @@ def _click_text(page, text: str, timeout_ms: int = 10000) -> None:
     locator.first.click()
 
 
-def download_excel(download_dir: Path, *, url: str, password: str, headless: bool) -> Path:
+def _wait_table_ready(page, timeout_ms: int = 90000) -> None:
+    page.get_by_text("商家ID", exact=False).first.wait_for(timeout=timeout_ms)
+    page.get_by_text("商家名称", exact=False).first.wait_for(timeout=timeout_ms)
+    page.wait_for_timeout(2000)
+
+
+def _hover_table_area(page) -> None:
+    """表格需先悬停，右侧才会出现下载工具栏。"""
+    table_selectors = [
+        "table tbody tr td",
+        ".ant-table-tbody tr td",
+        "[class*='table'] tbody tr td",
+        "[class*='vtable']",
+        "[class*='sheet']",
+    ]
+    for selector in table_selectors:
+        cell = page.locator(selector).first
+        try:
+            cell.wait_for(state="visible", timeout=3000)
+            cell.hover(force=True)
+            page.wait_for_timeout(800)
+            return
+        except PlaywrightTimeoutError:
+            continue
+
+    viewport = page.viewport_size or {"width": 1280, "height": 720}
+    page.mouse.move(viewport["width"] // 2, viewport["height"] // 2 + 80)
+    page.wait_for_timeout(800)
+
+
+def _click_table_download(page) -> None:
+    """悬停表格后点击右侧下载图标，再选 Excel。"""
+    table_roots = [
+        page.locator("table").first,
+        page.locator(".ant-table").first,
+        page.locator("[class*='table-container']").first,
+        page.locator("[class*='vtable']").first,
+    ]
+
+    download_selectors = [
+        '[title="下载"]',
+        '[title*="下载"]',
+        '[aria-label="下载"]',
+        '[aria-label*="下载"]',
+        '[class*="download"]',
+        'i[class*="download"]',
+    ]
+
+    last_error: Optional[Exception] = None
+    for _ in range(4):
+        _hover_table_area(page)
+        clicked = False
+
+        for selector in download_selectors:
+            btn = page.locator(selector).filter(has_not=page.locator("[hidden]"))
+            try:
+                if btn.count() == 0:
+                    continue
+                target = btn.last
+                target.wait_for(state="visible", timeout=1500)
+                target.click(timeout=5000)
+                clicked = True
+                break
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+
+        if not clicked:
+            for root in table_roots:
+                try:
+                    box = root.bounding_box()
+                    if not box:
+                        continue
+                    x = box["x"] + box["width"] - 18
+                    y = box["y"] + 52
+                    page.mouse.move(x, y)
+                    page.wait_for_timeout(300)
+                    page.mouse.click(x, y)
+                    clicked = True
+                    break
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+
+        if clicked:
+            excel_item = page.get_by_text("Excel", exact=False).first
+            excel_item.wait_for(state="visible", timeout=8000)
+            excel_item.click()
+            return
+
+        page.wait_for_timeout(800)
+
+    raise RuntimeError(f"未找到下载按钮（需先悬停表格区域）: {last_error}")
+
+
+def _download_excel_impl(download_dir: Path, *, url: str, password: str, headless: bool) -> Path:
     download_dir.mkdir(parents=True, exist_ok=True)
+    if sys.platform == "win32":
+        import asyncio
+
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        asyncio.set_event_loop(asyncio.new_event_loop())
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless)
-        context = browser.new_context(accept_downloads=True)
+        context = browser.new_context(accept_downloads=True, viewport={"width": 1600, "height": 900})
         page = context.new_page()
         page.goto(url, wait_until="domcontentloaded", timeout=120000)
 
@@ -79,11 +178,10 @@ def download_excel(download_dir: Path, *, url: str, password: str, headless: boo
 
         page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=120000)
         _click_text(page, "商家明细-昨日", timeout_ms=30000)
-        page.wait_for_timeout(3000)
+        _wait_table_ready(page)
 
-        with page.expect_download(timeout=60000) as download_info:
-            _click_text(page, "下载", timeout_ms=30000)
-            _click_text(page, "Excel", timeout_ms=10000)
+        with page.expect_download(timeout=120000) as download_info:
+            _click_table_download(page)
         download = download_info.value
         suggest = download.suggested_filename or f"self_delivery_{int(time.time())}.xlsx"
         output = download_dir / suggest
@@ -92,6 +190,44 @@ def download_excel(download_dir: Path, *, url: str, password: str, headless: boo
         context.close()
         browser.close()
         return output
+
+
+def download_excel(download_dir: Path, *, url: str, password: str, headless: bool) -> Path:
+    """Windows 下用子进程隔离 Playwright，避免 event loop 冲突。"""
+    if sys.platform != "win32":
+        return _download_excel_impl(
+            download_dir, url=url, password=password, headless=headless
+        )
+
+    marker = download_dir / ".download_result.json"
+    if marker.exists():
+        marker.unlink(missing_ok=True)
+
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "--download-only",
+        "--url",
+        url,
+        "--password",
+        password,
+        "--temp-dir",
+        str(download_dir),
+    ]
+    if headless:
+        cmd.append("--headless")
+
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=False)
+    if proc.returncode != 0:
+        detail = (proc.stderr or proc.stdout or "").strip()
+        raise RuntimeError(detail or "浏览器下载子进程失败")
+
+    if not marker.exists():
+        raise RuntimeError("下载完成但未生成结果标记文件")
+
+    payload = json.loads(marker.read_text(encoding="utf-8"))
+    marker.unlink(missing_ok=True)
+    return Path(payload["path"])
 
 
 def build_filtered_result(raw_excel: Path, temp_dir: Path) -> MonitorResult:
@@ -224,10 +360,34 @@ def main() -> int:
         help="Windows 临时目录",
     )
     parser.add_argument("--headless", action="store_true", help="无头模式运行浏览器")
+    parser.add_argument(
+        "--download-only",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
     args = parser.parse_args()
 
     temp_dir = Path(args.temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
+
+    if args.download_only:
+        try:
+            downloaded = _download_excel_impl(
+                temp_dir,
+                url=args.url,
+                password=args.password,
+                headless=args.headless,
+            )
+            marker = temp_dir / ".download_result.json"
+            marker.write_text(
+                json.dumps({"path": str(downloaded)}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            return 0
+        except Exception as exc:  # noqa: BLE001
+            print(f"执行失败: {exc}", file=sys.stderr)
+            return 1
+
     downloaded_excel: Optional[Path] = None
     filtered_excel: Optional[Path] = None
 
