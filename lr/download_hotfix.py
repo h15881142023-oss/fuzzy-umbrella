@@ -12,6 +12,7 @@ BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
 
 FILES = [
     "lr/fill_template.py",
+    "lr/inspect_workbook_days.py",
     "lr/write_kanban_export_cfg.py",
     "lr/verify_kanban_pngs.py",
     "lr/run_daily.py",
@@ -50,7 +51,13 @@ def main() -> int:
         out.write_bytes(data)
         print(f"OK {out} ({len(data)} bytes)")
         ok += 1
+    fill = ROOT / ("lr\\fill_template.py" if sys.platform == "win32" else "lr/fill_template.py")
+    text = fill.read_text(encoding="utf-8", errors="replace")
+    if "monthly_master_path" not in text or "_resolve_base_workbook" not in text:
+        print("ERROR: fill_template.py is OLD (no cumulative fill). Abort.", file=sys.stderr)
+        return 2
     print(f"done {ok} files from {BASE}")
+    print("OK fill_template.py has cumulative fill")
     return 0
 
 

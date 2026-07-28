@@ -141,7 +141,8 @@ def fill_template(
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"LR日报_{target.isoformat()}.xlsx"
     base = _resolve_base_workbook(template, out_dir, target)
-    if base == template:
+    print(f"[lr] fill base={base.name} -> {out_path.name}", flush=True)
+    if base.resolve() == template.resolve():
         sanitize_for_openpyxl(template, out_path)
     else:
         shutil.copy2(base, out_path)
