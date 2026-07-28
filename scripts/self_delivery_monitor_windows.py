@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -17,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 import requests
-from playwright.async_api import Frame, Page, TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Page, TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
 
 BOARD_URL = "http://47.112.178.78:8100/#/de-link/zjygliyM?ticket=8GbVO1Vw"
@@ -26,6 +26,8 @@ WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4a
 
 DELIVERY_ALLOWED = {"跑腿", "商家配送"}
 BIZ_ALLOWED = {"城市商家", "全国KA", "区域KA"}
+TARGET_CHART_TITLE = "商家明细-昨日"
+REQUIRED_FIELDS = ("一级商家配送类型", "商家类型", "上线时间")
 
 
 @dataclass
@@ -54,201 +56,133 @@ def _parse_date_series(series: pd.Series) -> pd.Series:
     return pd.to_datetime(normalized, errors="coerce").dt.date
 
 
-async def _iter_targets(page: Page) -> list[Page | Frame]:
-    targets: list[Page | Frame] = [page]
-    for frame in page.frames:
-        if frame != page.main_frame:
-            targets.append(frame)
-    return targets
+async def _login_if_needed(page: Page, password: str) -> None:
+    try:
+        pwd_input = page.locator('input[type="password"]').first
+        await pwd_input.wait_for(timeout=8000)
+        await pwd_input.fill(password)
+        for name in ("确定", "OK", "确认"):
+            btn = page.get_by_role("button", name=name)
+            if await btn.count() == 0:
+                btn = page.get_by_text(name, exact=True)
+            if await btn.count():
+                await btn.first.click()
+                break
+    except PlaywrightTimeoutError:
+        pass
 
 
-async def _click_text_in_any(page: Page, text: str, timeout_ms: int = 10000) -> None:
-    deadline = time.time() + timeout_ms / 1000
-    last_error: Optional[Exception] = None
-    while time.time() < deadline:
-        for target in await _iter_targets(page):
-            locator = target.get_by_text(text, exact=False)
-            try:
-                if await locator.count() == 0:
-                    continue
-                item = locator.first
-                await item.scroll_into_view_if_needed(timeout=2000)
-                await item.click(timeout=5000)
-                return
-            except Exception as exc:  # noqa: BLE001
-                last_error = exc
-        await page.wait_for_timeout(500)
-    raise RuntimeError(f"未找到可点击文本「{text}」: {last_error}")
+async def _force_show_icons(page: Page, root_selector: str) -> None:
+    await page.evaluate(
+        """(rootSelector) => {
+          const root = document.querySelector(rootSelector) || document;
+          const nodes = root.querySelectorAll(
+            '.icons-container,.bar-base-icon,.ed-dropdown,.ed-tooltip__trigger'
+          );
+          for (const n of nodes) {
+            let p = n;
+            for (let i = 0; i < 8 && p; i++) {
+              const cls = String(p.className || '');
+              const display = cls.includes('icons-container') ? 'flex' : 'block';
+              p.style.setProperty('display', display, 'important');
+              p.style.setProperty('opacity', '1', 'important');
+              p.style.setProperty('visibility', 'visible', 'important');
+              p.style.setProperty('pointer-events', 'auto', 'important');
+              p.style.setProperty('z-index', '99999', 'important');
+              p = p.parentElement;
+            }
+          }
+        }""",
+        root_selector,
+    )
 
 
-async def _open_merchant_yesterday_tab(page: Page) -> None:
-    tab_names = ["商家明细-昨日", "商明细-昨日", "商家明细"]
-    last_error: Optional[Exception] = None
-    for name in tab_names:
+async def _download_excel_from_chart(page: Page, chart_id: str, download_dir: Path) -> Path:
+    wrapper_sel = f"#wrapper-outer-id-{chart_id}"
+    wrapper = page.locator(wrapper_sel)
+    if await wrapper.count() == 0:
+        raise RuntimeError(f"未找到目标图表容器: {wrapper_sel}")
+
+    # 关闭可能残留的放大弹窗
+    for _ in range(2):
+        close_btn = page.locator(".ed-dialog:visible .ed-dialog__headerbtn, .ed-dialog:visible .ed-dialog__close")
+        if await close_btn.count() == 0:
+            break
         try:
-            await _click_text_in_any(page, name, timeout_ms=15000)
-            await page.wait_for_timeout(2500)
-            try:
-                await page.wait_for_load_state("networkidle", timeout=30000)
-            except PlaywrightTimeoutError:
-                pass
-            return
+            await close_btn.first.click(force=True, timeout=1000)
+            await page.wait_for_timeout(300)
+        except Exception:  # noqa: BLE001
+            break
+
+    canvas = wrapper.locator("canvas").first
+    box = await canvas.bounding_box()
+    if not box:
+        raise RuntimeError("未找到目标图表 canvas，无法悬停")
+
+    last_error: Optional[Exception] = None
+    for attempt in range(4):
+        try:
+            # DataEase 明细表是 canvas：必须先悬停，右侧蓝色工具栏才会出现。
+            await page.mouse.move(box["x"] + box["width"] * 0.45, box["y"] + box["height"] * 0.35)
+            await page.wait_for_timeout(900)
+            if attempt >= 1:
+                await _force_show_icons(page, wrapper_sel)
+
+            download_btn = wrapper.locator('.bar-base-icon[role="button"]').first
+            if await download_btn.count() == 0:
+                await page.mouse.click(box["x"] + box["width"] - 20, box["y"] + 55)
+            else:
+                await download_btn.click(force=True)
+
+            excel_item = page.locator(
+                ".ed-dropdown-menu__item:visible, .ed-select-dropdown__item:visible, li:visible"
+            ).filter(has_text="Excel").first
+            await excel_item.wait_for(state="visible", timeout=5000)
+
+            async with page.expect_download(timeout=180000) as download_info:
+                await excel_item.click(force=True)
+            download = await download_info.value
+            suggest = download.suggested_filename or f"self_delivery_{int(time.time())}.xlsx"
+            output = download_dir / suggest
+            await download.save_as(str(output))
+            if output.stat().st_size < 100:
+                raise RuntimeError("下载的 Excel 文件过小，可能失败")
+            return output
         except Exception as exc:  # noqa: BLE001
             last_error = exc
-    raise RuntimeError(f"未能打开「商家明细-昨日」页签: {last_error}")
+            await page.keyboard.press("Escape")
+            await page.wait_for_timeout(400)
+
+    raise RuntimeError(f"悬停后点击下载/Excel 失败: {last_error}")
 
 
-async def _target_has_table_data(target: Page | Frame) -> bool:
-    checks = [
-        target.locator("table tbody tr"),
-        target.locator(".ant-table-tbody tr"),
-        target.get_by_text(re.compile(r"共\s*\d+\s*条")),
-        target.get_by_text("商家名称", exact=False),
-        target.get_by_text("城市", exact=False),
-        target.get_by_text("区域", exact=False),
-        target.get_by_text("一级商家配送类型", exact=False),
-    ]
-    for locator in checks:
+async def _wait_target_chart_id(page: Page, timeout_ms: int = 120000) -> str:
+    chart_id_box: dict[str, Optional[str]] = {"id": None}
+
+    async def on_response(resp) -> None:
+        if "chartData/getData" not in resp.url:
+            return
         try:
-            if await locator.count() > 0:
-                return True
+            payload = await resp.json()
         except Exception:  # noqa: BLE001
-            continue
-    return False
+            return
+        data = payload.get("data") or {}
+        if data.get("title") != TARGET_CHART_TITLE:
+            return
+        inner = data.get("data") or {}
+        fields = inner.get("fields") or data.get("fields") or []
+        names = {str(f.get("name") or "") for f in fields}
+        if all(field in names for field in REQUIRED_FIELDS):
+            chart_id_box["id"] = str(data.get("id") or "")
 
+    page.on("response", lambda r: asyncio.create_task(on_response(r)))
 
-async def _wait_table_ready(page: Page, timeout_ms: int = 120000) -> Page | Frame:
     deadline = time.time() + timeout_ms / 1000
     while time.time() < deadline:
-        for target in await _iter_targets(page):
-            if await _target_has_table_data(target):
-                await page.wait_for_timeout(2000)
-                return target
-        await page.wait_for_timeout(1000)
-    raise RuntimeError("表格加载超时：未检测到商家明细数据（可能页签未切换成功）")
-
-
-async def _find_table_body(target: Page | Frame):
-    selectors = [
-        "table tbody",
-        ".ant-table-tbody",
-        "[class*='table-body']",
-        "[class*='table-container']",
-        "[class*='vtable']",
-        "[class*='sheet']",
-        "table",
-    ]
-    for selector in selectors:
-        locator = target.locator(selector).first
-        try:
-            if await locator.count() == 0:
-                continue
-            box = await locator.bounding_box()
-            if box and box["width"] > 100 and box["height"] > 80:
-                return locator, box
-        except Exception:  # noqa: BLE001
-            continue
-    return None, None
-
-
-async def _hover_table_area(page: Page, target: Page | Frame) -> None:
-    """表格需先悬停，右侧才会出现下载工具栏。"""
-    body, box = await _find_table_body(target)
-    if box:
-        x = box["x"] + box["width"] * 0.45
-        y = box["y"] + box["height"] * 0.35
-        await page.mouse.move(x, y)
-        await page.wait_for_timeout(1000)
-        return
-
-    cell_selectors = [
-        "table tbody tr td",
-        ".ant-table-tbody tr td",
-        "[class*='table'] tbody tr td",
-    ]
-    for selector in cell_selectors:
-        cell = target.locator(selector).first
-        try:
-            await cell.wait_for(state="visible", timeout=3000)
-            await cell.hover(force=True)
-            await page.wait_for_timeout(1000)
-            return
-        except PlaywrightTimeoutError:
-            continue
-
-    viewport = page.viewport_size or {"width": 1600, "height": 900}
-    await page.mouse.move(viewport["width"] // 2, viewport["height"] // 2 + 120)
-    await page.wait_for_timeout(1000)
-
-
-async def _click_table_download(page: Page, target: Page | Frame) -> None:
-    """悬停表格后点击右侧下载图标，再选 Excel。"""
-    download_selectors = [
-        '[title="下载"]',
-        '[title*="下载"]',
-        '[aria-label="下载"]',
-        '[aria-label*="下载"]',
-        '[class*="download"]',
-        'i[class*="download"]',
-    ]
-
-    last_error: Optional[Exception] = None
-    for _ in range(5):
-        await _hover_table_area(page, target)
-        clicked = False
-
-        for scope in await _iter_targets(page):
-            for selector in download_selectors:
-                btn = scope.locator(selector)
-                try:
-                    if await btn.count() == 0:
-                        continue
-                    item = btn.last
-                    await item.wait_for(state="visible", timeout=1500)
-                    await item.click(timeout=5000)
-                    clicked = True
-                    break
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-            if clicked:
-                break
-
-        if not clicked:
-            _, box = await _find_table_body(target)
-            if box:
-                try:
-                    x = box["x"] + box["width"] - 16
-                    y = box["y"] + 56
-                    await page.mouse.move(x, y)
-                    await page.wait_for_timeout(300)
-                    await page.mouse.click(x, y)
-                    clicked = True
-                except Exception as exc:  # noqa: BLE001
-                    last_error = exc
-
-        if clicked:
-            for scope in await _iter_targets(page):
-                excel_item = scope.get_by_text("Excel", exact=False).first
-                try:
-                    await excel_item.wait_for(state="visible", timeout=8000)
-                    await excel_item.click()
-                    return
-                except Exception:  # noqa: BLE001
-                    continue
-            last_error = RuntimeError("已点击下载，但未找到 Excel 选项")
-
-        await page.wait_for_timeout(800)
-
-    raise RuntimeError(f"未找到下载按钮（需先悬停表格区域）: {last_error}")
-
-
-async def _save_debug_screenshot(page: Page, temp_dir: Path, name: str) -> None:
-    shot = temp_dir / name
-    try:
-        await page.screenshot(path=str(shot), full_page=True)
-        print(f"调试截图已保存: {shot}", file=sys.stderr)
-    except Exception:  # noqa: BLE001
-        pass
+        if chart_id_box["id"]:
+            return chart_id_box["id"]
+        await page.wait_for_timeout(500)
+    raise RuntimeError("等待目标图表超时：未识别到含「一级商家配送类型/上线时间」的商家明细-昨日")
 
 
 async def _download_excel_async(
@@ -264,35 +198,28 @@ async def _download_excel_async(
         browser = await p.chromium.launch(headless=headless)
         context = await browser.new_context(
             accept_downloads=True,
+            locale="zh-CN",
             viewport={"width": 1600, "height": 900},
         )
         page = await context.new_page()
         try:
-            await page.goto(url, wait_until="domcontentloaded", timeout=120000)
+            await page.goto(url, wait_until="networkidle", timeout=180000)
+            await _login_if_needed(page, password)
+            await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=180000)
 
-            try:
-                pwd_input = page.locator('input[type="password"]').first
-                await pwd_input.wait_for(timeout=5000)
-                await pwd_input.fill(password)
-                confirm_btn = page.get_by_role("button", name="确定").first
-                await confirm_btn.click()
-            except PlaywrightTimeoutError:
-                pass
-
-            await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=120000)
-            await _open_merchant_yesterday_tab(page)
-            table_target = await _wait_table_ready(page)
-
-            async with page.expect_download(timeout=120000) as download_info:
-                await _click_table_download(page, table_target)
-            download = await download_info.value
-            suggest = download.suggested_filename or f"self_delivery_{int(time.time())}.xlsx"
-            output = download_dir / suggest
-            await download.save_as(str(output))
-            return output
+            wait_task = asyncio.create_task(_wait_target_chart_id(page, timeout_ms=120000))
+            await page.get_by_text(TARGET_CHART_TITLE, exact=False).first.click()
+            chart_id = await wait_task
+            await page.wait_for_timeout(2000)
+            return await _download_excel_from_chart(page, chart_id, download_dir)
         except Exception:
             if debug:
-                await _save_debug_screenshot(page, download_dir, "debug_failed.png")
+                shot = download_dir / "debug_failed.png"
+                try:
+                    await page.screenshot(path=str(shot), full_page=True)
+                    print(f"调试截图已保存: {shot}", file=sys.stderr)
+                except Exception:  # noqa: BLE001
+                    pass
             raise
         finally:
             await context.close()
@@ -307,8 +234,6 @@ def _download_excel_impl(
     headless: bool,
     debug: bool = False,
 ) -> Path:
-    import asyncio
-
     return asyncio.run(
         _download_excel_async(
             download_dir,
@@ -358,7 +283,7 @@ def download_excel(
     if debug:
         cmd.append("--debug")
 
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=False)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=420, check=False)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "").strip()
         raise RuntimeError(detail or "浏览器下载子进程失败")
@@ -376,9 +301,10 @@ def build_filtered_result(raw_excel: Path, temp_dir: Path) -> MonitorResult:
     if df.empty:
         raise RuntimeError("下载的 Excel 为空，无法筛选")
 
-    col_delivery = str(df.columns[2])  # C 列
-    col_biz = str(df.columns[6])  # G 列
-    col_online = str(df.columns[17])  # R 列
+    # 优先按列名；兼容你原来的 C/G/R 列约定。
+    col_delivery = _pick_column(df, ["一级商家配送类型", "配送类型"], fallback_index=2)
+    col_biz = _pick_column(df, ["商家类型"], fallback_index=6)
+    col_online = _pick_column(df, ["上线时间"], fallback_index=17)
 
     month_df = df[df[col_delivery].isin(DELIVERY_ALLOWED) & df[col_biz].isin(BIZ_ALLOWED)].copy()
     month_df[col_online] = _parse_date_series(month_df[col_online])
@@ -396,8 +322,8 @@ def build_filtered_result(raw_excel: Path, temp_dir: Path) -> MonitorResult:
     recent_count = len(recent_df)
 
     city_col = _pick_column(month_df, ["城市", "city"], fallback_index=1)
-    store_col = _pick_column(month_df, ["门店", "门店名称", "商家名称", "store"], fallback_index=3)
-    id_col = _pick_column(month_df, ["ID", "门店ID", "商家ID", "store_id"], fallback_index=0)
+    store_col = _pick_column(month_df, ["商家名称", "门店", "门店名称", "store"], fallback_index=8)
+    id_col = _pick_column(month_df, ["商家ID", "ID", "门店ID", "store_id"], fallback_index=7)
 
     pretty_df = recent_df[[city_col, store_col, id_col, col_delivery, col_biz, col_online]].copy()
     pretty_df.columns = ["城市", "门店", "ID", "配送类型", "商家类型", "上线时间"]
