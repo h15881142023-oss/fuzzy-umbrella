@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -16,7 +17,7 @@ from urllib.parse import parse_qs, urlparse
 
 import pandas as pd
 import requests
-from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import Frame, Page, TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import async_playwright
 
 BOARD_URL = "http://47.112.178.78:8100/#/de-link/zjygliyM?ticket=8GbVO1Vw"
@@ -53,51 +54,135 @@ def _parse_date_series(series: pd.Series) -> pd.Series:
     return pd.to_datetime(normalized, errors="coerce").dt.date
 
 
-async def _click_text(page, text: str, timeout_ms: int = 10000) -> None:
-    locator = page.get_by_text(text, exact=False)
-    await locator.first.wait_for(timeout=timeout_ms)
-    await locator.first.click()
+async def _iter_targets(page: Page) -> list[Page | Frame]:
+    targets: list[Page | Frame] = [page]
+    for frame in page.frames:
+        if frame != page.main_frame:
+            targets.append(frame)
+    return targets
 
 
-async def _wait_table_ready(page, timeout_ms: int = 90000) -> None:
-    await page.get_by_text("商家ID", exact=False).first.wait_for(timeout=timeout_ms)
-    await page.get_by_text("商家名称", exact=False).first.wait_for(timeout=timeout_ms)
-    await page.wait_for_timeout(2000)
+async def _click_text_in_any(page: Page, text: str, timeout_ms: int = 10000) -> None:
+    deadline = time.time() + timeout_ms / 1000
+    last_error: Optional[Exception] = None
+    while time.time() < deadline:
+        for target in await _iter_targets(page):
+            locator = target.get_by_text(text, exact=False)
+            try:
+                if await locator.count() == 0:
+                    continue
+                item = locator.first
+                await item.scroll_into_view_if_needed(timeout=2000)
+                await item.click(timeout=5000)
+                return
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+        await page.wait_for_timeout(500)
+    raise RuntimeError(f"未找到可点击文本「{text}」: {last_error}")
 
 
-async def _hover_table_area(page) -> None:
+async def _open_merchant_yesterday_tab(page: Page) -> None:
+    tab_names = ["商家明细-昨日", "商明细-昨日", "商家明细"]
+    last_error: Optional[Exception] = None
+    for name in tab_names:
+        try:
+            await _click_text_in_any(page, name, timeout_ms=15000)
+            await page.wait_for_timeout(2500)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=30000)
+            except PlaywrightTimeoutError:
+                pass
+            return
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+    raise RuntimeError(f"未能打开「商家明细-昨日」页签: {last_error}")
+
+
+async def _target_has_table_data(target: Page | Frame) -> bool:
+    checks = [
+        target.locator("table tbody tr"),
+        target.locator(".ant-table-tbody tr"),
+        target.get_by_text(re.compile(r"共\s*\d+\s*条")),
+        target.get_by_text("商家名称", exact=False),
+        target.get_by_text("城市", exact=False),
+        target.get_by_text("区域", exact=False),
+        target.get_by_text("一级商家配送类型", exact=False),
+    ]
+    for locator in checks:
+        try:
+            if await locator.count() > 0:
+                return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
+async def _wait_table_ready(page: Page, timeout_ms: int = 120000) -> Page | Frame:
+    deadline = time.time() + timeout_ms / 1000
+    while time.time() < deadline:
+        for target in await _iter_targets(page):
+            if await _target_has_table_data(target):
+                await page.wait_for_timeout(2000)
+                return target
+        await page.wait_for_timeout(1000)
+    raise RuntimeError("表格加载超时：未检测到商家明细数据（可能页签未切换成功）")
+
+
+async def _find_table_body(target: Page | Frame):
+    selectors = [
+        "table tbody",
+        ".ant-table-tbody",
+        "[class*='table-body']",
+        "[class*='table-container']",
+        "[class*='vtable']",
+        "[class*='sheet']",
+        "table",
+    ]
+    for selector in selectors:
+        locator = target.locator(selector).first
+        try:
+            if await locator.count() == 0:
+                continue
+            box = await locator.bounding_box()
+            if box and box["width"] > 100 and box["height"] > 80:
+                return locator, box
+        except Exception:  # noqa: BLE001
+            continue
+    return None, None
+
+
+async def _hover_table_area(page: Page, target: Page | Frame) -> None:
     """表格需先悬停，右侧才会出现下载工具栏。"""
-    table_selectors = [
+    body, box = await _find_table_body(target)
+    if box:
+        x = box["x"] + box["width"] * 0.45
+        y = box["y"] + box["height"] * 0.35
+        await page.mouse.move(x, y)
+        await page.wait_for_timeout(1000)
+        return
+
+    cell_selectors = [
         "table tbody tr td",
         ".ant-table-tbody tr td",
         "[class*='table'] tbody tr td",
-        "[class*='vtable']",
-        "[class*='sheet']",
     ]
-    for selector in table_selectors:
-        cell = page.locator(selector).first
+    for selector in cell_selectors:
+        cell = target.locator(selector).first
         try:
             await cell.wait_for(state="visible", timeout=3000)
             await cell.hover(force=True)
-            await page.wait_for_timeout(800)
+            await page.wait_for_timeout(1000)
             return
         except PlaywrightTimeoutError:
             continue
 
-    viewport = page.viewport_size or {"width": 1280, "height": 720}
-    await page.mouse.move(viewport["width"] // 2, viewport["height"] // 2 + 80)
-    await page.wait_for_timeout(800)
+    viewport = page.viewport_size or {"width": 1600, "height": 900}
+    await page.mouse.move(viewport["width"] // 2, viewport["height"] // 2 + 120)
+    await page.wait_for_timeout(1000)
 
 
-async def _click_table_download(page) -> None:
+async def _click_table_download(page: Page, target: Page | Frame) -> None:
     """悬停表格后点击右侧下载图标，再选 Excel。"""
-    table_roots = [
-        page.locator("table").first,
-        page.locator(".ant-table").first,
-        page.locator("[class*='table-container']").first,
-        page.locator("[class*='vtable']").first,
-    ]
-
     download_selectors = [
         '[title="下载"]',
         '[title*="下载"]',
@@ -108,51 +193,72 @@ async def _click_table_download(page) -> None:
     ]
 
     last_error: Optional[Exception] = None
-    for _ in range(4):
-        await _hover_table_area(page)
+    for _ in range(5):
+        await _hover_table_area(page, target)
         clicked = False
 
-        for selector in download_selectors:
-            btn = page.locator(selector).filter(has_not=page.locator("[hidden]"))
-            try:
-                if await btn.count() == 0:
-                    continue
-                target = btn.last
-                await target.wait_for(state="visible", timeout=1500)
-                await target.click(timeout=5000)
-                clicked = True
-                break
-            except Exception as exc:  # noqa: BLE001
-                last_error = exc
-
-        if not clicked:
-            for root in table_roots:
+        for scope in await _iter_targets(page):
+            for selector in download_selectors:
+                btn = scope.locator(selector)
                 try:
-                    box = await root.bounding_box()
-                    if not box:
+                    if await btn.count() == 0:
                         continue
-                    x = box["x"] + box["width"] - 18
-                    y = box["y"] + 52
-                    await page.mouse.move(x, y)
-                    await page.wait_for_timeout(300)
-                    await page.mouse.click(x, y)
+                    item = btn.last
+                    await item.wait_for(state="visible", timeout=1500)
+                    await item.click(timeout=5000)
                     clicked = True
                     break
                 except Exception as exc:  # noqa: BLE001
                     last_error = exc
+            if clicked:
+                break
+
+        if not clicked:
+            _, box = await _find_table_body(target)
+            if box:
+                try:
+                    x = box["x"] + box["width"] - 16
+                    y = box["y"] + 56
+                    await page.mouse.move(x, y)
+                    await page.wait_for_timeout(300)
+                    await page.mouse.click(x, y)
+                    clicked = True
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
 
         if clicked:
-            excel_item = page.get_by_text("Excel", exact=False).first
-            await excel_item.wait_for(state="visible", timeout=8000)
-            await excel_item.click()
-            return
+            for scope in await _iter_targets(page):
+                excel_item = scope.get_by_text("Excel", exact=False).first
+                try:
+                    await excel_item.wait_for(state="visible", timeout=8000)
+                    await excel_item.click()
+                    return
+                except Exception:  # noqa: BLE001
+                    continue
+            last_error = RuntimeError("已点击下载，但未找到 Excel 选项")
 
         await page.wait_for_timeout(800)
 
     raise RuntimeError(f"未找到下载按钮（需先悬停表格区域）: {last_error}")
 
 
-async def _download_excel_async(download_dir: Path, *, url: str, password: str, headless: bool) -> Path:
+async def _save_debug_screenshot(page: Page, temp_dir: Path, name: str) -> None:
+    shot = temp_dir / name
+    try:
+        await page.screenshot(path=str(shot), full_page=True)
+        print(f"调试截图已保存: {shot}", file=sys.stderr)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+async def _download_excel_async(
+    download_dir: Path,
+    *,
+    url: str,
+    password: str,
+    headless: bool,
+    debug: bool,
+) -> Path:
     download_dir.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless)
@@ -161,46 +267,75 @@ async def _download_excel_async(download_dir: Path, *, url: str, password: str, 
             viewport={"width": 1600, "height": 900},
         )
         page = await context.new_page()
-        await page.goto(url, wait_until="domcontentloaded", timeout=120000)
-
         try:
-            pwd_input = page.locator('input[type="password"]').first
-            await pwd_input.wait_for(timeout=5000)
-            await pwd_input.fill(password)
-            confirm_btn = page.get_by_role("button", name="确定").first
-            await confirm_btn.click()
-        except PlaywrightTimeoutError:
-            pass
+            await page.goto(url, wait_until="domcontentloaded", timeout=120000)
 
-        await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=120000)
-        await _click_text(page, "商家明细-昨日", timeout_ms=30000)
-        await _wait_table_ready(page)
+            try:
+                pwd_input = page.locator('input[type="password"]').first
+                await pwd_input.wait_for(timeout=5000)
+                await pwd_input.fill(password)
+                confirm_btn = page.get_by_role("button", name="确定").first
+                await confirm_btn.click()
+            except PlaywrightTimeoutError:
+                pass
 
-        async with page.expect_download(timeout=120000) as download_info:
-            await _click_table_download(page)
-        download = await download_info.value
-        suggest = download.suggested_filename or f"self_delivery_{int(time.time())}.xlsx"
-        output = download_dir / suggest
-        await download.save_as(str(output))
+            await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=120000)
+            await _open_merchant_yesterday_tab(page)
+            table_target = await _wait_table_ready(page)
 
-        await context.close()
-        await browser.close()
-        return output
+            async with page.expect_download(timeout=120000) as download_info:
+                await _click_table_download(page, table_target)
+            download = await download_info.value
+            suggest = download.suggested_filename or f"self_delivery_{int(time.time())}.xlsx"
+            output = download_dir / suggest
+            await download.save_as(str(output))
+            return output
+        except Exception:
+            if debug:
+                await _save_debug_screenshot(page, download_dir, "debug_failed.png")
+            raise
+        finally:
+            await context.close()
+            await browser.close()
 
 
-def _download_excel_impl(download_dir: Path, *, url: str, password: str, headless: bool) -> Path:
+def _download_excel_impl(
+    download_dir: Path,
+    *,
+    url: str,
+    password: str,
+    headless: bool,
+    debug: bool = False,
+) -> Path:
     import asyncio
 
-    if sys.platform == "win32":
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    return asyncio.run(_download_excel_async(download_dir, url=url, password=password, headless=headless))
+    return asyncio.run(
+        _download_excel_async(
+            download_dir,
+            url=url,
+            password=password,
+            headless=headless,
+            debug=debug,
+        )
+    )
 
 
-def download_excel(download_dir: Path, *, url: str, password: str, headless: bool) -> Path:
+def download_excel(
+    download_dir: Path,
+    *,
+    url: str,
+    password: str,
+    headless: bool,
+    debug: bool = False,
+) -> Path:
     """Windows 下用子进程隔离 Playwright，避免 event loop 冲突。"""
     if sys.platform != "win32":
         return _download_excel_impl(
-            download_dir, url=url, password=password, headless=headless
+            download_dir,
+            url=url,
+            password=password,
+            headless=headless,
+            debug=debug,
         )
 
     marker = download_dir / ".download_result.json"
@@ -220,6 +355,8 @@ def download_excel(download_dir: Path, *, url: str, password: str, headless: boo
     ]
     if headless:
         cmd.append("--headless")
+    if debug:
+        cmd.append("--debug")
 
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300, check=False)
     if proc.returncode != 0:
@@ -364,6 +501,7 @@ def main() -> int:
         help="Windows 临时目录",
     )
     parser.add_argument("--headless", action="store_true", help="无头模式运行浏览器")
+    parser.add_argument("--debug", action="store_true", help="失败时保存页面截图")
     parser.add_argument(
         "--download-only",
         action="store_true",
@@ -381,6 +519,7 @@ def main() -> int:
                 url=args.url,
                 password=args.password,
                 headless=args.headless,
+                debug=args.debug,
             )
             marker = temp_dir / ".download_result.json"
             marker.write_text(
@@ -397,7 +536,11 @@ def main() -> int:
 
     try:
         downloaded_excel = download_excel(
-            temp_dir, url=args.url, password=args.password, headless=args.headless
+            temp_dir,
+            url=args.url,
+            password=args.password,
+            headless=args.headless,
+            debug=args.debug,
         )
         result = build_filtered_result(downloaded_excel, temp_dir)
         filtered_excel = result.recent_file
