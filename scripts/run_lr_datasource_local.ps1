@@ -1,6 +1,5 @@
-# 利润数据源推送（≠ 利润填写推送）
-# 抓取 → 导出五城原始日利润 Excel → 推送到数据源专用企微（不填模板、不截看板）
-# 默认计划：每天 23:15
+# LR datasource push (NOT profit-fill). Scrape -> raw Excel -> WeCom. ASCII-only header.
+# Default schedule: daily 23:15
 param(
     [string]$TargetDate = ""
 )
