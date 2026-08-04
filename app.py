@@ -13,6 +13,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -36,6 +37,7 @@ NAV_ITEMS = [
     {"path": "/kpi/dashboard", "label": "绩效看板"},
     {"path": "/warning/catering", "label": "餐饮预警"},
     {"path": "/evaluation", "label": "合作商评价"},
+    {"path": "/evaluation/xinshang", "label": "新商评价看板"},
     {"path": "/todo_achievement", "label": "TODO达成"},
     {"path": "/notice", "label": "通知函"},
     {"path": "/business", "label": "经营管理"},
@@ -211,6 +213,16 @@ def page_evaluation():
             {"key": "updated_at", "label": "更新时间"},
         ],
         "/api/evaluation/sync",
+    )
+
+
+@app.route("/evaluation/xinshang")
+@login_required
+def page_xinshang_dashboard():
+    """川藏一区新商能力评价单页看板（静态 HTML，可本地直接打开）。"""
+    return send_from_directory(
+        BASE_DIR / "static" / "dashboards",
+        "cz1-xinshang-pingjia.html",
     )
 
 
