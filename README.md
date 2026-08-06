@@ -60,23 +60,28 @@ NS 生效后访问：https://1.chuanzangyiqu.top
 
 ## 新商评价看板（免登录外发）
 
-单页 HTML：`static/dashboards/cz1-xinshang-pingjia.html`
+单页 HTML：`static/dashboards/cz1-xinshang-pingjia.html`  
+公开站点目录：`docs/xinshang/`（GitHub Pages）
 
 | 场景 | 地址 |
 |------|------|
+| **公开分享（推荐）** | `https://h15881142023-oss.github.io/fuzzy-umbrella/xinshang/` |
 | 本机 | `http://127.0.0.1:5001/evaluation/xinshang` |
-| 外发域名 | `https://1.chuanzangyiqu.top/evaluation/xinshang` |
-| 静态直链 | `https://1.chuanzangyiqu.top/static/dashboards/cz1-xinshang-pingjia.html` |
+| 自有域名 | `https://1.chuanzangyiqu.top/evaluation/xinshang` |
 
-该页**无需登录**，可直接把外发域名发给同事。  
-Windows 一键启动（Web + 可选隧道）：
+公开链接**无需登录**。首次启用 GitHub Pages：
+
+1. 合并本仓库到 `main`
+2. GitHub 仓库 → **Settings** → **Pages**
+3. Build and deployment → Source 选 **GitHub Actions**
+4. 等待 Actions 里 `Deploy GitHub Pages` 跑绿后即可外发上面链接
+
+Windows 本机启动（Web + 可选隧道）：
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
 powershell -ExecutionPolicy Bypass -File .\scripts\start_xinshang_windows.ps1
 ```
-
-前提：本机已按上文配置 Cloudflare Tunnel，且 `start` 后隧道在跑。
 
 ## 美团看板 CDP 抓取
 

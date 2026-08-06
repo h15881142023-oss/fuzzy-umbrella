@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>川藏一区 · 新商能力评价看板</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg0: #0f1c22;
+      --bg1: #152830;
+      --bg2: #1b343e;
+      --panel: rgba(255, 252, 247, 0.96);
+      --panel-soft: rgba(255, 252, 247, 0.88);
+      --ink: #142126;
+      --ink-soft: #4a5d66;
+      --line: rgba(20, 33, 38, 0.1);
+      --brand: #0e7c6b;
+      --brand-deep: #08584c;
+      --brand-soft: #d7f0ea;
+      --warn: #c45c26;
+      --danger: #b42318;
+      --safe: #1f7a4c;
+      --amber: #b7791f;
+      --sky: #1d6f9a;
+      --shadow: 0 18px 40px rgba(8, 28, 34, 0.18);
+      --radius: 18px;
+      --font-display: "Outfit", "Noto Sans SC", sans-serif;
+      --font-body: "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: var(--font-body);
+      background:
+        radial-gradient(1200px 600px at 8% -10%, rgba(14, 124, 107, 0.45), transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, rgba(196, 92, 38, 0.28), transparent 50%),
+        linear-gradient(160deg, var(--bg0), var(--bg1) 45%, #1a3a44 100%);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 64px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      border-radius: 28px;
+      padding: 36px 40px 32px;
+      color: #f7fffc;
+      background:
+        linear-gradient(135deg, rgba(8, 88, 76, 0.92), rgba(15, 40, 48, 0.88) 55%, rgba(29, 70, 82, 0.9)),
+        url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      box-shadow: var(--shadow);
+      animation: rise 0.7s ease both;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -80px;
+      top: -60px;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,0.16), transparent 70%);
+      pointer-events: none;
+    }
+    .hero-brand {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      margin: 0 0 8px;
+      line-height: 1.1;
+    }
+    .hero-sub {
+      margin: 0;
+      max-width: 52ch;
+      font-size: 1.05rem;
+      color: rgba(247, 255, 252, 0.86);
+      line-height: 1.6;
+    }
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 0.88rem;
+      backdrop-filter: blur(8px);
+    }
+    .chip strong { font-family: var(--font-display); font-weight: 700; }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .kpi {
+      background: var(--panel);
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+      box-shadow: var(--shadow);
+      animation: rise 0.7s ease both;
+    }
+    .kpi:nth-child(1) { animation-delay: 0.05s; }
+    .kpi:nth-child(2) { animation-delay: 0.1s; }
+    .kpi:nth-child(3) { animation-delay: 0.15s; }
+    .kpi:nth-child(4) { animation-delay: 0.2s; }
+    .kpi:nth-child(5) { animation-delay: 0.25s; }
+    .kpi .label { color: var(--ink-soft); font-size: 0.86rem; margin-bottom: 8px; }
+    .kpi .value {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--brand-deep);
+      line-height: 1;
+    }
+    .kpi .hint { margin-top: 8px; font-size: 0.78rem; color: var(--ink-soft); }
+    .kpi.danger .value { color: var(--danger); }
+    .kpi.warn .value { color: var(--warn); }
+
+    .section {
+      margin-top: 22px;
+      background: var(--panel);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      animation: rise 0.75s ease both;
+    }
+    .section-h {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    .section-h h2 {
+      margin: 0;
+      font-family: var(--font-display);
+      font-size: 1.45rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .section-h p {
+      margin: 6px 0 0;
+      color: var(--ink-soft);
+      font-size: 0.92rem;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
+    .grid-2b {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    .panel-soft {
+      background: linear-gradient(180deg, #f4faf8, #eef6f3);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .chart-box { position: relative; height: 320px; }
+    .chart-box.sm { height: 280px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+    }
+    th {
+      color: var(--ink-soft);
+      font-weight: 600;
+      font-size: 0.8rem;
+      background: rgba(14, 124, 107, 0.06);
+    }
+    tr:hover td { background: rgba(14, 124, 107, 0.04); }
+    .num { font-family: var(--font-display); font-weight: 700; }
+    .city-btn {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: var(--brand-deep);
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+      font-family: inherit;
+      font-size: inherit;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 8px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .b-safe { background: #e5f6ec; color: var(--safe); }
+    .b-risk { background: #fde8e6; color: var(--danger); }
+    .b-watch { background: #fff1df; color: var(--amber); }
+    .b-high { background: #fce8e6; color: #8f1d14; }
+    .b-na { background: #eef2f4; color: #667780; }
+    .b-band-0 { background: #fde8e6; color: #8f1d14; }
+    .b-band-1 { background: #ffedd5; color: #9a3412; }
+    .b-band-2 { background: #fef3c7; color: #92400e; }
+    .b-band-3 { background: #ecfccb; color: #3f6212; }
+    .b-band-4 { background: #dcfce7; color: #166534; }
+    .b-band-5 { background: #bbf7d0; color: #14532d; }
+
+    .heat {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .heat td.score-cell {
+      text-align: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      border-radius: 8px;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .tab {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink-soft);
+      border-radius: 999px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: 0.2s ease;
+    }
+    .tab:hover { border-color: var(--brand); color: var(--brand-deep); }
+    .tab.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+      box-shadow: 0 8px 18px rgba(14, 124, 107, 0.28);
+    }
+    .module-pane { display: none; }
+    .module-pane.active { display: block; animation: fade 0.35s ease; }
+
+    .city-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pill {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-family: inherit;
+      min-width: 110px;
+      text-align: left;
+      transition: 0.2s ease;
+    }
+    .pill strong { display: block; font-size: 0.95rem; color: var(--ink); }
+    .pill span { font-size: 0.78rem; color: var(--ink-soft); }
+    .pill.active {
+      background: var(--brand-soft);
+      border-color: var(--brand);
+      box-shadow: inset 0 0 0 1px rgba(14,124,107,0.25);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 0.9fr 1.1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+    .kv {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .kv .item {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+    }
+    .kv .item .k { font-size: 0.75rem; color: var(--ink-soft); }
+    .kv .item .v { margin-top: 4px; font-weight: 700; }
+
+    .footer {
+      margin-top: 18px;
+      color: rgba(247,255,252,0.72);
+      font-size: 0.82rem;
+      text-align: center;
+    }
+
+    .alert-list { display: grid; gap: 10px; }
+    .alert-item {
+      display: grid;
+      grid-template-columns: 88px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .alert-item.critical { border-color: rgba(180,35,24,0.25); background: #fff7f6; }
+    .alert-item .score { font-family: var(--font-display); font-size: 1.35rem; font-weight: 800; color: var(--danger); }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(14px); }
+      to { opacity: 1; transform: none; }
+    }
+    @keyframes fade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @media (max-width: 1100px) {
+      .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+      .grid-2, .grid-2b, .detail-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .wrap { width: min(100% - 20px, 1440px); padding-top: 16px; }
+      .hero { padding: 24px 20px; }
+      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+      .section { padding: 16px; }
+      .alert-item { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1 class="hero-brand">川藏一区</h1>
+      <p class="hero-sub">新商能力评价可视化看板 · 周会汇报与区域共看，覆盖综合总分、八大模块与考核细项。</p>
+      <div class="hero-meta">
+        <div class="chip">考核周期 <strong id="periodLabel">—</strong></div>
+        <div class="chip">数据日期 <strong id="dateLabel">—</strong></div>
+        <div class="chip">城市数 <strong id="cityCount">5</strong></div>
+        <div class="chip">口径 <strong>合作商能力评价体系</strong></div>
+      </div>
+    </header>
+
+    <section class="kpi-grid" id="kpiGrid"></section>
+
+    <section class="section">
+      <div class="section-h">
+        <div>
+          <h2>综合得分与风险</h2>
+          <p>城市总分对比、激励阈值与重点风险城市（点击城市可下钻）</p>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="panel-soft">
+          <div class="chart-box"><canvas id="scoreChart"></canvas></div>
+        </div>
+        <div>
+          <div class="alert-list" id="riskList"></div>
+          <div style="margin-top:14px; overflow-x:auto;">
+            <table id="rankTable">
+              <thead>
+                <tr>
+                  <th>排名</th><th>城市</th><th>等级</th><th>综合得分</th><th>风险</th><th>落后模块</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-h">
+        <div>
+          <h2>八大模块合览</h2>
+          <p>模块得分结构 + 城市×模块热力（色阶参考同级排名区间）</p>
+        </div>
+        <div class="city-pills" id="radarPills"></div>
+      </div>
+      <div class="grid-2b">
+        <div class="panel-soft">
+          <div class="chart-box sm"><canvas id="radarChart"></canvas></div>
+        </div>
+        <div class="heat">
+          <table id="heatTable">
+            <thead></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-h">
+        <div>
+          <h2>模块细项拆解</h2>
+          <p>按考核方案覆盖外卖、团购、履约、零售、组织、商业增值、用户体验、综合治理</p>
+        </div>
+      </div>
+      <div class="tabs" id="moduleTabs"></div>
+      <div id="modulePanes"></div>
+    </section>
+
+    <section class="section" id="cityDetail">
+      <div class="section-h">
+        <div>
+          <h2>城市下钻</h2>
+          <p>档案、趋势、模块结构与本期预警清单</p>
+        </div>
+      </div>
+      <div class="city-pills" id="detailPills"></div>
+      <div class="detail-grid">
+        <div>
+          <div class="kv" id="cityMeta"></div>
+          <div class="panel-soft" style="margin-top:14px;">
+            <div class="chart-box sm"><canvas id="trendChart"></canvas></div>
+          </div>
+        </div>
+        <div>
+          <div class="panel-soft">
+            <div class="chart-box sm"><canvas id="moduleBarChart"></canvas></div>
+          </div>
+          <div style="margin-top:14px; overflow-x:auto;">
+            <table id="warnTable">
+              <thead>
+                <tr><th>维度</th><th>区间/状态</th><th>说明</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer">数据由川藏一区负责人统一更新 · 仅供周会汇报与内部查看 · 源表：新商考核体系 1.1</p>
+  </div>
+
+  <script>
+    const DATA = {
+      meta: {
+        period: "2026年7月",
+        dataDate: "2026-07-27",
+        modules: ["外卖", "团购", "履约", "零售", "组织", "商业增值", "用户体验", "综合治理"]
+      },
+      cities: [
+        {
+          name: "彭州市", level: "E3", type: "外卖&拼好饭", hasTuango: false,
+          partnerId: "183", account: "彭州市",
+          cluster: { waimai: "E中开发", tuango: "无分群", lvyue: "E高推完", lingshou: "E品类III类" },
+          score: 66.98, scoreT1: 42.81, scoreT2: 36.41,
+          thresholds: { drop: 42.75, neg: 65.75, pos: 91.77 },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(70%-90%]", warnDelta: "持平",
+          modules: { 外卖: 30.67, 团购: null, 履约: 14.0, 零售: 7.5, 组织: 7.2, 商业增值: 0.5, 用户体验: 3.6, 综合治理: 3.51 },
+          bands: { 外卖: "(70%-90%]", 团购: "不预警", 履约: "(70%-90%]", 零售: "(30%-50%]", 组织: "暂不预警", 商业增值: "[0%-10%]", 用户体验: "(70%-90%]", 综合治理: "暂不预警" },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "4.37%", "(90%-100%]", "得分 13.5"],
+              ["市场开发率(GTV)", "3.16%", "(90%-100%]", "得分 9"],
+              ["餐饮商家渗透率", "23.27%", "[0%-10%]", "得分 0.5"],
+              ["外卖模块得分", "23", "(70%-90%]", "总商口径"]
+            ],
+            零售: [
+              ["日均零售 YOY", "6.61%", "(30%-50%]", "得分 2.8"],
+              ["优质仓数达标", "5", "—", "得分 3"],
+              ["零售模块得分", "5", "(30%-50%]", ""]
+            ],
+            团购: [["城市类型", "无团购", "不预警", "不适用"]],
+            履约: [
+              ["推单完成率", "99.14%", "(70%-90%]", "得分 4.8"],
+              ["压力天出勤率", "96.08%", "—", "得分 2.1"],
+              ["超45分钟订单占比", "1.33%", "(50%-70%]", "得分 1.875"],
+              ["履约模块得分", "10.5", "(70%-90%]", ""]
+            ],
+            用户体验: [
+              ["商家问题万服排名", "0.6125", "—", "得分 1.225"],
+              ["履约问题万服排名", "0.7906", "—", "得分 2.372"],
+              ["用户体验模块得分", "3.6", "(70%-90%]", ""]
+            ],
+            组织: [
+              ["组织效率得分", "7.2", "暂不预警", "过度分 85.89"],
+              ["外卖BD满编率", "166.7%", "—", "满编得分 100"],
+              ["外卖BD效能", "16.84", "—", "效能得分 80"],
+              ["关键岗位认证(城)", "99.63", "—", "商维度 99.85"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "2.05%", "[0%-10%]", "得分 0.5"],
+              ["商业增值模块得分", "0.5", "[0%-10%]", "需关注"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩", "0.084%", "暂不预警", "得分 0.74"],
+              ["异常骑手率", "0.025%", "—", "得分 0.27"],
+              ["安全得分 / 扣分", "2.5 / 0", "—", ""],
+              ["综合治理得分", "3.51", "暂不预警", ""]
+            ]
+          }
+        },
+        {
+          name: "南溪", level: "F3", type: "外卖&拼好饭&团购", hasTuango: true,
+          partnerId: "650", account: "南溪",
+          cluster: { waimai: "F中开发", tuango: "F中开发", lvyue: "F低推完", lingshou: "F品类II类" },
+          score: 58.23, scoreT1: 36.58, scoreT2: 40.09,
+          thresholds: { drop: 45.02, neg: 68.02, pos: 94.04 },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(70%-90%]", warnDelta: "持平",
+          modules: { 外卖: 27.0, 团购: 6.0, 履约: 10.5, 零售: 5.0, 组织: 2.2, 商业增值: 1.75, 用户体验: 1.77, 综合治理: 4.01 },
+          bands: { 外卖: "(90%-100%]", 团购: "(10%-30%]", 履约: "(70%-90%]", 零售: "(30%-50%]", 组织: "暂不预警", 商业增值: "(30%-50%]", 用户体验: "(30%-50%]", 综合治理: "暂不预警" },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "5.35%", "(90%-100%]", "得分 13.5"],
+              ["市场开发率(GTV)", "4.49%", "(90%-100%]", "得分 9"],
+              ["餐饮商家渗透率", "31.44%", "(50%-70%]", "得分 2.5"],
+              ["外卖模块得分", "27", "(90%-100%]", "一区领先"]
+            ],
+            零售: [
+              ["日均零售 YOY", "1.99%", "(30%-50%]", "得分 2.8"],
+              ["优质仓数达标", "4", "—", "得分 3"],
+              ["零售模块得分", "5", "(30%-50%]", ""]
+            ],
+            团购: [
+              ["团购市场开发率", "-1.77%", "[0%-10%]", "得分 1"],
+              ["优质商家渗透率", "13.98%", "(50%-70%]", "得分 7"],
+              ["团购模块得分", "6", "(10%-30%]", "开发率拖累"]
+            ],
+            履约: [
+              ["推单完成率", "99.06%", "(90%-100%]", "得分 5.4"],
+              ["压力天出勤率", "92.54%", "—", "得分 0.525"],
+              ["超45分钟订单占比", "0.78%", "(50%-70%]", "得分 1.875"],
+              ["履约模块得分", "10.5", "(70%-90%]", ""]
+            ],
+            用户体验: [
+              ["商家问题万服排名", "0.1799", "—", "得分 0.36"],
+              ["履约问题万服排名", "0.4685", "—", "得分 1.41"],
+              ["用户体验模块得分", "1.77", "(30%-50%]", ""]
+            ],
+            组织: [
+              ["组织效率得分", "2.2", "暂不预警", "过度分 76.7"],
+              ["外卖/团购满编率", "175% / 75%", "—", "满编得分 80"],
+              ["外卖/团购BD效能", "14.34 / 3.28", "—", "效能 60 / 40"],
+              ["关键岗位认证(城)", "99.0", "—", "商维度 99.6"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "1.84%", "—", "得分 0.75"],
+              ["团购货币化率", "0.25%", "—", "得分 1"],
+              ["商业增值模块得分", "1.75", "(30%-50%]", ""]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩", "0.116%", "暂不预警", "得分 0.27"],
+              ["月团购虚假业绩", "0", "—", "得分 0.9"],
+              ["异常骑手率", "0.013%", "—", "得分 0.34"],
+              ["安全得分 / 扣分", "2.5 / 0", "—", "综合治理 4.01"]
+            ]
+          }
+        },
+        {
+          name: "合江县", level: "F2", type: "外卖&拼好饭", hasTuango: false,
+          partnerId: "691", account: "合江县",
+          cluster: { waimai: "F高开发", tuango: "无分群", lvyue: "F低推完", lingshou: "F品类II类" },
+          score: 56.35, scoreT1: 59.74, scoreT2: 45.45,
+          thresholds: { drop: 28.98, neg: 51.98, pos: 78.00 },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(50%-70%]", warnDelta: "下跌",
+          modules: { 外卖: 20.67, 团购: null, 履约: 6.2, 零售: 11.85, 组织: 8.6, 商业增值: 3.5, 用户体验: 2.07, 综合治理: 3.46 },
+          bands: { 外卖: "(50%-70%]", 团购: "不预警", 履约: "(30%-50%]", 零售: "(70%-90%]", 组织: "暂不预警", 商业增值: "(70%-90%]", 用户体验: "(30%-50%]", 综合治理: "暂不预警" },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "1.05%", "(30%-50%]", "得分 6"],
+              ["市场开发率(GTV)", "1.05%", "(70%-90%]", "得分 7"],
+              ["餐饮商家渗透率", "34.06%", "(30%-50%]", "得分 2.5"],
+              ["外卖模块得分", "15.5", "(50%-70%]", "总商口径"]
+            ],
+            零售: [
+              ["日均零售 YOY", "17.20%", "(70%-90%]", "得分 4.9"],
+              ["优质仓数达标", "2", "—", "得分 3"],
+              ["零售模块得分", "7.9 / 11.85", "(70%-90%]", "一区零售强"]
+            ],
+            团购: [["城市类型", "无团购", "不预警", "不适用"]],
+            履约: [
+              ["推单完成率", "98.92%", "(50%-70%]", "得分 3"],
+              ["压力天出勤率", "92.11%", "—", "得分 0.525"],
+              ["超45分钟订单占比", "0.96%", "(30%-50%]", "得分 1.125"],
+              ["履约模块得分", "4.65 / 6.2", "(30%-50%]", "环比下跌关注"]
+            ],
+            用户体验: [
+              ["商家问题万服排名", "0.6698", "—", "得分 1.34"],
+              ["履约问题万服排名", "0.2430", "—", "得分 0.73"],
+              ["用户体验模块得分", "2.07", "(30%-50%]", ""]
+            ],
+            组织: [
+              ["组织效率得分", "8.6", "暂不预警", "过度分 88.94 · 一区最高"],
+              ["外卖BD满编率", "100%", "—", "满编得分 100"],
+              ["外卖BD效能", "14.89", "—", "效能得分 80"],
+              ["关键岗位认证(城)", "99.8", "—", "商维度 99.92"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "2.14%", "(70%-90%]", "得分 3"],
+              ["商业增值模块得分", "3.5", "(70%-90%]", "一区最好"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩", "0.088%", "暂不预警", "得分 0.64"],
+              ["异常骑手率", "0.019%", "—", "得分 0.32"],
+              ["安全得分 / 扣分", "2.5 / 0", "—", ""],
+              ["综合治理得分", "3.46", "暂不预警", ""]
+            ]
+          }
+        },
+        {
+          name: "仁寿县", level: "E3", type: "外卖&拼好饭&团购", hasTuango: true,
+          partnerId: "140", account: "仁寿县",
+          cluster: { waimai: "E高开发", tuango: "E中开发", lvyue: "E低推完", lingshou: "E品类III类" },
+          score: 48.51, scoreT1: 49.42, scoreT2: 46.39,
+          thresholds: { drop: 34.79, neg: 57.79, pos: 83.81 },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(30%-50%]", warnDelta: "持平",
+          modules: { 外卖: 16.0, 团购: 2.0, 履约: 7.5, 零售: 6.5, 组织: 7.0, 商业增值: 2.25, 用户体验: 3.25, 综合治理: 4.01 },
+          bands: { 外卖: "(50%-70%]", 团购: "[0%-10%]", 履约: "(50%-70%]", 零售: "(50%-70%]", 组织: "暂不预警", 商业增值: "(30%-50%]", 用户体验: "(50%-70%]", 综合治理: "暂不预警" },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "1.95%", "(70%-90%]", "得分 10.5"],
+              ["市场开发率(GTV)", "1.56%", "(30%-50%]", "得分 5"],
+              ["餐饮商家渗透率", "29.17%", "[0%-10%]", "得分 0.5"],
+              ["外卖模块得分", "16", "(50%-70%]", ""]
+            ],
+            零售: [
+              ["日均零售 YOY", "13.28%", "(50%-70%]", "得分 3.5"],
+              ["优质仓数达标", "6", "—", "得分 3"],
+              ["零售模块得分", "6.5", "(50%-70%]", ""]
+            ],
+            团购: [
+              ["团购市场开发率", "6.36%", "(30%-50%]", "得分 5"],
+              ["优质商家渗透率", "9.11%", "(10%-30%]", "得分 3"],
+              ["团购模块得分", "2", "[0%-10%]", "重点盯防"]
+            ],
+            履约: [
+              ["推单完成率", "98.80%", "(50%-70%]", "得分 3"],
+              ["压力天出勤率", "91.96%", "—", "得分 0.525"],
+              ["超45分钟订单占比", "1.96%", "(50%-70%]", "得分 1.875"],
+              ["履约模块得分", "7.5", "(50%-70%]", "环比 -1"]
+            ],
+            用户体验: [
+              ["商家问题万服排名", "0.7469", "—", "得分 1.49"],
+              ["履约问题万服排名", "0.5844", "—", "得分 1.75"],
+              ["用户体验模块得分", "3.25", "(50%-70%]", ""]
+            ],
+            组织: [
+              ["组织效率得分", "7.0", "暂不预警", "过度分 85.78"],
+              ["外卖/团购满编率", "150% / 90%", "—", "满编得分 90"],
+              ["外卖/团购BD效能", "16.91 / 8.39", "—", "效能均 80"],
+              ["关键岗位认证(城)", "99.25", "—", "商维度 99.7"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "2.20%", "—", "得分 0.25"],
+              ["团购货币化率", "1.05%", "—", "得分 2"],
+              ["商业增值模块得分", "2.25", "(30%-50%]", ""]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩", "0.122%", "暂不预警", "得分 0.26"],
+              ["月团购虚假业绩", "0", "—", "得分 0.9"],
+              ["异常骑手率", "0.004%", "—", "得分 0.35"],
+              ["安全得分 / 扣分", "2.5 / 0", "—", "综合治理 4.01"]
+            ]
+          }
+        },
+        {
+          name: "叙永", level: "F3", type: "外卖&拼好饭", hasTuango: false,
+          partnerId: "880", account: "叙永",
+          cluster: { waimai: "F高开发", tuango: "无分群", lvyue: "F高推完", lingshou: "F品类III类" },
+          score: 30.57, scoreT1: 61.27, scoreT2: 56.48,
+          thresholds: { drop: 23.65, neg: 46.65, pos: 72.67 },
+          riskRoll: "目前风险", riskMonth: "月度高风险",
+          warnWeighted: "(10%-30%]", warnMarket: "[0%-10%]", warnDelta: "持平",
+          modules: { 外卖: 4.0, 团购: null, 履约: 2.0, 零售: 13.95, 组织: 2.8, 商业增值: 2.5, 用户体验: 1.5, 综合治理: 3.82 },
+          bands: { 外卖: "[0%-10%]", 团购: "不预警", 履约: "[0%-10%]", 零售: "(90%-100%]", 组织: "暂不预警", 商业增值: "(50%-70%]", 用户体验: "(10%-30%]", 综合治理: "暂不预警" },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "-0.33%", "(10%-30%]", "得分 3"],
+              ["市场开发率(GTV)", "-0.27%", "[0%-10%]", "得分 1"],
+              ["餐饮商家渗透率", "33.94%", "[0%-10%]", "得分 0.5"],
+              ["外卖模块得分", "3", "[0%-10%]", "核心短板"]
+            ],
+            零售: [
+              ["日均零售 YOY", "37.17%", "(90%-100%]", "得分 6.3"],
+              ["优质仓数达标", "3", "—", "得分 3"],
+              ["零售模块得分", "9.3 / 13.95", "(90%-100%]", "唯一亮点"]
+            ],
+            团购: [["城市类型", "无团购", "不预警", "不适用"]],
+            履约: [
+              ["推单完成率", "98.94%", "(10%-30%]", "得分 1.8"],
+              ["压力天出勤率", "95.58%", "—", "得分 2.625"],
+              ["超45分钟订单占比", "0.89%", "(10%-30%]", "得分 1.125"],
+              ["履约模块得分", "1.5 / 2.0", "[0%-10%]", "核心短板"]
+            ],
+            用户体验: [
+              ["商家问题万服排名", "0.2926", "—", "得分 0.59"],
+              ["履约问题万服排名", "0.3034", "—", "得分 0.91"],
+              ["用户体验模块得分", "1.5", "(10%-30%]", "偏弱"]
+            ],
+            组织: [
+              ["组织效率得分", "2.8", "暂不预警", "过度分 78.94"],
+              ["外卖BD满编率", "125%", "—", "满编得分 100"],
+              ["外卖BD效能", "9.11", "—", "效能得分 40"],
+              ["BD件均成本", "18.3", "—", "成本偏高"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "1.89%", "(50%-70%]", "得分 2"],
+              ["商业增值模块得分", "2.5", "(50%-70%]", ""]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩", "0.063%", "暂不预警", "得分 1.08"],
+              ["异常骑手率", "0.030%", "—", "得分 0.24"],
+              ["安全得分 / 扣分", "2.5 / 0", "—", ""],
+              ["综合治理得分", "3.82", "暂不预警", ""]
+            ]
+          }
+        }
+      ]
+    };
+
+    const MODULES = DATA.meta.modules;
+    let selectedRadar = "一区均值";
+    let selectedCity = DATA.cities[0].name;
+    let charts = {};
+
+    function fmt(n, d = 2) {
+      if (n == null || Number.isNaN(n)) return "—";
+      return Number(n).toFixed(d);
+    }
+    function bandClass(band) {
+      if (!band || band === "不预警" || band === "暂不预警" || band === "无预警") return "b-na";
+      if (band.includes("[0%-10%]")) return "b-band-0";
+      if (band.includes("(10%-30%]")) return "b-band-1";
+      if (band.includes("(30%-50%]")) return "b-band-2";
+      if (band.includes("(50%-70%]")) return "b-band-3";
+      if (band.includes("(70%-90%]")) return "b-band-4";
+      if (band.includes("(90%-100%]")) return "b-band-5";
+      return "b-na";
+    }
+    function riskClass(text) {
+      if (!text) return "b-na";
+      if (text.includes("高风险")) return "b-high";
+      if (text.includes("风险")) return "b-risk";
+      if (text.includes("安全")) return "b-safe";
+      return "b-watch";
+    }
+    function weakModules(city) {
+      return MODULES.filter(m => {
+        const b = city.bands[m];
+        return b && (b.includes("[0%-10%]") || b.includes("(10%-30%]"));
+      });
+    }
+    function avgScore() {
+      const arr = DATA.cities.map(c => c.score);
+      return arr.reduce((a, b) => a + b, 0) / arr.length;
+    }
+    function regionModuleAvg() {
+      return MODULES.map(m => {
+        const vals = DATA.cities.map(c => c.modules[m]).filter(v => v != null);
+        if (!vals.length) return 0;
+        return vals.reduce((a, b) => a + b, 0) / vals.length;
+      });
+    }
+
+    function renderKpis() {
+      const cities = DATA.cities;
+      const avg = avgScore();
+      const warn = cities.filter(c => c.warnMarket.includes("[0%-10%]") || c.warnWeighted.includes("[0%-10%]") || c.warnWeighted.includes("(10%-30%]") || c.riskMonth.includes("高风险") || c.riskRoll.includes("风险")).length;
+      const high = cities.filter(c => c.riskMonth.includes("高风险")).length;
+      const up = cities.filter(c => c.score > c.scoreT1).length;
+      const down = cities.filter(c => c.score < c.scoreT1).length;
+      const items = [
+        { label: "考评城市", value: cities.length, hint: "川藏一区全量新商城市", cls: "" },
+        { label: "一区均分", value: fmt(avg, 1), hint: "城市综合能力评价得分均值", cls: "" },
+        { label: "预警 / 风险城", value: warn, hint: "加权预警或风险状态需关注", cls: warn ? "warn" : "" },
+        { label: "月度高风险", value: high, hint: high ? "叙永需立即跟进" : "本期无高风险", cls: high ? "danger" : "" },
+        { label: "环比升降", value: `${up}↑ / ${down}↓`, hint: "相对 T-1 月综合得分", cls: "" }
+      ];
+      document.getElementById("kpiGrid").innerHTML = items.map(i => `
+        <div class="kpi ${i.cls}">
+          <div class="label">${i.label}</div>
+          <div class="value">${i.value}</div>
+          <div class="hint">${i.hint}</div>
+        </div>
+      `).join("");
+    }
+
+    function renderRankAndRisk() {
+      const sorted = [...DATA.cities].sort((a, b) => b.score - a.score);
+      const tbody = document.querySelector("#rankTable tbody");
+      tbody.innerHTML = sorted.map((c, i) => {
+        const weak = weakModules(c);
+        return `<tr>
+          <td class="num">${i + 1}</td>
+          <td><button class="city-btn" data-city="${c.name}">${c.name}</button></td>
+          <td>${c.level}</td>
+          <td class="num">${fmt(c.score, 2)}</td>
+          <td><span class="badge ${riskClass(c.riskMonth)}">${c.riskMonth}</span></td>
+          <td>${weak.length ? weak.join("、") : "—"}</td>
+        </tr>`;
+      }).join("");
+
+      const risks = sorted.filter(c => c.riskMonth.includes("风险") || c.riskRoll.includes("风险") || c.warnMarket.includes("[0%-10%]") || c.score < 45)
+        .sort((a, b) => a.score - b.score);
+      document.getElementById("riskList").innerHTML = (risks.length ? risks : [sorted[sorted.length - 1]]).slice(0, 3).map(c => {
+        const weak = weakModules(c);
+        return `<div class="alert-item ${c.score < 40 ? "critical" : ""}">
+          <div class="score">${fmt(c.score, 1)}</div>
+          <div>
+            <strong>${c.name}</strong>
+            <div style="color:var(--ink-soft);font-size:0.82rem;margin-top:4px;">
+              ${c.riskMonth} · 大盘 ${c.warnMarket} · 落后：${weak.join("、") || "结构偏弱"}
+            </div>
+          </div>
+          <button class="tab" data-city="${c.name}">下钻</button>
+        </div>`;
+      }).join("");
+
+      document.querySelectorAll("[data-city]").forEach(el => {
+        el.addEventListener("click", () => {
+          selectedCity = el.getAttribute("data-city");
+          renderCityDetail();
+          document.getElementById("cityDetail").scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      });
+    }
+
+    function renderScoreChart() {
+      const sorted = [...DATA.cities].sort((a, b) => b.score - a.score);
+      const labels = sorted.map(c => c.name);
+      const scores = sorted.map(c => c.score);
+      const drops = sorted.map(c => c.thresholds.drop);
+      const negs = sorted.map(c => c.thresholds.neg);
+      const ctx = document.getElementById("scoreChart");
+      if (charts.score) charts.score.destroy();
+      charts.score = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "综合得分",
+              data: scores,
+              backgroundColor: sorted.map(c => c.score < 40 ? "rgba(180,35,24,0.85)" : c.score < 55 ? "rgba(196,92,38,0.8)" : "rgba(14,124,107,0.85)"),
+              borderRadius: 10,
+              barThickness: 36
+            },
+            {
+              type: "line",
+              label: "丢城线",
+              data: drops,
+              borderColor: "#b42318",
+              borderWidth: 2,
+              pointRadius: 3,
+              tension: 0.2
+            },
+            {
+              type: "line",
+              label: "负向激励线",
+              data: negs,
+              borderColor: "#b7791f",
+              borderDash: [6, 4],
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0.2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: "bottom", labels: { boxWidth: 12, font: { family: "Noto Sans SC" } } },
+            tooltip: {
+              callbacks: {
+                afterBody(items) {
+                  const c = sorted[items[0].dataIndex];
+                  return `正向线 ${fmt(c.thresholds.pos, 1)} · T-1 ${fmt(c.scoreT1, 1)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            y: { beginAtZero: true, max: 100, grid: { color: "rgba(20,33,38,0.06)" } },
+            x: { grid: { display: false } }
+          },
+          animation: { duration: 900, easing: "easeOutQuart" }
+        }
+      });
+    }
+
+    function renderRadarPills() {
+      const names = ["一区均值", ...DATA.cities.map(c => c.name)];
+      document.getElementById("radarPills").innerHTML = names.map(n => `
+        <button class="pill ${n === selectedRadar ? "active" : ""}" data-radar="${n}">
+          <strong>${n}</strong>
+          <span>${n === "一区均值" ? "模块均值对照" : "单城结构"}</span>
+        </button>
+      `).join("");
+      document.querySelectorAll("[data-radar]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectedRadar = btn.getAttribute("data-radar");
+          renderRadarPills();
+          renderRadar();
+        });
+      });
+    }
+
+    function renderRadar() {
+      const avg = regionModuleAvg();
+      let values = avg;
+      if (selectedRadar !== "一区均值") {
+        const city = DATA.cities.find(c => c.name === selectedRadar);
+        values = MODULES.map(m => city.modules[m] == null ? 0 : city.modules[m]);
+      }
+      const maxes = MODULES.map((_, i) => Math.max(avg[i], ...DATA.cities.map(c => c.modules[MODULES[i]] || 0)) * 1.15 || 10);
+      const ctx = document.getElementById("radarChart");
+      if (charts.radar) charts.radar.destroy();
+      charts.radar = new Chart(ctx, {
+        type: "radar",
+        data: {
+          labels: MODULES,
+          datasets: [
+            {
+              label: "一区均值",
+              data: avg,
+              borderColor: "rgba(29,111,154,0.9)",
+              backgroundColor: "rgba(29,111,154,0.12)",
+              pointBackgroundColor: "#1d6f9a",
+              borderWidth: 2
+            },
+            {
+              label: selectedRadar,
+              data: values,
+              borderColor: "rgba(14,124,107,0.95)",
+              backgroundColor: "rgba(14,124,107,0.22)",
+              pointBackgroundColor: "#0e7c6b",
+              borderWidth: 2
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { position: "bottom" } },
+          scales: {
+            r: {
+              beginAtZero: true,
+              ticks: { display: false },
+              grid: { color: "rgba(20,33,38,0.08)" },
+              angleLines: { color: "rgba(20,33,38,0.08)" },
+              pointLabels: { font: { size: 12, family: "Noto Sans SC" } }
+            }
+          },
+          animation: { duration: 700 }
+        }
+      });
+    }
+
+    function renderHeat() {
+      const thead = document.querySelector("#heatTable thead");
+      const tbody = document.querySelector("#heatTable tbody");
+      thead.innerHTML = `<tr><th>城市</th><th>总分</th>${MODULES.map(m => `<th>${m}</th>`).join("")}</tr>`;
+      const sorted = [...DATA.cities].sort((a, b) => b.score - a.score);
+      tbody.innerHTML = sorted.map(c => `
+        <tr>
+          <td><button class="city-btn" data-city="${c.name}">${c.name}</button></td>
+          <td class="num">${fmt(c.score, 1)}</td>
+          ${MODULES.map(m => {
+            const v = c.modules[m];
+            const b = c.bands[m];
+            return `<td class="score-cell"><span class="badge ${bandClass(b)}">${v == null ? "—" : fmt(v, 1)}</span></td>`;
+          }).join("")}
+        </tr>
+      `).join("");
+      document.querySelectorAll("#heatTable [data-city]").forEach(el => {
+        el.addEventListener("click", () => {
+          selectedCity = el.getAttribute("data-city");
+          renderCityDetail();
+          document.getElementById("cityDetail").scrollIntoView({ behavior: "smooth" });
+        });
+      });
+    }
+
+    function renderModuleTabs() {
+      document.getElementById("moduleTabs").innerHTML = MODULES.map((m, i) => `
+        <button class="tab ${i === 0 ? "active" : ""}" data-mod="${m}">${m}</button>
+      `).join("");
+      document.getElementById("modulePanes").innerHTML = MODULES.map((m, i) => {
+        const rows = DATA.cities.map(c => {
+          const items = c.details[m] || [];
+          return `<tr>
+            <td><strong>${c.name}</strong><div style="color:var(--ink-soft);font-size:0.75rem;">${c.level} · ${c.type}</div></td>
+            <td><span class="badge ${bandClass(c.bands[m])}">${c.bands[m]}</span></td>
+            <td class="num">${c.modules[m] == null ? "—" : fmt(c.modules[m], 2)}</td>
+            <td>${items.map(r => `<div style="margin:2px 0;"><span style="color:var(--ink-soft)">${r[0]}：</span>${r[1]} <span class="badge ${bandClass(r[2])}">${r[2]}</span> ${r[3] ? `· ${r[3]}` : ""}</div>`).join("")}</td>
+          </tr>`;
+        }).join("");
+        return `<div class="module-pane ${i === 0 ? "active" : ""}" data-pane="${m}">
+          <div style="overflow-x:auto;">
+            <table>
+              <thead><tr><th>城市</th><th>模块预警</th><th>模块得分</th><th>细项（指标 / 区间 / 备注）</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>`;
+      }).join("");
+
+      document.querySelectorAll("#moduleTabs .tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+          document.querySelectorAll("#moduleTabs .tab").forEach(t => t.classList.remove("active"));
+          document.querySelectorAll(".module-pane").forEach(p => p.classList.remove("active"));
+          tab.classList.add("active");
+          document.querySelector(`.module-pane[data-pane="${tab.dataset.mod}"]`).classList.add("active");
+        });
+      });
+    }
+
+    function renderCityDetail() {
+      const city = DATA.cities.find(c => c.name === selectedCity);
+      document.getElementById("detailPills").innerHTML = DATA.cities.map(c => `
+        <button class="pill ${c.name === selectedCity ? "active" : ""}" data-detail="${c.name}">
+          <strong>${c.name}</strong>
+          <span>${fmt(c.score, 1)} 分 · ${c.level}</span>
+        </button>
+      `).join("");
+      document.querySelectorAll("[data-detail]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          selectedCity = btn.getAttribute("data-detail");
+          renderCityDetail();
+        });
+      });
+
+      document.getElementById("cityMeta").innerHTML = [
+        ["账号主体", city.account],
+        ["合作商ID", city.partnerId],
+        ["城市类型", city.type],
+        ["城市等级", city.level],
+        ["外卖分群", city.cluster.waimai],
+        ["团购分群", city.cluster.tuango],
+        ["履约分群", city.cluster.lvyue],
+        ["零售分群", city.cluster.lingshou],
+        ["丢城线", fmt(city.thresholds.drop, 1)],
+        ["负向 / 正向线", `${fmt(city.thresholds.neg, 1)} / ${fmt(city.thresholds.pos, 1)}`],
+        ["加权预警", city.warnWeighted],
+        ["大盘预警", city.warnMarket]
+      ].map(([k, v]) => `<div class="item"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+      const tctx = document.getElementById("trendChart");
+      if (charts.trend) charts.trend.destroy();
+      charts.trend = new Chart(tctx, {
+        type: "line",
+        data: {
+          labels: ["T-2月", "T-1月", "本期"],
+          datasets: [{
+            label: `${city.name} 综合得分`,
+            data: [city.scoreT2, city.scoreT1, city.score],
+            borderColor: "#0e7c6b",
+            backgroundColor: "rgba(14,124,107,0.18)",
+            fill: true,
+            tension: 0.35,
+            pointRadius: 5,
+            pointBackgroundColor: "#08584c",
+            borderWidth: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { suggestedMin: Math.min(city.scoreT2, city.scoreT1, city.score) - 8, grid: { color: "rgba(20,33,38,0.06)" } },
+            x: { grid: { display: false } }
+          },
+          animation: { duration: 650 }
+        }
+      });
+
+      const mctx = document.getElementById("moduleBarChart");
+      if (charts.moduleBar) charts.moduleBar.destroy();
+      charts.moduleBar = new Chart(mctx, {
+        type: "bar",
+        data: {
+          labels: MODULES,
+          datasets: [{
+            label: "模块得分",
+            data: MODULES.map(m => city.modules[m] == null ? 0 : city.modules[m]),
+            backgroundColor: MODULES.map(m => {
+              const b = city.bands[m];
+              if (b && b.includes("[0%-10%]")) return "rgba(180,35,24,0.85)";
+              if (b && b.includes("(10%-30%]")) return "rgba(196,92,38,0.85)";
+              if (city.modules[m] == null) return "rgba(148,163,170,0.45)";
+              return "rgba(14,124,107,0.85)";
+            }),
+            borderRadius: 8
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, grid: { color: "rgba(20,33,38,0.06)" } },
+            y: { grid: { display: false } }
+          },
+          animation: { duration: 700 }
+        }
+      });
+
+      const warns = MODULES.map(m => ({
+        dim: m + "模块",
+        band: city.bands[m],
+        note: city.modules[m] == null ? "无团购 / 不适用" : `得分 ${fmt(city.modules[m], 2)}`
+      })).concat([
+        { dim: "风险(滚动)", band: city.riskRoll, note: "滚动加权" },
+        { dim: "风险(当月)", band: city.riskMonth, note: "当月判定" },
+        { dim: "加权预警", band: city.warnWeighted, note: "07-27" },
+        { dim: "大盘预警", band: city.warnMarket, note: "07-27 · 环比" + city.warnDelta }
+      ]);
+      document.querySelector("#warnTable tbody").innerHTML = warns.map(w => `
+        <tr>
+          <td>${w.dim}</td>
+          <td><span class="badge ${bandClass(w.band) === "b-na" ? riskClass(w.band) : bandClass(w.band)}">${w.band}</span></td>
+          <td>${w.note}</td>
+        </tr>
+      `).join("");
+    }
+
+    function init() {
+      document.getElementById("periodLabel").textContent = DATA.meta.period;
+      document.getElementById("dateLabel").textContent = DATA.meta.dataDate;
+      document.getElementById("cityCount").textContent = DATA.cities.length;
+      renderKpis();
+      renderRankAndRisk();
+      renderScoreChart();
+      renderRadarPills();
+      renderRadar();
+      renderHeat();
+      renderModuleTabs();
+      renderCityDetail();
+    }
+
+    init();
+  </script>
+</body>
+</html>
