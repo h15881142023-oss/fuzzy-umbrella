@@ -217,9 +217,8 @@ def page_evaluation():
 
 
 @app.route("/evaluation/xinshang")
-@login_required
 def page_xinshang_dashboard():
-    """川藏一区新商能力评价单页看板（静态 HTML，可本地直接打开）。"""
+    """川藏一区新商能力评价看板（免登录，可供外发域名访问）。"""
     return send_from_directory(
         BASE_DIR / "static" / "dashboards",
         "cz1-xinshang-pingjia.html",

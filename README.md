@@ -58,6 +58,26 @@ chmod +x start_all.sh stop.sh
 
 NS 生效后访问：https://1.chuanzangyiqu.top
 
+## 新商评价看板（免登录外发）
+
+单页 HTML：`static/dashboards/cz1-xinshang-pingjia.html`
+
+| 场景 | 地址 |
+|------|------|
+| 本机 | `http://127.0.0.1:5001/evaluation/xinshang` |
+| 外发域名 | `https://1.chuanzangyiqu.top/evaluation/xinshang` |
+| 静态直链 | `https://1.chuanzangyiqu.top/static/dashboards/cz1-xinshang-pingjia.html` |
+
+该页**无需登录**，可直接把外发域名发给同事。  
+Windows 一键启动（Web + 可选隧道）：
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+powershell -ExecutionPolicy Bypass -File .\scripts\start_xinshang_windows.ps1
+```
+
+前提：本机已按上文配置 Cloudflare Tunnel，且 `start` 后隧道在跑。
+
 ## 美团看板 CDP 抓取
 
 ### 1. 安装依赖（已含 websocket-client）
