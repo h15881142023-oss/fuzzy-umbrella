@@ -14,8 +14,8 @@ sys.path.insert(0, str(ROOT))
 
 from config import (  # noqa: E402
     ADMIN_PASSWORD,
-    ADMIN_SIGNIN_URL,
     ADMIN_USER,
+    LR_ADMIN_SIGNIN_URL,
     LR_ADMIN_URL,
     LR_SCRAPE_DIR,
     REGION_NAME,
