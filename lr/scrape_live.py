@@ -143,6 +143,39 @@ def _set_date_filter(page, target: date) -> dict:
     return {"ok": False, "value": None, "tried": tried}
 
 
+def _login(page) -> None:
+  """兼容旧 NocoBase 按钮名与新站「登录」文案；SPA 需等表单渲染。"""
+  page.goto(LR_ADMIN_SIGNIN_URL, wait_until="domcontentloaded", timeout=120000)
+  # SPA 首屏常是 Loading，等登录表单出现
+  page.get_by_placeholder("密码").wait_for(state="visible", timeout=120000)
+  if "/signin" not in page.url:
+    return
+  user = page.get_by_placeholder("用户名/邮箱")
+  if user.count() == 0:
+    user = page.get_by_placeholder("用户名")
+  user.first.fill(ADMIN_USER)
+  page.get_by_placeholder("密码").fill(ADMIN_PASSWORD)
+
+  clicked = False
+  for locator in (
+    page.get_by_role("button", name="action-Action-登录"),
+    page.get_by_role("button", name="登录"),
+    page.locator("button[type='submit']"),
+    page.locator("button").filter(has_text="登录"),
+  ):
+    try:
+      if locator.count() == 0:
+        continue
+      locator.first.click(timeout=8000)
+      clicked = True
+      break
+    except Exception:
+      continue
+  if not clicked:
+    raise RuntimeError("登录页找不到可点击的登录按钮")
+  page.wait_for_url(lambda u: "/signin" not in u, timeout=60000)
+
+
 def scrape(out_path: Path | None = None, target_date: date | None = None) -> dict:
   from playwright.sync_api import sync_playwright
 
@@ -156,15 +189,9 @@ def scrape(out_path: Path | None = None, target_date: date | None = None) -> dic
     context = browser.new_context(viewport={"width": 1600, "height": 1200})
     page = context.new_page()
 
-    page.goto(LR_ADMIN_SIGNIN_URL, wait_until="networkidle", timeout=120000)
-    if "/signin" in page.url:
-      page.get_by_placeholder("用户名/邮箱").fill(ADMIN_USER)
-      page.get_by_placeholder("密码").fill(ADMIN_PASSWORD)
-      page.get_by_role("button", name="action-Action-登录").click()
-      page.wait_for_url(lambda u: "/signin" not in u, timeout=60000)
-
-    page.goto(LR_ADMIN_URL, wait_until="networkidle", timeout=120000)
-    time.sleep(3)
+    _login(page)
+    page.goto(LR_ADMIN_URL, wait_until="domcontentloaded", timeout=120000)
+    time.sleep(5)
 
     region_ok = _set_region_filter(page, REGION_NAME)
     date_info = _set_date_filter(page, target)
