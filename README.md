@@ -69,7 +69,15 @@ NS 生效后访问：https://1.chuanzangyiqu.top
 | 本机 | `http://127.0.0.1:5001/evaluation/xinshang` |
 | 自有域名 | `https://1.chuanzangyiqu.top/evaluation/xinshang` |
 
-公开链接**无需登录**。首次启用 GitHub Pages：
+公开链接**无需登录**。  
+
+版本说明：
+- **当前详表版（优化中）**：`docs/xinshang/index.html` / `static/dashboards/cz1-xinshang-pingjia.html`  
+  无图表、不展示得分，只看预警区间，八大模块一次铺开。
+- **已外发冻结版（不变）**：`docs/xinshang/index-v1-frozen-202607.html`  
+  此前发出去的旧版拷贝不受后续改动影响；需要旧版时发这个文件即可。
+
+首次启用 GitHub Pages：
 
 1. 合并本仓库到 `main`
 2. GitHub 仓库 → **Settings** → **Pages**
