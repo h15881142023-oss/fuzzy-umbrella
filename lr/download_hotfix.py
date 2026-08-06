@@ -18,7 +18,9 @@ FILES = [
     "lr/verify_kanban_pngs.py",
     "lr/run_daily.py",
     "lr/run_datasource_push.py",
+    "lr/scrape_live.py",
     "lr/download_hotfix.py",
+    "config.py",
     # shared + runners
     "scripts/_local_common.ps1",
     "scripts/export_lr_kanban_wps.ps1",

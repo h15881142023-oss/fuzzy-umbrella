@@ -141,7 +141,7 @@ python scrapers/scrape_meituan_cdp.py
 | **利润数据源推送** | 每天 23:15 | `scripts/run_lr_datasource_local.ps1` | 抓取日利润表 → 推五城原始 Excel（不填模板、不截图） |
 | **利润填写推送** | 每天 23:30 | `scripts/run_lr_profit_fill_local.ps1` | 抓取 → 写入模板 `数据源(日)` → WPS 五城看板图 → 企微 5 图 + Excel |
 
-后台表：[LR日利润表](http://47.112.178.78:13000/admin/g303bjgeytq)
+后台表：[LR日利润表](http://www.chuxin.city/v/admin/g303bjgeytq)
 
 ```powershell
 # 数据源推送

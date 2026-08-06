@@ -156,7 +156,7 @@ def scrape(out_path: Path | None = None, target_date: date | None = None) -> dic
     context = browser.new_context(viewport={"width": 1600, "height": 1200})
     page = context.new_page()
 
-    page.goto(ADMIN_SIGNIN_URL, wait_until="networkidle", timeout=120000)
+    page.goto(LR_ADMIN_SIGNIN_URL, wait_until="networkidle", timeout=120000)
     if "/signin" in page.url:
       page.get_by_placeholder("用户名/邮箱").fill(ADMIN_USER)
       page.get_by_placeholder("密码").fill(ADMIN_PASSWORD)

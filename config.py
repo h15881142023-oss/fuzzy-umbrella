@@ -98,9 +98,12 @@ EXCEL_FOLDERS = {
 LR_DIR = BASE_DIR / "lr"
 LR_ADMIN_URL = os.environ.get(
     "LR_ADMIN_URL",
-    "http://47.112.178.78:13000/admin/g303bjgeytq",
+    "http://www.chuxin.city/v/admin/g303bjgeytq",
 )
-LR_ADMIN_SIGNIN_URL = os.environ.get("LR_ADMIN_SIGNIN_URL", VISIT_ADMIN_SIGNIN_URL)
+LR_ADMIN_SIGNIN_URL = os.environ.get(
+    "LR_ADMIN_SIGNIN_URL",
+    "http://www.chuxin.city/v/signin",
+)
 LR_SCRAPE_DIR = Path(os.environ.get("LR_SCRAPE_DIR", str(BASE_DIR / "data" / "lr_scrape")))
 LR_TEMPLATE_DEFAULT = os.environ.get(
     "LR_TEMPLATE_PATH",
