@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Download LR push hotfix files as raw bytes (encoding-safe on GBK Windows)."""
+"""Download local-automation scripts as raw bytes (encoding-safe on GBK Windows)."""
 from __future__ import annotations
 
 import sys
@@ -11,11 +11,15 @@ SHA = "HEAD"
 BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
 
 FILES = [
+    # core LR
     "lr/fill_template.py",
     "lr/inspect_workbook_days.py",
     "lr/write_kanban_export_cfg.py",
     "lr/verify_kanban_pngs.py",
     "lr/run_daily.py",
+    "lr/run_datasource_push.py",
+    "lr/download_hotfix.py",
+    # shared + runners
     "scripts/_local_common.ps1",
     "scripts/export_lr_kanban_wps.ps1",
     "scripts/run_lr_kanban_export.ps1",
@@ -23,7 +27,11 @@ FILES = [
     "scripts/run_lr_profit_fill_local.ps1",
     "scripts/run_lr_profit_fill_backfill.ps1",
     "scripts/run_lr_datasource_local.ps1",
-    "lr/run_datasource_push.py",
+    "scripts/run_store_morning_monitor_local.ps1",
+    "scripts/start_chrome_powerbi.ps1",
+    "scripts/run_visit_check_local.ps1",
+    "scripts/run_kpi_todo_local.ps1",
+    "scripts/install_local_automations_windows.ps1",
 ]
 
 
@@ -53,12 +61,32 @@ def main() -> int:
         out.write_bytes(data)
         print(f"OK {out} ({len(data)} bytes)")
         ok += 1
+
+    required = [
+        "scripts/run_lr_datasource_local.ps1",
+        "scripts/run_lr_profit_fill_local.ps1",
+        "scripts/run_store_morning_monitor_local.ps1",
+        "scripts/run_visit_check_local.ps1",
+        "scripts/run_kpi_todo_local.ps1",
+        "lr/fill_template.py",
+    ]
+    missing = []
+    for rel in required:
+        p = ROOT / rel.replace("/", "\\") if sys.platform == "win32" else ROOT / rel
+        if not p.exists():
+            missing.append(rel)
+    if missing:
+        print("ERROR missing after download: " + ", ".join(missing), file=sys.stderr)
+        return 2
+
     fill = ROOT / ("lr\\fill_template.py" if sys.platform == "win32" else "lr/fill_template.py")
     text = fill.read_text(encoding="utf-8", errors="replace")
     if "monthly_master_path" not in text or "_resolve_base_workbook" not in text:
         print("ERROR: fill_template.py is OLD (no cumulative fill). Abort.", file=sys.stderr)
         return 2
+
     print(f"done {ok} files from {BASE}")
+    print("OK all required local runners present")
     print("OK fill_template.py has cumulative fill")
     return 0
 
