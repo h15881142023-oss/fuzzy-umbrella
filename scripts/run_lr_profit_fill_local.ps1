@@ -34,7 +34,8 @@ if ($code -ne 0) {
     exit $code
 }
 
-Write-Step "Fill template (fill-only) ..."
+Write-Step "Fill template (fill-only). Large xlsx: often 1-5 min; progress only in log."
+Write-Step "Watch: Get-Content $Log -Wait -Tail 30 -Encoding UTF8"
 $code = Invoke-PythonLogged -PythonExe $py -Arguments @(
     "lr\run_daily.py",
     "--scrape-json", "data\lr_scrape\latest.json",
@@ -44,8 +45,10 @@ $code = Invoke-PythonLogged -PythonExe $py -Arguments @(
 if ($code -ne 0) {
     Write-LogLine $Log "exit=$code (fill fail)"
     Write-Step "FAILED fill exit=$code. See $Log"
+    if (Test-Path $Log) { Get-Content -Path $Log -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
     exit $code
 }
+Write-Step "Fill template done."
 $Xlsx = Resolve-LrFilledXlsx -Root $Root -TargetDate $TargetDate
 if (-not $Xlsx) {
     Write-LogLine $Log "missing xlsx after fill for target=$TargetDate"

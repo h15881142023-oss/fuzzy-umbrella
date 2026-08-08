@@ -131,6 +131,19 @@ def _set_kanban_month_city(wb, target: date, city: str = CITIES[0]) -> None:
     ws["E3"] = REGION_NAME
 
 
+def _sanitized_template_cache(template: Path, out_dir: Path) -> Path:
+    """首次清洗模板较慢；缓存到 work，后续天直接复制。"""
+    cache = out_dir / "_template_sanitized.xlsx"
+    try:
+        if cache.exists() and cache.stat().st_mtime >= template.stat().st_mtime:
+            return cache
+    except OSError:
+        pass
+    print("[lr] building sanitized template cache (once, may take 1-3 min) ...", flush=True)
+    sanitize_for_openpyxl(template, cache)
+    return cache
+
+
 def fill_template(
     template: Path,
     rows: list[dict[str, Any]],
@@ -143,11 +156,16 @@ def fill_template(
     base = _resolve_base_workbook(template, out_dir, target)
     print(f"[lr] fill base={base.name} -> {out_path.name}", flush=True)
     if base.resolve() == template.resolve():
-        sanitize_for_openpyxl(template, out_path)
+        cached = _sanitized_template_cache(template, out_dir)
+        print(f"[lr] copy sanitized cache -> {out_path.name}", flush=True)
+        shutil.copy2(cached, out_path)
     else:
+        print(f"[lr] copy prior workbook {base.name}", flush=True)
         shutil.copy2(base, out_path)
 
-    wb = load_workbook(out_path)
+    print("[lr] openpyxl load_workbook (large xlsx, may take 1-5 min) ...", flush=True)
+    wb = load_workbook(out_path, keep_links=False)
+    print("[lr] workbook loaded, writing rows ...", flush=True)
     if DATA_SHEET not in wb.sheetnames:
         raise ValueError(f"模板缺少工作表: {DATA_SHEET}")
     ws = wb[DATA_SHEET]
@@ -196,9 +214,11 @@ def fill_template(
         ws.cell(row_idx, day_col, datetime.combine(target, datetime.min.time()))
 
     _set_kanban_month_city(wb, target)
+    print("[lr] saving workbook ...", flush=True)
     wb.save(out_path)
     wb.close()
 
     monthly = monthly_master_path(out_dir, target)
     shutil.copy2(out_path, monthly)
+    print(f"[lr] fill done -> {out_path.name} (+ {monthly.name})", flush=True)
     return out_path
