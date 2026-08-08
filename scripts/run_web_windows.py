@@ -1,12 +1,37 @@
-"""Windows helper: start Flask web on 0.0.0.0:5001"""
+"""Windows helper: start Flask web on 0.0.0.0:5001，并内嵌新商评周二/五 17:00 同步时钟。"""
 from __future__ import annotations
 
 import sys
+import threading
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+
+def _start_xinshang_clock() -> None:
+    try:
+        from scripts.xinshang_clock_windows import loop_forever  # type: ignore
+    except Exception:
+        # 兼容直接脚本路径导入
+        import importlib.util
+
+        clock = ROOT / "scripts" / "xinshang_clock_windows.py"
+        spec = importlib.util.spec_from_file_location("xinshang_clock_windows", clock)
+        if spec is None or spec.loader is None:
+            print("xinshang clock: failed to load", flush=True)
+            return
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        loop_forever = mod.loop_forever
+
+    t = threading.Thread(target=loop_forever, name="xinshang-clock", daemon=True)
+    t.start()
+    print("xinshang clock thread started (Tue/Fri 17:00)", flush=True)
+
+
+_start_xinshang_clock()
 
 from app import create_app
 
