@@ -11,22 +11,16 @@ if str(ROOT) not in sys.path:
 
 
 def _start_xinshang_clock() -> None:
-    try:
-        from scripts.xinshang_clock_windows import loop_forever  # type: ignore
-    except Exception:
-        # 兼容直接脚本路径导入
-        import importlib.util
+    import importlib.util
 
-        clock = ROOT / "scripts" / "xinshang_clock_windows.py"
-        spec = importlib.util.spec_from_file_location("xinshang_clock_windows", clock)
-        if spec is None or spec.loader is None:
-            print("xinshang clock: failed to load", flush=True)
-            return
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        loop_forever = mod.loop_forever
-
-    t = threading.Thread(target=loop_forever, name="xinshang-clock", daemon=True)
+    clock = ROOT / "scripts" / "xinshang_clock_windows.py"
+    spec = importlib.util.spec_from_file_location("xinshang_clock_windows", clock)
+    if spec is None or spec.loader is None:
+        print("xinshang clock: failed to load", flush=True)
+        return
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    t = threading.Thread(target=mod.loop_forever, name="xinshang-clock", daemon=True)
     t.start()
     print("xinshang clock thread started (Tue/Fri 17:00)", flush=True)
 
