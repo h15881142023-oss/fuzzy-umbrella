@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 
 $runner = Join-Path $ProjectRoot "scripts\run_self_delivery_monitor_task.ps1"
 if (!(Test-Path $runner)) {
-    throw "运行器不存在: $runner"
+    throw "runner missing: $runner"
 }
 
 $logDir = "C:\Windows\Temp\zpei_monitor"
@@ -23,62 +23,41 @@ if ([string]::IsNullOrWhiteSpace($PythonExe)) {
     $PythonExe = (Get-Command python -ErrorAction Stop).Source
 }
 
-$headlessFlag = ""
+$argList = New-Object System.Collections.Generic.List[string]
+$argList.Add("-NoProfile")
+$argList.Add("-ExecutionPolicy")
+$argList.Add("Bypass")
+$argList.Add("-File")
+$argList.Add($runner)
+$argList.Add("-ProjectRoot")
+$argList.Add($ProjectRoot)
+$argList.Add("-PythonExe")
+$argList.Add($PythonExe)
 if ($Headless -or $RunWhetherUserLoggedOn) {
-    $headlessFlag = " -Headless"
+    $argList.Add("-Headless")
 }
 
-# 用 powershell 直接跑 runner，避免 cmd 重定向在无人登录下失效
-$arg = @(
-    "-NoProfile"
-    "-ExecutionPolicy Bypass"
-    "-File `"$runner`""
-    "-ProjectRoot `"$ProjectRoot`""
-    "-PythonExe `"$PythonExe`""
-    $headlessFlag
-) -join " "
+$arg = ($argList | ForEach-Object {
+    if ($_ -match '\s') { '"{0}"' -f $_ } else { $_ }
+}) -join " "
 
-$action = New-ScheduledTaskAction `
-    -Execute "powershell.exe" `
-    -Argument $arg.Trim() `
-    -WorkingDirectory $ProjectRoot
-
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $arg -WorkingDirectory $ProjectRoot
 $trigger = New-ScheduledTaskTrigger -Daily -At $DailyTime
-$settings = New-ScheduledTaskSettingsSet `
-    -StartWhenAvailable `
-    -MultipleInstances IgnoreNew `
-    -ExecutionTimeLimit (New-TimeSpan -Hours 2)
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 
 if ($RunWhetherUserLoggedOn) {
-    # 无人登录也运行：需要当前用户有权限，且建议配合 -Headless
-    $principal = New-ScheduledTaskPrincipal `
-        -UserId "$env:USERDOMAIN\$env:USERNAME" `
-        -LogonType S4U `
-        -RunLevel Highest
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType S4U -RunLevel Highest
 }
 else {
-    $principal = New-ScheduledTaskPrincipal `
-        -UserId "$env:USERDOMAIN\$env:USERNAME" `
-        -LogonType Interactive `
-        -RunLevel Limited
+    $principal = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 }
 
-Register-ScheduledTask `
-    -TaskName $TaskName `
-    -Action $action `
-    -Trigger $trigger `
-    -Principal $principal `
-    -Settings $settings `
-    -Force | Out-Null
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
 
-Write-Output "任务安装完成: $TaskName"
-Write-Output "执行时间: 每天 $DailyTime"
-Write-Output "Python: $PythonExe"
-Write-Output "项目目录: $ProjectRoot"
-Write-Output "日志: $logDir\monitor.log"
+Write-Output "TASK_OK name=$TaskName time=$DailyTime python=$PythonExe root=$ProjectRoot log=$logDir\monitor.log"
 if ($RunWhetherUserLoggedOn) {
-    Write-Output "模式: 无人登录也运行 + 无头浏览器"
+    Write-Output "MODE=S4U_HEADLESS"
 }
 else {
-    Write-Output "模式: 仅用户登录时运行"
+    Write-Output "MODE=INTERACTIVE"
 }

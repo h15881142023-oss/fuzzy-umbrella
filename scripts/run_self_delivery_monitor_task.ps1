@@ -1,10 +1,14 @@
 Param(
-    [string]$ProjectRoot = (Resolve-Path "$PSScriptRoot\..").Path,
+    [string]$ProjectRoot = "",
     [string]$PythonExe = "",
-    [switch]$Headless = $true
+    [switch]$Headless
 )
 
 $ErrorActionPreference = "Continue"
+
+if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
+    $ProjectRoot = (Resolve-Path "$PSScriptRoot\..").Path
+}
 
 $logDir = "C:\Windows\Temp\zpei_monitor"
 $logFile = Join-Path $logDir "monitor.log"
@@ -29,18 +33,20 @@ try {
     }
     Write-Log "python=$PythonExe"
     Write-Log "script=$scriptPath"
+    Write-Log ("headless=" + [string]$Headless.IsPresent)
 
     if (!(Test-Path $scriptPath)) {
-        throw "脚本不存在: $scriptPath"
+        throw "script missing: $scriptPath"
     }
 
-    $args = @($scriptPath)
+    $pyArgs = New-Object System.Collections.Generic.List[string]
+    $pyArgs.Add($scriptPath)
     if ($Headless) {
-        $args += "--headless"
+        $pyArgs.Add("--headless")
     }
-    $args += "--debug"
+    $pyArgs.Add("--debug")
 
-    $output = & $PythonExe @args 2>&1
+    $output = & $PythonExe @pyArgs 2>&1
     $exitCode = $LASTEXITCODE
     if ($null -eq $exitCode) { $exitCode = 0 }
 
