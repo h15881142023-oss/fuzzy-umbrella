@@ -28,6 +28,8 @@ DELIVERY_ALLOWED = {"跑腿", "商家配送"}
 BIZ_ALLOWED = {"城市商家", "全国KA", "区域KA"}
 TARGET_CHART_TITLE = "商家明细-昨日"
 REQUIRED_FIELDS = ("一级商家配送类型", "商家类型", "上线时间")
+# 看板中「含配送类型+上线时间」的商家明细-昨日图表固定 ID（兜底）
+FALLBACK_CHART_ID = "7425461801027899392"
 
 
 @dataclass
@@ -156,6 +158,35 @@ async def _download_excel_from_chart(page: Page, chart_id: str, download_dir: Pa
     raise RuntimeError(f"悬停后点击下载/Excel 失败: {last_error}")
 
 
+async def _open_target_tab(page: Page) -> None:
+    """点击底部页签，避免点到图表标题同名文本。"""
+    selectors = [
+        page.get_by_role("tab", name=TARGET_CHART_TITLE),
+        page.locator("[class*='tab']").get_by_text(TARGET_CHART_TITLE, exact=True),
+        page.locator(".ed-tabs__item, .el-tabs__item, [class*='DeTabs']").get_by_text(
+            TARGET_CHART_TITLE, exact=False
+        ),
+        page.get_by_text(TARGET_CHART_TITLE, exact=True),
+    ]
+    last_error: Optional[Exception] = None
+    for locator in selectors:
+        try:
+            if await locator.count() == 0:
+                continue
+            target = locator.last
+            await target.scroll_into_view_if_needed(timeout=3000)
+            await target.click(timeout=8000)
+            await page.wait_for_timeout(2500)
+            try:
+                await page.wait_for_load_state("networkidle", timeout=30000)
+            except PlaywrightTimeoutError:
+                pass
+            return
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+    raise RuntimeError(f"未能点击页签「{TARGET_CHART_TITLE}」: {last_error}")
+
+
 async def _wait_target_chart_id(page: Page, timeout_ms: int = 120000) -> str:
     chart_id_box: dict[str, Optional[str]] = {"id": None}
 
@@ -177,11 +208,33 @@ async def _wait_target_chart_id(page: Page, timeout_ms: int = 120000) -> str:
 
     page.on("response", lambda r: asyncio.create_task(on_response(r)))
 
-    deadline = time.time() + timeout_ms / 1000
+    started = time.time()
+    deadline = started + timeout_ms / 1000
+    retried_tab = False
     while time.time() < deadline:
         if chart_id_box["id"]:
             return chart_id_box["id"]
+
+        # DOM 兜底：目标图表容器已出现则可直接用
+        fallback = page.locator(f"#wrapper-outer-id-{FALLBACK_CHART_ID}")
+        if await fallback.count() > 0:
+            box = await fallback.first.bounding_box()
+            if box and box.get("width", 0) > 200 and box.get("height", 0) > 200:
+                return FALLBACK_CHART_ID
+
+        # 约 15 秒后再点一次页签，防止首次点到同名标题
+        if (not retried_tab) and (time.time() - started) >= 15:
+            try:
+                await _open_target_tab(page)
+                retried_tab = True
+            except Exception:  # noqa: BLE001
+                pass
+
         await page.wait_for_timeout(500)
+
+    # 最后再尝试 fallback（即使尺寸较小）
+    if await page.locator(f"#wrapper-outer-id-{FALLBACK_CHART_ID}").count() > 0:
+        return FALLBACK_CHART_ID
     raise RuntimeError("等待目标图表超时：未识别到含「一级商家配送类型/上线时间」的商家明细-昨日")
 
 
@@ -207,9 +260,10 @@ async def _download_excel_async(
             await _login_if_needed(page, password)
             await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=180000)
 
-            wait_task = asyncio.create_task(_wait_target_chart_id(page, timeout_ms=120000))
-            await page.get_by_text(TARGET_CHART_TITLE, exact=False).first.click()
+            wait_task = asyncio.create_task(_wait_target_chart_id(page, timeout_ms=150000))
+            await _open_target_tab(page)
             chart_id = await wait_task
+            print(f"使用图表ID: {chart_id}", file=sys.stderr)
             await page.wait_for_timeout(2000)
             return await _download_excel_from_chart(page, chart_id, download_dir)
         except Exception:
