@@ -1,7 +1,5 @@
 # 安装「川藏一区新商评看板」自动同步计划任务：每周二、五 17:00
-# 建议以管理员 PowerShell 运行：
-#   powershell -ExecutionPolicy Bypass -File .\scripts\install_xinshang_schedule_windows.ps1
-# 也可加 -RunNow 立刻跑一次：
+# 普通用户 PowerShell 即可（无需管理员）：
 #   powershell -ExecutionPolicy Bypass -File .\scripts\install_xinshang_schedule_windows.ps1 -RunNow
 
 param(
@@ -28,7 +26,7 @@ if (-not (Test-Path $updater)) {
   exit 1
 }
 
-# 用 cmd 包装，便于重定向日志（计划任务对重定向支持差）
+# 用 cmd 包装，便于重定向日志
 $bat = Join-Path $Root "scripts\run_xinshang_sync_windows.cmd"
 @"
 @echo off
@@ -36,17 +34,45 @@ cd /d "$Root"
 ".venv\Scripts\python.exe" "scripts\update_xinshang_dashboard.py" >> "logs\xinshang_sync.log" 2>&1
 "@ | Set-Content -Path $bat -Encoding ascii
 
-Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+$scheduled = $false
+try {
+  Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
 
-$action = New-ScheduledTaskAction -Execute $bat -WorkingDirectory $Root
-$t1 = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Tuesday -At 17:00
-$t2 = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Friday -At 17:00
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
-$prin = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+  $action = New-ScheduledTaskAction -Execute "cmd.exe" -Argument "/c `"$bat`"" -WorkingDirectory $Root
+  $t1 = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Tuesday -At 17:00
+  $t2 = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Friday -At 17:00
+  $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+  # Limited：普通用户可注册，无需管理员
+  $prin = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Limited
 
-Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($t1, $t2) -Settings $settings -Principal $prin -Force | Out-Null
-Write-Host "[OK] scheduled task: $TaskName (Tue/Fri 17:00)"
-Write-Host "log: $logDir\xinshang_sync.log"
+  Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger @($t1, $t2) -Settings $settings -Principal $prin -Force | Out-Null
+  $scheduled = $true
+  Write-Host "[OK] scheduled task: $TaskName (Tue/Fri 17:00)"
+  Write-Host "log: $logDir\xinshang_sync.log"
+}
+catch {
+  Write-Host "[WARN] Register-ScheduledTask failed: $($_.Exception.Message)"
+  Write-Host "==> fallback: schtasks (current user)"
+  try {
+    schtasks /Delete /TN $TaskName /F 2>$null | Out-Null
+  } catch {}
+  # 两个触发：周二、周五 17:00
+  $tr = "`"$bat`""
+  $r1 = schtasks /Create /TN $TaskName /TR $tr /SC WEEKLY /D TUE /ST 17:00 /RL LIMITED /F
+  if ($LASTEXITCODE -ne 0) { throw "schtasks create failed: $r1" }
+  # 第二个任务名区分周五
+  $TaskFri = "${TaskName}Fri"
+  try { schtasks /Delete /TN $TaskFri /F 2>$null | Out-Null } catch {}
+  $r2 = schtasks /Create /TN $TaskFri /TR $tr /SC WEEKLY /D FRI /ST 17:00 /RL LIMITED /F
+  if ($LASTEXITCODE -ne 0) { throw "schtasks create Fri failed: $r2" }
+  $scheduled = $true
+  Write-Host "[OK] schtasks: $TaskName (Tue) + $TaskFri (Fri) at 17:00"
+  Write-Host "log: $logDir\xinshang_sync.log"
+}
+
+if (-not $scheduled) {
+  Write-Host "[BAD] could not register schedule; will still RunNow if requested"
+}
 
 if ($RunNow) {
   Write-Host "==> run once now"
