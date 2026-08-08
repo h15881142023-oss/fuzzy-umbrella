@@ -93,10 +93,30 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 公开链接**无需登录**。  
 
 版本说明：
-- **当前详表版（优化中）**：`docs/xinshang/index.html` / `static/dashboards/cz1-xinshang-pingjia.html`  
-  无图表、不展示得分，只看预警区间，八大模块一次铺开。
+- **当前周会版**：`docs/xinshang/index.html` / `static/dashboards/cz1-xinshang-pingjia.html`  
+  无图表、能力侧只看预警区间；含周会结论/动作、五城测评、模块矩阵与落后热度。
 - **已外发冻结版（不变）**：`docs/xinshang/index-v1-frozen-202607.html`  
   此前发出去的旧版拷贝不受后续改动影响；需要旧版时发这个文件即可。
+
+### 自动同步（初心后台 → 域名看板）
+
+数据源：`http://www.chuxin.city/v/admin/b7v8t424ohb`（一般免登录；需登录时用默认账号）。  
+范围：川藏一区五城（彭州/仁寿/合江/南溪/叙永）。  
+节奏：每周二、五 17:00 自动刷新本机静态 HTML，域名页随即更新。
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+git pull origin cursor/cz1-merchant-dashboard-74a9
+
+# 立刻同步一次
+.\.venv\Scripts\python.exe scripts\update_xinshang_dashboard.py
+
+# 安装周二/五 17:00 计划任务（建议管理员 PowerShell）
+powershell -ExecutionPolicy Bypass -File .\scripts\install_xinshang_schedule_windows.ps1 -RunNow
+```
+
+同步后打开：`https://1.chuanzangyiqu.top/evaluation/xinshang`（刷新浏览器即可）。  
+日志：`logs\xinshang_sync.log`；任务名：`ChuanzangXinshangSync`。
 
 首次启用 GitHub Pages：
 
