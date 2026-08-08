@@ -34,6 +34,7 @@ FILES = [
     "scripts/run_lr_profit_fill_local.ps1",
     "scripts/run_lr_profit_fill_backfill.ps1",
     "scripts/install_lr_new_template.ps1",
+    "scripts/run_aug_tuangou_once.ps1",
     "scripts/run_lr_datasource_local.ps1",
     "scripts/run_store_morning_monitor_local.ps1",
     "scripts/start_chrome_powerbi.ps1",
