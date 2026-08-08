@@ -29,21 +29,26 @@ python scripts/self_delivery_monitor_windows.py
 
 ## 3) 安装 Windows 定时任务（每日执行）
 
+推荐（无人登录也运行 + 每天 10:00）：
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/install_self_delivery_task_windows.ps1 -DailyTime "09:30"
+powershell -ExecutionPolicy Bypass -File scripts/install_self_delivery_task_windows.ps1 -DailyTime "10:00" -TaskName "自配上线播报" -RunWhetherUserLoggedOn -Headless
 ```
 
 常用参数：
 
 - `-PythonExe "C:\path\to\python.exe"`：指定 Python
-- `-TaskName "SelfDeliveryMonitor"`：任务名
-- `-DailyTime "09:30"`：每天执行时间
-- `-Headless`：安装为无头执行
+- `-TaskName "自配上线播报"`：任务名
+- `-DailyTime "10:00"`：每天执行时间
+- `-Headless`：无头执行
+- `-RunWhetherUserLoggedOn`：无人登录也运行（S4U）
+
+安装后会通过 `scripts/run_self_delivery_monitor_task.ps1` 启动，并写入可靠日志。
 
 ## 4) 卸载定时任务
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/uninstall_self_delivery_task_windows.ps1 -TaskName "SelfDeliveryMonitor"
+powershell -ExecutionPolicy Bypass -File scripts/uninstall_self_delivery_task_windows.ps1 -TaskName "自配上线播报"
 ```
 
 ## 5) 逻辑说明（与原流程一致）
