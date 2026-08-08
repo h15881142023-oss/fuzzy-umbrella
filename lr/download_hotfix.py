@@ -98,6 +98,15 @@ def main() -> int:
         print("ERROR: fill_template.py missing 团购利润 fill. Abort.", file=sys.stderr)
         return 2
 
+    cfg = ROOT / "config.py"
+    ctext = cfg.read_text(encoding="utf-8", errors="replace")
+    if "ADMIN_PASSWORD" not in ctext or "ADMIN_USER" not in ctext:
+        print("ERROR: config.py missing ADMIN_USER/ADMIN_PASSWORD. Abort.", file=sys.stderr)
+        return 2
+    if "LR_ADMIN_URL" not in ctext or "chuxin.city" not in ctext:
+        print("ERROR: config.py missing LR chuxin.city admin URL. Abort.", file=sys.stderr)
+        return 2
+
     kanban = ROOT / ("lr\\kanban_image.py" if win else "lr/kanban_image.py")
     ktext = kanban.read_text(encoding="utf-8", errors="replace")
     if "def export_kanban_pngs(" not in ktext:
@@ -114,6 +123,7 @@ def main() -> int:
     print("OK all required local runners present")
     print("OK fill_template.py has cumulative fill")
     print("OK fill_template.py has 团购利润 fill")
+    print("OK config.py has ADMIN_PASSWORD + chuxin LR URL")
     print("OK kanban_image.py has export_kanban_pngs")
     print("OK run_daily.py lazy-imports kanban for fill-only")
     return 0

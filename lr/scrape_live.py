@@ -13,13 +13,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from config import (  # noqa: E402
-    ADMIN_PASSWORD,
-    ADMIN_USER,
-    LR_ADMIN_SIGNIN_URL,
-    LR_ADMIN_URL,
-    LR_SCRAPE_DIR,
-    REGION_NAME,
+import os  # noqa: E402
+
+import config as _cfg  # noqa: E402
+
+# getattr：本机 config 被旧文件覆盖缺字段时仍可用默认账号
+ADMIN_USER = getattr(_cfg, "ADMIN_USER", None) or os.environ.get("ADMIN_USER", "qiaoxianhai")
+ADMIN_PASSWORD = getattr(_cfg, "ADMIN_PASSWORD", None) or os.environ.get(
+    "ADMIN_PASSWORD", "123"
+)
+LR_ADMIN_URL = getattr(_cfg, "LR_ADMIN_URL", None) or os.environ.get(
+    "LR_ADMIN_URL", "http://www.chuxin.city/v/admin/g303bjgeytq"
+)
+LR_ADMIN_SIGNIN_URL = getattr(_cfg, "LR_ADMIN_SIGNIN_URL", None) or os.environ.get(
+    "LR_ADMIN_SIGNIN_URL", "http://www.chuxin.city/v/signin"
+)
+REGION_NAME = getattr(_cfg, "REGION_NAME", None) or "川藏一区"
+LR_SCRAPE_DIR = Path(
+    getattr(_cfg, "LR_SCRAPE_DIR", None)
+    or os.environ.get("LR_SCRAPE_DIR", str(ROOT / "data" / "lr_scrape"))
 )
 
 # 新站（chuxin.city）表格主区域；避免把日期面板里的日历 table 当成数据表
