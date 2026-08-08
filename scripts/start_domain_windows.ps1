@@ -55,17 +55,25 @@ Write-Host "==> init db"
 & $venvPython -c "import db; db.init_db(); db.seed_demo_if_empty(); print('DB ready')"
 
 $listening = netstat -ano | Select-String ":5001\s+.*LISTENING"
+$runWeb = Join-Path $Root "scripts\run_web_windows.py"
 if ($listening) {
   Write-Host "==> port 5001 already listening"
 } else {
+  if (-not (Test-Path $runWeb)) {
+    Write-Host ("[MISS] launcher missing: " + $runWeb)
+    exit 1
+  }
+  if (-not (Test-Path $venvPython)) {
+    Write-Host ("[MISS] python missing: " + $venvPython)
+    exit 1
+  }
   Write-Host ("==> starting web with: " + $venvPython)
-  $argList = @(
-    "-c",
-    "from app import create_app; create_app().run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)"
-  )
-  $web = Start-Process -FilePath $venvPython -ArgumentList $argList -WorkingDirectory $Root -PassThru -WindowStyle Minimized
+  Write-Host ("==> launcher: " + $runWeb)
+  # Launch via a new PowerShell window to avoid Start-Process -c path issues on Windows
+  $psCmd = "& `"$venvPython`" `"$runWeb`""
+  $web = Start-Process -FilePath "powershell.exe" -ArgumentList @("-NoProfile","-ExecutionPolicy","Bypass","-Command",$psCmd) -WorkingDirectory $Root -PassThru -WindowStyle Minimized
   $web.Id | Out-File -Encoding ascii (Join-Path $Root "logs\web_windows.pid") -Force
-  Start-Sleep -Seconds 4
+  Start-Sleep -Seconds 5
 }
 
 try {
