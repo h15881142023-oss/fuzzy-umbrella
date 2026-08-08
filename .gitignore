@@ -9,9 +9,6 @@ logs/
 scrapers/_last_runs/
 data/visit_exports/
 data/lr_scrape/latest.json
-data/xinshang/snapshot_*.json
-scripts/run_xinshang_sync_windows.cmd
-scripts/run_xinshang_clock_windows.cmd
 lr/work/
 lr/output/
 .env

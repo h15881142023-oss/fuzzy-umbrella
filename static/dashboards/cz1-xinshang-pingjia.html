@@ -3,182 +3,645 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>川藏一区 · 新商评看板</title>
+  <title>川藏一区 · 新商能力评价看板（详表版）</title>
   <style>
     :root {
-      --bg:#102028; --panel:#f7faf8; --ink:#152228; --muted:#5a6b73;
-      --line:#d7e0e4; --brand:#0b6b5d; --brand-deep:#074f45; --accent:#c45c26;
+      --bg: #102028;
+      --panel: #f7faf8;
+      --ink: #152228;
+      --muted: #5a6b73;
+      --line: #d7e0e4;
+      --brand: #0b6b5d;
+      --brand-deep: #074f45;
+      --danger: #a intermediate;
     }
-    * { box-sizing:border-box; }
+    * { box-sizing: border-box; }
     body {
-      margin:0; color:var(--ink);
-      font-family:"Source Han Sans SC","Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif;
+      margin: 0;
+      color: var(--ink);
+      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
       background:
-        radial-gradient(1000px 480px at 8% -10%, rgba(11,107,93,.38), transparent 55%),
-        radial-gradient(800px 420px at 100% 0%, rgba(196,92,38,.18), transparent 50%),
-        linear-gradient(165deg,#0d1a20,#163038 52%,#1a3c46);
-      padding:20px 12px 48px;
+        radial-gradient(900px 420px at 0% 0%, rgba(11,107,93,.35), transparent 60%),
+        linear-gradient(165deg, #0d1a20, #163038 50%, #1a3c46);
+      padding: 20px 12px 48px;
     }
-    .wrap { width:min(1600px,100%); margin:0 auto; }
+    .wrap { width: min(1600px, 100%); margin: 0 auto; }
     .hero {
-      background:linear-gradient(135deg,#0a5a4e,#12343d 58%,#1a4550);
-      color:#f4fffb; border-radius:18px; padding:22px 24px; margin-bottom:14px;
-      border:1px solid rgba(255,255,255,.08);
+      background: linear-gradient(135deg, #0a5a4e, #12343d 60%, #1a4550);
+      color: #f4fffb;
+      border-radius: 18px;
+      padding: 22px 24px;
+      margin-bottom: 14px;
     }
-    .hero .brand { font-size:clamp(1.8rem,3.2vw,2.35rem); font-weight:800; letter-spacing:.04em; margin:0 0 8px; }
-    .hero h1 { margin:0 0 6px; font-size:1.15rem; font-weight:600; color:rgba(244,255,251,.92); }
-    .hero p { margin:0; color:rgba(244,255,251,.82); line-height:1.55; max-width:78ch; font-size:.95rem; }
-    .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
-    .chip { background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18); border-radius:999px; padding:6px 12px; font-size:.86rem; }
-    .section { background:var(--panel); border-radius:14px; padding:16px 18px; margin-bottom:12px; box-shadow:0 10px 28px rgba(0,0,0,.16); }
-    .muted-sec { opacity:.96; }
-    .section h2 { margin:0 0 4px; font-size:1.18rem; color:var(--brand-deep); }
-    .desc { margin:0 0 12px; color:var(--muted); font-size:.9rem; }
-    .brief-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:14px; }
-    .brief-box h3 { margin:0 0 8px; font-size:.98rem; color:var(--brand-deep); }
-    .brief-box ol, .brief-box ul { margin:0; padding-left:1.15rem; line-height:1.65; }
-    .brief-box li { margin-bottom:4px; }
-    .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px; }
-    .kpi { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; }
-    .kpi .l { color:var(--muted); font-size:.8rem; }
-    .kpi .v { font-size:1.55rem; font-weight:800; color:var(--brand-deep); margin-top:4px; }
-    .kpi.warn .v { color:#8f1d14; }
-    .scroll { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:720px; }
-    th,td { border:1px solid var(--line); padding:8px 10px; text-align:left; vertical-align:top; white-space:nowrap; }
-    th { background:#e7f3ef; color:#35545c; position:sticky; top:0; }
-    tr:nth-child(even) td { background:#fbfdfc; }
-    .city { font-weight:700; color:var(--brand-deep); }
-    .num { font-weight:700; }
-    .wrap-cell { white-space:normal; min-width:180px; line-height:1.45; }
-    .badge { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.78rem; font-weight:700; }
-    .b0{background:#fde8e6;color:#8f1d14} .b1{background:#ffedd5;color:#9a3412}
-    .b2{background:#fef3c7;color:#92400e} .b3{background:#ecfccb;color:#3f6212}
-    .b4{background:#dcfce7;color:#166534} .b5{background:#bbf7d0;color:#14532d}
-    .bna{background:#eef2f4;color:#667780} .brisk{background:#fde8e6;color:#8f1d14} .bsafe{background:#e5f6ec;color:#1f7a4c} .bwatch{background:#fff1df;color:#b7791f}
-    .footer { text-align:center; color:rgba(244,255,251,.72); font-size:.82rem; margin-top:8px; }
-    @media (max-width:960px) {
-      .kpis, .brief-grid { grid-template-columns:1fr 1fr; }
+    .hero h1 { margin: 0 0 6px; font-size: 2rem; letter-spacing: .02em; }
+    .hero p { margin: 0; color: rgba(244,255,251,.88); line-height: 1.55; max-width: 70ch; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip {
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 999px;
+      padding: 6px 12px;
+      font-size: .86rem;
     }
-    @media (max-width:640px) {
-      .kpis, .brief-grid { grid-template-columns:1fr; }
-      .hero { padding:18px 16px; }
+    .section {
+      background: var(--panel);
+      border-radius: 14px;
+      padding: 16px 16px 10px;
+      margin-bottom: 12px;
+      box-shadow: 0 10px 28px rgba(0,0,0,.16);
+    }
+    .section h2 {
+      margin: 0 0 4px;
+      font-size: 1.2rem;
+      color: var(--brand-deep);
+    }
+    .section .desc {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: .9rem;
+    }
+    .scroll { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .86rem;
+      min-width: 720px;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    th {
+      background: #e7f3ef;
+      color: #35545c;
+      font-weight: 700;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:nth-child(even) td { background: #fbfdfc; }
+    .wrap-cell { white-space: normal; min-width: 180px; line-height: 1.45; }
+    .city { font-weight: 700; color: var(--brand-deep); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: .78rem;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .b0 { background: #fde8e6; color: #8f1d14; }
+    .b1 { background: #ffedd5; color: #9a3412; }
+    .b2 { background: #fef3c7; color: #92400e; }
+    .b3 { background: #ecfccb; color: #3f6212; }
+    .b4 { background: #dcfce7; color: #166534; }
+    .b5 { background: #bbf7d0; color: #14532d; }
+    .bna { background: #eef2f4; color: #667780; }
+    .brisk { background: #fde8e6; color: #8f1d14; }
+    .bsafe { background: #e5f6ec; color: #1f7a4c; }
+    .bwatch { background: #fff1df; color: #b7791f; }
+    .legend {
+      display: flex; flex-wrap: wrap; gap: 8px;
+      margin: 0 0 10px; font-size: .8rem; color: var(--muted);
+    }
+    .footer {
+      text-align: center;
+      color: rgba(244,255,251,.72);
+      font-size: .82rem;
+      margin-top: 8px;
+    }
+    @media print {
+      body { background: #fff; padding: 0; }
+      .hero { break-after: avoid; }
+      .section { box-shadow: none; break-inside: avoid; }
     }
   </style>
 </head>
 <body>
-<div class="wrap">
-  <header class="hero">
-    <div class="brand">川藏一区</div>
-    <h1>新商评周会看板</h1>
-    <p>测试成绩实时同步初心后台；能力侧只看预警区间（无图表、无能力分）。按风险严重度排序，服务周二/周五周会决策。</p>
-    <div class="meta">
-      <div class="chip">同步时间 <strong>2026-08-08 08:23:21</strong></div>
-      <div class="chip">五城 <strong>彭州 / 仁寿 / 合江 / 南溪 / 叙永</strong></div>
-      <div class="chip">自动更新 <strong>每周二、五 17:00</strong></div>
-    </div>
-  </header>
-
-  <section class="section">
-    <h2>〇、周会结论与动作</h2>
-    <p class="desc">由最新测评 + 能力预警自动汇总，开会先读本段。</p>
-    <div class="brief-grid">
-      <div class="brief-box">
-        <h3>结论</h3>
-        <ol><li>「叙永」为优先盯防城：月度高风险，综合预警 [0%-10%]，薄弱模块：外卖、履约、用户体验。</li><li>「仁寿县」局部落后：团购（≤30% 区间）。</li><li>「南溪」局部落后：团购（≤30% 区间）。</li><li>「彭州市」局部落后：商业增值（≤30% 区间）。</li><li>「合江县」综合预警环比下跌，需核对是否过程指标滑坡。</li><li>新商测评需关注：彭州市江敏（89分）。</li></ol>
+  <div class="wrap">
+    <header class="hero">
+      <h1>川藏一区</h1>
+      <p>新商能力评价详表看板 · 只看预警区间与业务明细，八大模块一次铺开，便于周会逐城核对。</p>
+      <div class="meta">
+        <div class="chip">考核周期 <strong id="period">—</strong></div>
+        <div class="chip">数据日期 <strong id="date">—</strong></div>
+        <div class="chip">城市数 <strong id="cityCount">—</strong></div>
+        <div class="chip">口径：预警区间（如 [0%-10%]），不展示得分</div>
       </div>
-      <div class="brief-box">
-        <h3>建议动作</h3>
-        <ol><li>「叙永」本周拆解 外卖、履约、用户体验 的具体动作（责任人、截止日、验收口径），周会复盘闭环。</li><li>「仁寿县」对 团购 做单项补强，避免拖累综合预警。</li><li>「南溪」对 团购 做单项补强，避免拖累综合预警。</li><li>「彭州市」对 商业增值 做单项补强，避免拖累综合预警。</li><li>「合江县」对比上周过程量，定位下跌模块并给回稳动作。</li><li>对 <90 分人员安排复训/补考，并在下次同步前确认是否出账。</li></ol>
-      </div>
-    </div>
-  </section>
+    </header>
 
-  <section class="section">
-    <h2>一、五城快览</h2>
-    <p class="desc">测评集合「新商评测试结果」· 区域=川藏一区；能力风险城统计来自预警矩阵。</p>
-    <div class="kpis">
-      <div class="kpi"><div class="l">五城参考人数</div><div class="v">62</div></div>
-      <div class="kpi"><div class="l">五城均分</div><div class="v">97.12</div></div>
-      <div class="kpi warn"><div class="l">低于90分人数</div><div class="v">1</div></div>
-      <div class="kpi warn"><div class="l">高风险/弱预警城</div><div class="v">1</div></div>
-    </div>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>人数(去重)</th><th>记录数</th><th>均分</th><th>最低</th><th>最高</th><th>&lt;90分</th><th>最近更新</th></tr></thead>
-      <tbody><tr><td class='city'>彭州市</td><td>11</td><td>11</td><td class='num'>96.55</td><td>89.0</td><td>98.0</td><td><span class="badge bwatch">1人</span></td><td>2026-08-08 04:33:53</td></tr><tr><td class='city'>仁寿县</td><td>14</td><td>14</td><td class='num'>97.14</td><td>95.0</td><td>98.0</td><td>0</td><td>2026-08-07 08:56:35</td></tr><tr><td class='city'>合江县</td><td>12</td><td>12</td><td class='num'>97.0</td><td>95.0</td><td>98.0</td><td>0</td><td>2026-08-08 01:07:14</td></tr><tr><td class='city'>南溪</td><td>14</td><td>14</td><td class='num'>97.36</td><td>96.0</td><td>98.0</td><td>0</td><td>2026-08-07 07:44:03</td></tr><tr><td class='city'>叙永</td><td>11</td><td>12</td><td class='num'>97.55</td><td>96.0</td><td>98.0</td><td>0</td><td>2026-08-08 05:45:06</td></tr></tbody>
-    </table></div>
-  </section>
+    <section class="section">
+      <h2>一、城市总览（风险 / 预警）</h2>
+      <p class="desc">滚动风险、当月风险、加权预警、大盘预警及环比；落后模块按预警区间标出。</p>
+      <div class="legend" id="legend"></div>
+      <div class="scroll"><table id="overviewTable"></table></div>
+    </section>
 
-  <section class="section">
-    <h2>二、测评关注名单（&lt;90）</h2>
-    <p class="desc">按人去重保留最新一条；全员名册见文末。</p>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>姓名</th><th>分数</th><th>关注</th><th>备注</th><th>更新时间</th></tr></thead>
-      <tbody><tr><td class='city'>彭州市</td><td>江敏</td><td class='num'>89</td><td><span class="badge bwatch">需关注</span></td><td>—</td><td>2026-08-08 04:33:53</td></tr></tbody>
-    </table></div>
-  </section>
+    <section class="section">
+      <h2>二、八大模块预警矩阵</h2>
+      <p class="desc">城市 × 模块的同级排名区间；无团购城市显示「不预警/不适用」。</p>
+      <div class="scroll"><table id="matrixTable"></table></div>
+    </section>
 
-  <section class="section">
-    <h2>三、能力预警焦点（≤30% / 高风险）</h2>
-    <p class="desc">观测舱暂未包含川藏一区五城，能力预警沿用考核表固化口径（待观测舱补齐后自动切换）</p>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>风险</th><th>综合预警</th><th>落后模块</th></tr></thead>
-      <tbody><tr><td class='city'>叙永</td><td><span class="badge brisk">月度高风险</span></td><td><span class="badge b0">[0%-10%]</span></td><td class='wrap-cell'>外卖、履约、用户体验</td></tr><tr><td class='city'>仁寿县</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b2">(30%-50%]</span></td><td class='wrap-cell'>团购</td></tr><tr><td class='city'>南溪</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b4">(70%-90%]</span></td><td class='wrap-cell'>团购</td></tr><tr><td class='city'>彭州市</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b4">(70%-90%]</span></td><td class='wrap-cell'>商业增值</td></tr></tbody>
-    </table></div>
-  </section>
+    <section class="section">
+      <h2>三、城市档案</h2>
+      <p class="desc">合作商基础信息与分群标签（考核分群口径）。</p>
+      <div class="scroll"><table id="档案Table"></table></div>
+    </section>
 
-  <section class="section">
-    <h2>四、能力预警总览（严重度排序）</h2>
-    <p class="desc">只展示预警区间，不展示能力得分；高风险/低区间优先。</p>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>等级</th><th>类型</th><th>风险</th><th>综合预警</th><th>环比</th><th>落后模块</th></tr></thead>
-      <tbody><tr><td class='city'>叙永</td><td>F3</td><td>外卖&拼好饭</td><td><span class="badge brisk">月度高风险</span></td><td><span class="badge b0">[0%-10%]</span></td><td>持平</td><td class='wrap-cell'><span class="badge b0">外卖 [0%-10%]</span> <span class="badge b0">履约 [0%-10%]</span> <span class="badge b1">用户体验 (10%-30%]</span></td></tr><tr><td class='city'>仁寿县</td><td>E3</td><td>外卖&拼好饭&团购</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b2">(30%-50%]</span></td><td>持平</td><td class='wrap-cell'><span class="badge b0">团购 [0%-10%]</span></td></tr><tr><td class='city'>合江县</td><td>F2</td><td>外卖&拼好饭</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b3">(50%-70%]</span></td><td>下跌</td><td class='wrap-cell'>—</td></tr><tr><td class='city'>南溪</td><td>F3</td><td>外卖&拼好饭&团购</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b4">(70%-90%]</span></td><td>持平</td><td class='wrap-cell'><span class="badge b1">团购 (10%-30%]</span></td></tr><tr><td class='city'>彭州市</td><td>E3</td><td>外卖&拼好饭</td><td><span class="badge bsafe">目前安全</span></td><td><span class="badge b4">(70%-90%]</span></td><td>持平</td><td class='wrap-cell'><span class="badge b0">商业增值 [0%-10%]</span></td></tr></tbody>
-    </table></div>
-  </section>
+    <div id="moduleSections"></div>
 
-  <section class="section">
-    <h2>五、八大模块预警矩阵</h2>
-    <p class="desc">城市 × 模块排名区间，全部铺开便于周会对照。</p>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>外卖</th><th>团购</th><th>履约</th><th>零售</th><th>组织</th><th>商业增值</th><th>用户体验</th><th>综合治理</th></tr></thead>
-      <tbody><tr><td class='city'>叙永</td><td><span class="badge b0">[0%-10%]</span></td><td><span class="badge bna">不预警</span></td><td><span class="badge b0">[0%-10%]</span></td><td><span class="badge b5">(90%-100%]</span></td><td><span class="badge bna">暂不预警</span></td><td><span class="badge b3">(50%-70%]</span></td><td><span class="badge b1">(10%-30%]</span></td><td><span class="badge bna">暂不预警</span></td></tr><tr><td class='city'>仁寿县</td><td><span class="badge b3">(50%-70%]</span></td><td><span class="badge b0">[0%-10%]</span></td><td><span class="badge b3">(50%-70%]</span></td><td><span class="badge b3">(50%-70%]</span></td><td><span class="badge bna">暂不预警</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge b3">(50%-70%]</span></td><td><span class="badge bna">暂不预警</span></td></tr><tr><td class='city'>合江县</td><td><span class="badge b3">(50%-70%]</span></td><td><span class="badge bna">不预警</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge b4">(70%-90%]</span></td><td><span class="badge bna">暂不预警</span></td><td><span class="badge b4">(70%-90%]</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge bna">暂不预警</span></td></tr><tr><td class='city'>南溪</td><td><span class="badge b5">(90%-100%]</span></td><td><span class="badge b1">(10%-30%]</span></td><td><span class="badge b4">(70%-90%]</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge bna">暂不预警</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge bna">暂不预警</span></td></tr><tr><td class='city'>彭州市</td><td><span class="badge b4">(70%-90%]</span></td><td><span class="badge bna">不预警</span></td><td><span class="badge b4">(70%-90%]</span></td><td><span class="badge b2">(30%-50%]</span></td><td><span class="badge bna">暂不预警</span></td><td><span class="badge b0">[0%-10%]</span></td><td><span class="badge b4">(70%-90%]</span></td><td><span class="badge bna">暂不预警</span></td></tr></tbody>
-    </table></div>
-  </section>
+    <section class="section">
+      <h2>十二、业务环比明细</h2>
+      <p class="desc">关键业务指标相对上期变化（开发率、渗透率、履约、零售、货币化、万服等）。</p>
+      <div class="scroll"><table id="momTable"></table></div>
+    </section>
 
-  <section class="section">
-    <h2>六、模块落后热度</h2>
-    <p class="desc">统计五城中落入 ≤30% 区间的模块出现次数，用于排期补强优先级。</p>
-    <div class="scroll"><table>
-      <thead><tr><th>模块</th><th>落后城数</th><th>优先级</th></tr></thead>
-      <tbody><tr><td>团购</td><td class='num'>2</td><td>优先补强</td></tr><tr><td>商业增值</td><td class='num'>1</td><td>关注</td></tr><tr><td>外卖</td><td class='num'>1</td><td>关注</td></tr><tr><td>履约</td><td class='num'>1</td><td>关注</td></tr><tr><td>用户体验</td><td class='num'>1</td><td>关注</td></tr><tr><td>组织</td><td class='num'>0</td><td>暂无落后城</td></tr><tr><td>综合治理</td><td class='num'>0</td><td>暂无落后城</td></tr><tr><td>零售</td><td class='num'>0</td><td>暂无落后城</td></tr></tbody>
-    </table></div>
-  </section>
+    <p class="footer">数据由川藏一区负责人统一更新 · 详表版 · 源表：新商考核体系 1.1（2026年7月）</p>
+  </div>
 
-  <section class="section">
-    <h2>七、五城全员名册（去重最新）</h2>
-    <p class="desc">同一人多条只保留最新成绩；低分优先。</p>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>姓名</th><th>分数</th><th>关注</th><th>备注</th><th>更新时间</th></tr></thead>
-      <tbody><tr><td class='city'>彭州市</td><td>江敏</td><td class='num'>89</td><td><span class="badge bwatch">需关注</span></td><td>—</td><td>2026-08-08 04:33:53</td></tr><tr><td class='city'>仁寿县</td><td>罗凯</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 08:56:35</td></tr><tr><td class='city'>仁寿县</td><td>陈星汝</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 10:37:17</td></tr><tr><td class='city'>仁寿县</td><td>张颂谦</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 10:36:48</td></tr><tr><td class='city'>仁寿县</td><td>刘彬</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 15:39:53</td></tr><tr><td class='city'>仁寿县</td><td>徐旭</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 15:37:21</td></tr><tr><td class='city'>仁寿县</td><td>乔显海</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 15:34:16</td></tr><tr><td class='city'>仁寿县</td><td>段新月</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 09:21:28</td></tr><tr><td class='city'>仁寿县</td><td>刘奇</td><td class='num'>98</td><td>—</td><td>运营中心</td><td>2026-08-04 06:50:48</td></tr><tr><td class='city'>仁寿县</td><td>钟莉</td><td class='num'>97</td><td>—</td><td>—</td><td>2026-08-07 08:55:56</td></tr><tr><td class='city'>仁寿县</td><td>毛天成</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 01:34:15</td></tr><tr><td class='city'>仁寿县</td><td>何梦洁</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-06 07:10:40</td></tr><tr><td class='city'>仁寿县</td><td>胡智刚</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-06 06:59:15</td></tr><tr><td class='city'>仁寿县</td><td>宋雪</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-06 02:58:48</td></tr><tr><td class='city'>仁寿县</td><td>姜林宏</td><td class='num'>95</td><td>—</td><td>—</td><td>2026-08-04 09:50:53</td></tr><tr><td class='city'>南溪</td><td>王焰平</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 07:44:03</td></tr><tr><td class='city'>南溪</td><td>高品松</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 07:24:45</td></tr><tr><td class='city'>南溪</td><td>陈学刚</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 03:06:28</td></tr><tr><td class='city'>南溪</td><td>虞春燕</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 10:58:06</td></tr><tr><td class='city'>南溪</td><td>刘燚炜</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 15:31:13</td></tr><tr><td class='city'>南溪</td><td>黄一晟</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 07:35:14</td></tr><tr><td class='city'>南溪</td><td>郭彬</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 07:22:53</td></tr><tr><td class='city'>南溪</td><td>郑丽萍</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 06:48:33</td></tr><tr><td class='city'>南溪</td><td>王志刚</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 06:46:36</td></tr><tr><td class='city'>南溪</td><td>安群</td><td class='num'>97</td><td>—</td><td>—</td><td>2026-08-06 12:23:00</td></tr><tr><td class='city'>南溪</td><td>文仕芳</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 07:25:59</td></tr><tr><td class='city'>南溪</td><td>曾介</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 07:23:53</td></tr><tr><td class='city'>南溪</td><td>周星龙</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 07:23:31</td></tr><tr><td class='city'>南溪</td><td>谢钦云</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-04 07:32:55</td></tr><tr><td class='city'>叙永</td><td>王妮</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-08 05:43:57</td></tr><tr><td class='city'>叙永</td><td>周斌</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-08 05:42:36</td></tr><tr><td class='city'>叙永</td><td>李秋</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-08 02:34:12</td></tr><tr><td class='city'>叙永</td><td>罗星恒</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 13:49:18</td></tr><tr><td class='city'>叙永</td><td>胡莎莉</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-05 08:25:34</td></tr><tr><td class='city'>叙永</td><td>余琳</td><td class='num'>98</td><td>—</td><td>运营中心</td><td>2026-08-04 09:58:34</td></tr><tr><td class='city'>叙永</td><td>余敏</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 08:58:15</td></tr><tr><td class='city'>叙永</td><td>胡莎丽</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 08:44:33</td></tr><tr><td class='city'>叙永</td><td>牟强</td><td class='num'>97</td><td>—</td><td>数据监测账号</td><td>2026-08-04 08:20:32</td></tr><tr><td class='city'>叙永</td><td>徐先琼</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-08 05:45:06</td></tr><tr><td class='city'>叙永</td><td>陈长清</td><td class='num'>96</td><td>—</td><td>无</td><td>2026-08-08 05:45:00</td></tr><tr><td class='city'>合江县</td><td>刘敏</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-08 01:07:14</td></tr><tr><td class='city'>合江县</td><td>任秋梅</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 08:20:59</td></tr><tr><td class='city'>合江县</td><td>袁付冰</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 08:13:24</td></tr><tr><td class='city'>合江县</td><td>张秦</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-07 07:24:53</td></tr><tr><td class='city'>合江县</td><td>赵小平</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-05 07:19:48</td></tr><tr><td class='city'>合江县</td><td>杨志强</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-05 07:18:00</td></tr><tr><td class='city'>合江县</td><td>林秋惠</td><td class='num'>98</td><td>—</td><td>运营中心</td><td>2026-08-04 09:46:27</td></tr><tr><td class='city'>合江县</td><td>宋剑</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 09:47:41</td></tr><tr><td class='city'>合江县</td><td>何庆</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 01:38:51</td></tr><tr><td class='city'>合江县</td><td>戴成龙</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-07 01:21:49</td></tr><tr><td class='city'>合江县</td><td>徐晓容</td><td class='num'>95</td><td>—</td><td>—</td><td>2026-08-07 09:52:45</td></tr><tr><td class='city'>合江县</td><td>赵伟</td><td class='num'>95</td><td>—</td><td>—</td><td>2026-08-04 15:26:09</td></tr><tr><td class='city'>彭州市</td><td>陈兴</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-08 02:40:32</td></tr><tr><td class='city'>彭州市</td><td>曹桂红</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-08 02:33:33</td></tr><tr><td class='city'>彭州市</td><td>陈鑫</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 09:19:05</td></tr><tr><td class='city'>彭州市</td><td>唐宇</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 02:53:40</td></tr><tr><td class='city'>彭州市</td><td>牟晓静</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-06 02:36:11</td></tr><tr><td class='city'>彭州市</td><td>陈政兵</td><td class='num'>98</td><td>—</td><td>—</td><td>2026-08-04 15:21:01</td></tr><tr><td class='city'>彭州市</td><td>陈权</td><td class='num'>97</td><td>—</td><td>—</td><td>2026-08-06 03:22:28</td></tr><tr><td class='city'>彭州市</td><td>贺磊</td><td class='num'>97</td><td>—</td><td>—</td><td>2026-08-06 01:57:22</td></tr><tr><td class='city'>彭州市</td><td>徐枭</td><td class='num'>96</td><td>—</td><td>—</td><td>2026-08-06 13:43:40</td></tr><tr><td class='city'>彭州市</td><td>万明杰</td><td class='num'>95</td><td>—</td><td>—</td><td>2026-08-06 02:30:22</td></tr></tbody>
-    </table></div>
-  </section>
+  <script>
+    const DATA = {
+      meta: { period: "2026年7月", dataDate: "2026-07-27" },
+      modules: ["外卖", "团购", "履约", "零售", "组织", "商业增值", "用户体验", "综合治理"],
+      cities: [
+        {
+          name: "彭州市", level: "E3", type: "外卖&拼好饭", hasTuango: false,
+          partnerId: "183", account: "彭州市",
+          cluster: { waimai: "E中开发", tuango: "无分群", lvyue: "E高推完", lingshou: "E品类III类", zuzhi: "无分群", shangye: "E", tiyan: "E", zhili: "无分群" },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(70%-90%]", warnDelta: "持平",
+          bands: { 外卖: "(70%-90%]", 团购: "不预警", 履约: "(70%-90%]", 零售: "(30%-50%]", 组织: "暂不预警", 商业增值: "[0%-10%]", 用户体验: "(70%-90%]", 综合治理: "暂不预警" },
+          mom: {
+            "市场开发率(订单)": "+0.22pp", "市场开发率(实付)": "+0.17pp", "餐饮渗透率": "+0.16pp",
+            "团购市场开发率": "—", "团购优质渗透率": "—", "推单完成率": "0",
+            "超45分钟占比": "+0.08pp", "零售YoY": "-0.35pp", "货币化率": "+0.04pp",
+            "商家万服": "+0.087", "履约万服": "-0.095"
+          },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "4.37%", "(90%-100%]"],
+              ["市场开发率(GTV)", "3.16%", "(90%-100%]"],
+              ["餐饮商家渗透率", "23.27%", "[0%-10%]"],
+              ["外卖模块预警", "—", "(70%-90%]"]
+            ],
+            零售: [
+              ["日均零售 YOY", "6.61%", "(30%-50%]"],
+              ["优质仓数达标情况", "5", "—"],
+              ["零售模块预警", "—", "(30%-50%]"]
+            ],
+            团购: [
+              ["是否团购城市", "否", "不预警"],
+              ["团购市场开发率", "—", "不预警"],
+              ["优质商家渗透率", "—", "不预警"]
+            ],
+            履约: [
+              ["推单完成率", "99.14%", "(70%-90%]"],
+              ["压力天出勤率", "96.08%", "—"],
+              ["超45分钟订单占比", "1.33%", "(50%-70%]"],
+              ["履约模块预警", "—", "(70%-90%]"]
+            ],
+            用户体验: [
+              ["用户投诉商家问题万服排名", "0.6125", "—"],
+              ["用户投诉履约问题万服排名", "0.7906", "—"],
+              ["用户体验模块预警", "—", "(70%-90%]"]
+            ],
+            组织: [
+              ["外卖BD满编率", "166.7%", "—"],
+              ["团购BD满编率", "0%", "—"],
+              ["外卖BD效能", "16.84", "—"],
+              ["高效能BD流失率", "0%", "—"],
+              ["关键岗位认证通过率(城)", "99.63%", "—"],
+              ["关键岗位认证通过率(商)", "99.85%", "—"],
+              ["组织模块预警", "—", "暂不预警"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "2.05%", "[0%-10%]"],
+              ["团购货币化率", "—", "不预警"],
+              ["商业增值模块预警", "—", "[0%-10%]"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩占比", "0.084%", "—"],
+              ["月异常骑手率", "0.025%", "—"],
+              ["安全事件扣分情况", "无扣分", "—"],
+              ["综合治理模块预警", "—", "暂不预警"]
+            ]
+          }
+        },
+        {
+          name: "南溪", level: "F3", type: "外卖&拼好饭&团购", hasTuango: true,
+          partnerId: "650", account: "南溪",
+          cluster: { waimai: "F中开发", tuango: "F中开发", lvyue: "F低推完", lingshou: "F品类II类", zuzhi: "无分群", shangye: "F", tiyan: "F", zhili: "无分群" },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(70%-90%]", warnDelta: "持平",
+          bands: { 外卖: "(90%-100%]", 团购: "(10%-30%]", 履约: "(70%-90%]", 零售: "(30%-50%]", 组织: "暂不预警", 商业增值: "(30%-50%]", 用户体验: "(30%-50%]", 综合治理: "暂不预警" },
+          mom: {
+            "市场开发率(订单)": "+0.37pp", "市场开发率(实付)": "+0.34pp", "餐饮渗透率": "-0.34pp",
+            "团购市场开发率": "+2.78pp", "团购优质渗透率": "-0.26pp", "推单完成率": "+0.03pp",
+            "超45分钟占比": "+0.03pp", "零售YoY": "-0.96pp", "货币化率": "0",
+            "商家万服": "+0.171", "履约万服": "-0.768"
+          },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "5.35%", "(90%-100%]"],
+              ["市场开发率(GTV)", "4.49%", "(90%-100%]"],
+              ["餐饮商家渗透率", "31.44%", "(50%-70%]"],
+              ["外卖模块预警", "—", "(90%-100%]"]
+            ],
+            零售: [
+              ["日均零售 YOY", "1.99%", "(30%-50%]"],
+              ["优质仓数达标情况", "4", "—"],
+              ["零售模块预警", "—", "(30%-50%]"]
+            ],
+            团购: [
+              ["团购市场开发率", "-1.77%", "[0%-10%]"],
+              ["优质商家渗透率", "13.98%", "(50%-70%]"],
+              ["团购模块预警", "—", "(10%-30%]"]
+            ],
+            履约: [
+              ["推单完成率", "99.06%", "(90%-100%]"],
+              ["压力天出勤率", "92.54%", "—"],
+              ["超45分钟订单占比", "0.78%", "(50%-70%]"],
+              ["履约模块预警", "—", "(70%-90%]"]
+            ],
+            用户体验: [
+              ["用户投诉商家问题万服排名", "0.1799", "—"],
+              ["用户投诉履约问题万服排名", "0.4685", "—"],
+              ["用户体验模块预警", "—", "(30%-50%]"]
+            ],
+            组织: [
+              ["外卖BD满编率", "175%", "—"],
+              ["团购BD满编率", "75%", "—"],
+              ["外卖BD效能", "14.34", "—"],
+              ["团购BD效能", "3.28", "—"],
+              ["高效能BD流失率", "0%", "—"],
+              ["关键岗位认证通过率(城)", "99.0%", "—"],
+              ["组织模块预警", "—", "暂不预警"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "1.84%", "—"],
+              ["团购货币化率", "0.25%", "—"],
+              ["商业增值模块预警", "—", "(30%-50%]"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩占比", "0.116%", "—"],
+              ["月团购虚假业绩占比", "0%", "—"],
+              ["月异常骑手率", "0.013%", "—"],
+              ["安全事件扣分情况", "无扣分", "—"],
+              ["综合治理模块预警", "—", "暂不预警"]
+            ]
+          }
+        },
+        {
+          name: "合江县", level: "F2", type: "外卖&拼好饭", hasTuango: false,
+          partnerId: "691", account: "合江县",
+          cluster: { waimai: "F高开发", tuango: "无分群", lvyue: "F低推完", lingshou: "F品类II类", zuzhi: "无分群", shangye: "F", tiyan: "F", zhili: "无分群" },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(50%-70%]", warnDelta: "下跌",
+          bands: { 外卖: "(50%-70%]", 团购: "不预警", 履约: "(30%-50%]", 零售: "(70%-90%]", 组织: "暂不预警", 商业增值: "(70%-90%]", 用户体验: "(30%-50%]", 综合治理: "暂不预警" },
+          mom: {
+            "市场开发率(订单)": "-0.01pp", "市场开发率(实付)": "+0.06pp", "餐饮渗透率": "-0.10pp",
+            "团购市场开发率": "—", "团购优质渗透率": "—", "推单完成率": "-0.15pp",
+            "超45分钟占比": "+0.30pp", "零售YoY": "+1.22pp", "货币化率": "-0.01pp",
+            "商家万服": "-0.156", "履约万服": "+2.588"
+          },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "1.05%", "(30%-50%]"],
+              ["市场开发率(GTV)", "1.05%", "(70%-90%]"],
+              ["餐饮商家渗透率", "34.06%", "(30%-50%]"],
+              ["外卖模块预警", "—", "(50%-70%]"]
+            ],
+            零售: [
+              ["日均零售 YOY", "17.20%", "(70%-90%]"],
+              ["优质仓数达标情况", "2", "—"],
+              ["零售模块预警", "—", "(70%-90%]"]
+            ],
+            团购: [
+              ["是否团购城市", "否", "不预警"],
+              ["团购市场开发率", "—", "不预警"],
+              ["优质商家渗透率", "—", "不预警"]
+            ],
+            履约: [
+              ["推单完成率", "98.92%", "(50%-70%]"],
+              ["压力天出勤率", "92.11%", "—"],
+              ["超45分钟订单占比", "0.96%", "(30%-50%]"],
+              ["履约模块预警", "—", "(30%-50%]"]
+            ],
+            用户体验: [
+              ["用户投诉商家问题万服排名", "0.6698", "—"],
+              ["用户投诉履约问题万服排名", "0.2430", "—"],
+              ["用户体验模块预警", "—", "(30%-50%]"]
+            ],
+            组织: [
+              ["外卖BD满编率", "100%", "—"],
+              ["团购BD满编率", "0%", "—"],
+              ["外卖BD效能", "14.89", "—"],
+              ["高效能BD流失率", "0%", "—"],
+              ["关键岗位认证通过率(城)", "99.8%", "—"],
+              ["组织模块预警", "—", "暂不预警"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "2.14%", "(70%-90%]"],
+              ["团购货币化率", "—", "不预警"],
+              ["商业增值模块预警", "—", "(70%-90%]"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩占比", "0.088%", "—"],
+              ["月异常骑手率", "0.019%", "—"],
+              ["安全事件扣分情况", "无扣分", "—"],
+              ["综合治理模块预警", "—", "暂不预警"]
+            ]
+          }
+        },
+        {
+          name: "仁寿县", level: "E3", type: "外卖&拼好饭&团购", hasTuango: true,
+          partnerId: "140", account: "仁寿县",
+          cluster: { waimai: "E高开发", tuango: "E中开发", lvyue: "E低推完", lingshou: "E品类III类", zuzhi: "无分群", shangye: "E", tiyan: "E", zhili: "无分群" },
+          riskRoll: "目前安全", riskMonth: "目前安全",
+          warnWeighted: "无预警", warnMarket: "(30%-50%]", warnDelta: "持平",
+          bands: { 外卖: "(50%-70%]", 团购: "[0%-10%]", 履约: "(50%-70%]", 零售: "(50%-70%]", 组织: "暂不预警", 商业增值: "(30%-50%]", 用户体验: "(50%-70%]", 综合治理: "暂不预警" },
+          mom: {
+            "市场开发率(订单)": "+0.08pp", "市场开发率(实付)": "+0.03pp", "餐饮渗透率": "-0.23pp",
+            "团购市场开发率": "+7.07pp", "团购优质渗透率": "-0.04pp", "推单完成率": "-0.03pp",
+            "超45分钟占比": "+0.05pp", "零售YoY": "+0.51pp", "货币化率": "+0.01pp",
+            "商家万服": "-0.171", "履约万服": "+0.218"
+          },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "1.95%", "(70%-90%]"],
+              ["市场开发率(GTV)", "1.56%", "(30%-50%]"],
+              ["餐饮商家渗透率", "29.17%", "[0%-10%]"],
+              ["外卖模块预警", "—", "(50%-70%]"]
+            ],
+            零售: [
+              ["日均零售 YOY", "13.28%", "(50%-70%]"],
+              ["优质仓数达标情况", "6", "—"],
+              ["零售模块预警", "—", "(50%-70%]"]
+            ],
+            团购: [
+              ["团购市场开发率", "6.36%", "(30%-50%]"],
+              ["优质商家渗透率", "9.11%", "(10%-30%]"],
+              ["团购模块预警", "—", "[0%-10%]"]
+            ],
+            履约: [
+              ["推单完成率", "98.80%", "(50%-70%]"],
+              ["压力天出勤率", "91.96%", "—"],
+              ["超45分钟订单占比", "1.96%", "(50%-70%]"],
+              ["履约模块预警", "—", "(50%-70%]"]
+            ],
+            用户体验: [
+              ["用户投诉商家问题万服排名", "0.7469", "—"],
+              ["用户投诉履约问题万服排名", "0.5844", "—"],
+              ["用户体验模块预警", "—", "(50%-70%]"]
+            ],
+            组织: [
+              ["外卖BD满编率", "150%", "—"],
+              ["团购BD满编率", "90%", "—"],
+              ["外卖BD效能", "16.91", "—"],
+              ["团购BD效能", "8.39", "—"],
+              ["高效能BD流失率", "0%", "—"],
+              ["关键岗位认证通过率(城)", "99.25%", "—"],
+              ["组织模块预警", "—", "暂不预警"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "2.20%", "—"],
+              ["团购货币化率", "1.05%", "—"],
+              ["商业增值模块预警", "—", "(30%-50%]"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩占比", "0.122%", "—"],
+              ["月团购虚假业绩占比", "0%", "—"],
+              ["月异常骑手率", "0.004%", "—"],
+              ["安全事件扣分情况", "无扣分", "—"],
+              ["综合治理模块预警", "—", "暂不预警"]
+            ]
+          }
+        },
+        {
+          name: "叙永", level: "F3", type: "外卖&拼好饭", hasTuango: false,
+          partnerId: "880", account: "叙永",
+          cluster: { waimai: "F高开发", tuango: "无分群", lvyue: "F高推完", lingshou: "F品类III类", zuzhi: "无分群", shangye: "F", tiyan: "F", zhili: "无分群" },
+          riskRoll: "目前风险", riskMonth: "月度高风险",
+          warnWeighted: "(10%-30%]", warnMarket: "[0%-10%]", warnDelta: "持平",
+          bands: { 外卖: "[0%-10%]", 团购: "不预警", 履约: "[0%-10%]", 零售: "(90%-100%]", 组织: "暂不预警", 商业增值: "(50%-70%]", 用户体验: "(10%-30%]", 综合治理: "暂不预警" },
+          mom: {
+            "市场开发率(订单)": "-0.40pp", "市场开发率(实付)": "-0.32pp", "餐饮渗透率": "-0.10pp",
+            "团购市场开发率": "—", "团购优质渗透率": "—", "推单完成率": "-0.02pp",
+            "超45分钟占比": "+0.02pp", "零售YoY": "-0.20pp", "货币化率": "+0.01pp",
+            "商家万服": "+0.046", "履约万服": "-1.241"
+          },
+          details: {
+            外卖: [
+              ["市场开发率(订单量)", "-0.33%", "(10%-30%]"],
+              ["市场开发率(GTV)", "-0.27%", "[0%-10%]"],
+              ["餐饮商家渗透率", "33.94%", "[0%-10%]"],
+              ["外卖模块预警", "—", "[0%-10%]"]
+            ],
+            零售: [
+              ["日均零售 YOY", "37.17%", "(90%-100%]"],
+              ["优质仓数达标情况", "3", "—"],
+              ["零售模块预警", "—", "(90%-100%]"]
+            ],
+            团购: [
+              ["是否团购城市", "否", "不预警"],
+              ["团购市场开发率", "—", "不预警"],
+              ["优质商家渗透率", "—", "不预警"]
+            ],
+            履约: [
+              ["推单完成率", "98.94%", "(10%-30%]"],
+              ["压力天出勤率", "95.58%", "—"],
+              ["超45分钟订单占比", "0.89%", "(10%-30%]"],
+              ["履约模块预警", "—", "[0%-10%]"]
+            ],
+            用户体验: [
+              ["用户投诉商家问题万服排名", "0.2926", "—"],
+              ["用户投诉履约问题万服排名", "0.3034", "—"],
+              ["用户体验模块预警", "—", "(10%-30%]"]
+            ],
+            组织: [
+              ["外卖BD满编率", "125%", "—"],
+              ["团购BD满编率", "0%", "—"],
+              ["外卖BD效能", "9.11", "—"],
+              ["外卖BD件均成本", "18.3", "—"],
+              ["高效能BD流失率", "0%", "—"],
+              ["关键岗位认证通过率(城)", "99.8%", "—"],
+              ["组织模块预警", "—", "暂不预警"]
+            ],
+            商业增值: [
+              ["外卖货币化率", "1.89%", "(50%-70%]"],
+              ["团购货币化率", "—", "不预警"],
+              ["商业增值模块预警", "—", "(50%-70%]"]
+            ],
+            综合治理: [
+              ["月外卖虚假业绩占比", "0.063%", "—"],
+              ["月异常骑手率", "0.030%", "—"],
+              ["安全事件扣分情况", "无扣分", "—"],
+              ["综合治理模块预警", "—", "暂不预警"]
+            ]
+          }
+        }
+      ]
+    };
 
-  
-  <section class="section muted-sec">
-    <h2>附录 · 区外/非五城记录</h2>
-    <p class="desc">区域筛选为「川藏一区」时可能带出其它城市，仅作透明展示，不计入五城 KPI。</p>
-    <div class="scroll"><table>
-      <thead><tr><th>城市</th><th>人数</th><th>记录</th><th>均分</th><th>&lt;90</th><th>最近更新</th></tr></thead>
-      <tbody><tr><td class='city'>邛崃市</td><td>1</td><td>1</td><td class='num'>88.0</td><td><span class="badge bwatch">1人</span></td><td>2026-08-07 03:20:58</td></tr></tbody>
-    </table></div>
-    <div class="scroll" style="margin-top:10px"><table>
-      <thead><tr><th>城市</th><th>姓名</th><th>分数</th><th>更新时间</th></tr></thead>
-      <tbody><tr><td class='city'>邛崃市</td><td>牟小龙</td><td class='num'>88</td><td>2026-08-07 03:20:58</td></tr></tbody>
-    </table></div>
-  </section>
+    function bandClass(band) {
+      if (!band || band === "—" || band === "不预警" || band === "暂不预警" || band === "无预警") return "bna";
+      if (String(band).includes("[0%-10%]")) return "b0";
+      if (String(band).includes("(10%-30%]")) return "b1";
+      if (String(band).includes("(30%-50%]")) return "b2";
+      if (String(band).includes("(50%-70%]")) return "b3";
+      if (String(band).includes("(70%-90%]")) return "b4";
+      if (String(band).includes("(90%-100%]")) return "b5";
+      if (String(band).includes("高风险") || String(band).includes("风险")) return "brisk";
+      if (String(band).includes("安全")) return "bsafe";
+      return "bwatch";
+    }
+    function badge(text) {
+      return `<span class="badge ${bandClass(text)}">${text || "—"}</span>`;
+    }
+    function weakModules(city) {
+      return DATA.modules.filter(m => {
+        const b = city.bands[m] || "";
+        return b.includes("[0%-10%]") || b.includes("(10%-30%]");
+      });
+    }
 
+    function renderLegend() {
+      document.getElementById("legend").innerHTML = [
+        ["[0%-10%]", "b0"], ["(10%-30%]", "b1"], ["(30%-50%]", "b2"],
+        ["(50%-70%]", "b3"], ["(70%-90%]", "b4"], ["(90%-100%]", "b5"],
+        ["暂不预警/不预警", "bna"]
+      ].map(([t, c]) => `<span class="badge ${c}">${t}</span>`).join("");
+    }
 
-  <p class="footer">自动同步自 http://www.chuxin.city/v/admin/b7v8t424ohb · 域名页读取本文件 · 川藏一区</p>
-</div>
+    function renderOverview() {
+      const rows = [...DATA.cities].sort((a, b) => {
+        const rank = (c) => (c.riskMonth.includes("高风险") ? 0 : c.riskRoll.includes("风险") ? 1 : 2);
+        return rank(a) - rank(b) || a.name.localeCompare(b.name, "zh");
+      });
+      document.getElementById("overviewTable").innerHTML = `
+        <thead><tr>
+          <th>城市</th><th>等级</th><th>城市类型</th>
+          <th>风险(滚动)</th><th>风险(当月)</th>
+          <th>加权预警</th><th>大盘预警</th><th>预警环比</th>
+          <th>落后模块（≤30%区间）</th>
+        </tr></thead>
+        <tbody>${rows.map(c => {
+          const weak = weakModules(c);
+          return `<tr>
+            <td class="city">${c.name}</td>
+            <td>${c.level}</td>
+            <td>${c.type}</td>
+            <td>${badge(c.riskRoll)}</td>
+            <td>${badge(c.riskMonth)}</td>
+            <td>${badge(c.warnWeighted)}</td>
+            <td>${badge(c.warnMarket)}</td>
+            <td>${c.warnDelta}</td>
+            <td class="wrap-cell">${weak.length ? weak.map(w => badge(w + " " + c.bands[w])).join(" ") : "—"}</td>
+          </tr>`;
+        }).join("")}</tbody>`;
+    }
+
+    function renderMatrix() {
+      document.getElementById("matrixTable").innerHTML = `
+        <thead><tr><th>城市</th>${DATA.modules.map(m => `<th>${m}</th>`).join("")}</tr></thead>
+        <tbody>${DATA.cities.map(c => `
+          <tr>
+            <td class="city">${c.name}</td>
+            ${DATA.modules.map(m => `<td>${badge(c.bands[m])}</td>`).join("")}
+          </tr>`).join("")}</tbody>`;
+    }
+
+    function renderArchive() {
+      document.getElementById("档案Table").innerHTML = `
+        <thead><tr>
+          <th>城市</th><th>合作商ID</th><th>账号主体</th><th>等级</th><th>城市类型</th>
+          <th>外卖分群</th><th>团购分群</th><th>履约分群</th><th>零售分群</th>
+          <th>组织</th><th>商业增值</th><th>用户体验</th><th>综合治理</th>
+        </tr></thead>
+        <tbody>${DATA.cities.map(c => `
+          <tr>
+            <td class="city">${c.name}</td>
+            <td>${c.partnerId}</td>
+            <td>${c.account}</td>
+            <td>${c.level}</td>
+            <td>${c.type}</td>
+            <td>${c.cluster.waimai}</td>
+            <td>${c.cluster.tuango}</td>
+            <td>${c.cluster.lvyue}</td>
+            <td>${c.cluster.lingshou}</td>
+            <td>${c.cluster.zuzhi}</td>
+            <td>${c.cluster.shangye}</td>
+            <td>${c.cluster.tiyan}</td>
+            <td>${c.cluster.zhili}</td>
+          </tr>`).join("")}</tbody>`;
+    }
+
+    function renderModules() {
+      const titles = {
+        外卖: "四、外卖模块明细",
+        团购: "五、团购模块明细",
+        履约: "六、履约模块明细",
+        零售: "七、零售模块明细",
+        组织: "八、组织模块明细",
+        商业增值: "九、商业增值模块明细",
+        用户体验: "十、用户体验模块明细",
+        综合治理: "十一、综合治理模块明细"
+      };
+      document.getElementById("moduleSections").innerHTML = DATA.modules.map(mod => {
+        // union of metric names across cities to build wide table
+        const metricNames = [];
+        DATA.cities.forEach(c => {
+          (c.details[mod] || []).forEach(row => {
+            if (!metricNames.includes(row[0])) metricNames.push(row[0]);
+          });
+        });
+        const head = `<tr><th>城市</th><th>模块预警</th>${metricNames.map(n => `<th colspan="2">${n}</th>`).join("")}</tr>
+                      <tr><th></th><th></th>${metricNames.map(() => `<th>指标值</th><th>预警区间</th>`).join("")}</tr>`;
+        const body = DATA.cities.map(c => {
+          const map = {};
+          (c.details[mod] || []).forEach(r => { map[r[0]] = r; });
+          return `<tr>
+            <td class="city">${c.name}</td>
+            <td>${badge(c.bands[mod])}</td>
+            ${metricNames.map(n => {
+              const r = map[n];
+              if (!r) return `<td>—</td><td>—</td>`;
+              return `<td>${r[1]}</td><td>${badge(r[2])}</td>`;
+            }).join("")}
+          </tr>`;
+        }).join("");
+        return `<section class="section">
+          <h2>${titles[mod]}</h2>
+          <p class="desc">五城横排对比；展示指标值 + 预警区间，不展示得分。</p>
+          <div class="scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>
+        </section>`;
+      }).join("");
+    }
+
+    function renderMom() {
+      const keys = Object.keys(DATA.cities[0].mom);
+      document.getElementById("momTable").innerHTML = `
+        <thead><tr><th>城市</th>${keys.map(k => `<th>${k}</th>`).join("")}</tr></thead>
+        <tbody>${DATA.cities.map(c => `
+          <tr>
+            <td class="city">${c.name}</td>
+            ${keys.map(k => `<td>${c.mom[k]}</td>`).join("")}
+          </tr>`).join("")}</tbody>`;
+    }
+
+    document.getElementById("period").textContent = DATA.meta.period;
+    document.getElementById("date").textContent = DATA.meta.dataDate;
+    document.getElementById("cityCount").textContent = DATA.cities.length;
+    renderLegend();
+    renderOverview();
+    renderMatrix();
+    renderArchive();
+    renderModules();
+    renderMom();
+  </script>
 </body>
 </html>
