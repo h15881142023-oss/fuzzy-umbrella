@@ -105,9 +105,38 @@ LR_ADMIN_SIGNIN_URL = os.environ.get(
     "http://www.chuxin.city/v/signin",
 )
 LR_SCRAPE_DIR = Path(os.environ.get("LR_SCRAPE_DIR", str(BASE_DIR / "data" / "lr_scrape")))
-# 默认强制用新表 LR日报_新.xlsx（勿再回退旧模版，避免团购利润列不一致）
-_LR_TEMPLATE_NEW = LR_DIR / "templates" / "LR日报_新.xlsx"
-LR_TEMPLATE_DEFAULT = os.environ.get("LR_TEMPLATE_PATH", str(_LR_TEMPLATE_NEW))
+def _resolve_lr_template() -> str:
+    """解析 LR 模板路径。
+
+    优先英文别名 LR_DAILY_NEW.xlsx（避免 Windows PS1/GBK 中文路径乱码），
+    其次中文名 LR日报_新.xlsx，再回退 templates 下非 5.4 的最新 xlsx。
+    """
+    env = os.environ.get("LR_TEMPLATE_PATH", "").strip()
+    if env:
+        return env
+    tpl_dir = LR_DIR / "templates"
+    ascii_alias = tpl_dir / "LR_DAILY_NEW.xlsx"
+    if ascii_alias.exists():
+        return str(ascii_alias)
+    cn_new = tpl_dir / "LR日报_新.xlsx"
+    if cn_new.exists():
+        return str(cn_new)
+    if tpl_dir.is_dir():
+        cands = sorted(
+            (
+                p
+                for p in tpl_dir.glob("*.xlsx")
+                if "5.4" not in p.name and not p.name.startswith("~$")
+            ),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if cands:
+            return str(cands[0])
+    return str(cn_new)
+
+
+LR_TEMPLATE_DEFAULT = _resolve_lr_template()
 
 # KPI 待办进度（周一/周四 14:00 本机 launchd）
 KPI_TODO_DIR = BASE_DIR / "kpi_todo"

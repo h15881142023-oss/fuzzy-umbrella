@@ -30,13 +30,25 @@ if ($from -gt $to) {
     exit 1
 }
 
-$templateNew = Join-Path $Root "lr\templates\LR日报_新.xlsx"
+# ASCII alias avoids GBK mojibake of Chinese names inside .ps1
+$templatesDir = Join-Path $Root "lr\templates"
+$templateNew = Join-Path $templatesDir "LR_DAILY_NEW.xlsx"
 if (-not (Test-Path -LiteralPath $templateNew)) {
-    Write-Step "MISSING template: $templateNew"
-    Write-Step "Copy your new workbook there first, e.g.:"
-    Write-Step "  Copy-Item -LiteralPath '<path>\LR日报_新.xlsx' -Destination '$templateNew' -Force"
+    $cand = Get-ChildItem -LiteralPath $templatesDir -Filter "*.xlsx" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "*5.4*" -and $_.Name -notlike "~$*" } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($cand) {
+        Copy-Item -LiteralPath $cand.FullName -Destination $templateNew -Force
+        Write-Step ("Aliased template -> LR_DAILY_NEW.xlsx from " + $cand.Name)
+    }
+}
+if (-not (Test-Path -LiteralPath $templateNew)) {
+    Write-Step "MISSING template: $templateNew (put non-5.4 xlsx under lr\templates)"
     exit 1
 }
+$env:LR_TEMPLATE_PATH = $templateNew
+Write-Step ("Using template: " + $templateNew)
 
 if ($ForceRefill) {
     Write-Step "ForceRefill: remove existing workbooks in range + sanitized cache"

@@ -1,5 +1,5 @@
 # One-shot: ensure new template -> hotfix -> fill 2026-08-01..06 -> WeCom once.
-# ASCII-only. Run from anywhere.
+# ASCII-only paths in this file (GBK consoles break Chinese filenames in .ps1).
 param(
     [string]$FromDate = "2026-08-01",
     [string]$ToDate = "2026-08-06",
@@ -12,27 +12,44 @@ $ErrorActionPreference = "Continue"
 $Root = Get-RepoRoot
 Set-Location $Root
 
-$Dest = Join-Path $Root "lr\templates\LR日报_新.xlsx"
+$templatesDir = Join-Path $Root "lr\templates"
+$Dest = Join-Path $templatesDir "LR_DAILY_NEW.xlsx"
 Write-Step "Repo: $Root"
 
-# 1) template must exist
-if (-not (Test-Path -LiteralPath $Dest)) {
-    if ($TemplateSource -and (Test-Path -LiteralPath $TemplateSource)) {
-        New-Item -ItemType Directory -Force -Path (Split-Path $Dest) | Out-Null
-        Copy-Item -LiteralPath $TemplateSource -Destination $Dest -Force
-        Write-Step "Copied template from Source -> $Dest"
-    } else {
-        Write-Step "MISSING: $Dest"
-        Write-Step "Put LR日报_新.xlsx into lr\templates\ first, or pass -TemplateSource <fullpath>"
-        Write-Step "Current templates folder:"
-        if (Test-Path (Join-Path $Root "lr\templates")) {
-            Get-ChildItem -LiteralPath (Join-Path $Root "lr\templates") | ForEach-Object { Write-Host ("  " + $_.Name + "  " + $_.Length) }
-        }
-        exit 1
+function Resolve-NewLrTemplate {
+    param([string]$Dir, [string]$AliasPath, [string]$Source)
+    New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+    if ($Source -and (Test-Path -LiteralPath $Source)) {
+        Copy-Item -LiteralPath $Source -Destination $AliasPath -Force
+        return $AliasPath
     }
-} else {
-    Write-Step ("Template OK: " + $Dest + " bytes=" + (Get-Item -LiteralPath $Dest).Length)
+    if (Test-Path -LiteralPath $AliasPath) {
+        return $AliasPath
+    }
+    # Pick newest xlsx that is NOT the old 5.4 template (ASCII-safe filter)
+    $cand = Get-ChildItem -LiteralPath $Dir -Filter "*.xlsx" -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -notlike "*5.4*" -and $_.Name -notlike "~$*" } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+    if ($cand) {
+        Copy-Item -LiteralPath $cand.FullName -Destination $AliasPath -Force
+        Write-Step ("Aliased template -> LR_DAILY_NEW.xlsx from " + $cand.Name)
+        return $AliasPath
+    }
+    return $null
 }
+
+$resolved = Resolve-NewLrTemplate -Dir $templatesDir -AliasPath $Dest -Source $TemplateSource
+if (-not $resolved) {
+    Write-Step "MISSING new LR template under lr\templates (need non-5.4 xlsx)"
+    Write-Step "Current templates folder:"
+    if (Test-Path -LiteralPath $templatesDir) {
+        Get-ChildItem -LiteralPath $templatesDir | ForEach-Object { Write-Host ("  " + $_.Name + "  " + $_.Length) }
+    }
+    exit 1
+}
+Write-Step ("Template OK: " + $resolved + " bytes=" + (Get-Item -LiteralPath $resolved).Length)
+$env:LR_TEMPLATE_PATH = $resolved
 
 # drop sanitized cache so new template is used
 $cache = Join-Path $Root "lr\work\_template_sanitized.xlsx"
@@ -41,7 +58,7 @@ if (Test-Path -LiteralPath $cache) {
     Write-Step "removed _template_sanitized.xlsx"
 }
 
-# 2) hotfix (optional sha)
+# hotfix
 $py = Join-Path $Root ".venv\Scripts\python.exe"
 if (-not (Test-Path $py)) {
     try { $null = Ensure-Venv -Root $Root; $py = Join-Path $Root ".venv\Scripts\python.exe" } catch {
@@ -55,7 +72,9 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-# 3) backfill fill-only per day, push once
+# Re-resolve after hotfix (config.py prefers LR_DAILY_NEW.xlsx)
+$env:LR_TEMPLATE_PATH = $Dest
+
 $bf = Join-Path $PSScriptRoot "run_lr_profit_fill_backfill.ps1"
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $bf `
     -FromDate $FromDate -ToDate $ToDate -ForceRefill -PushOnce
