@@ -77,10 +77,16 @@ if ($ForceRefill) {
 Write-Step "LR PROFIT FILL BACKFILL $FromDate .. $ToDate (ForceRefill=$ForceRefill PushOnce=$PushOnce)"
 Write-LogLine $Log "start backfill from=$FromDate to=$ToDate force=$ForceRefill pushOnce=$PushOnce"
 try {
-    $py = Ensure-Venv -Root $Root
+    $null = Ensure-Venv -Root $Root
 } catch {
     Write-Step "venv fail: $_"
     Write-LogLine $Log "venv fail: $_"
+    exit 1
+}
+# Always resolve path as string (do not capture Ensure-Venv pipeline output)
+$py = [string](Join-Path $Root ".venv\Scripts\python.exe")
+if (-not (Test-Path -LiteralPath $py)) {
+    Write-Step "python missing: $py"
     exit 1
 }
 

@@ -47,11 +47,13 @@ function Ensure-Venv {
 
     $venvPy = Join-Path $Root ".venv\Scripts\python.exe"
     Write-Step "Installing Python packages (first run may take several minutes) ..."
-    & $venvPy -m pip install -q -r requirements.txt
+    # Must Out-Null: otherwise caller `$py = Ensure-Venv` captures pip/playwright stdout as Object[]
+    & $venvPy -m pip install -q -r requirements.txt 2>&1 | Out-Null
     Write-Step "Installing Playwright Chromium (first run may take several minutes) ..."
-    & $venvPy -m playwright install chromium
+    & $venvPy -m playwright install chromium 2>&1 | Out-Null
     Write-Step "Environment ready."
-    return $venvPy
+    # Explicit string return only (no pipeline pollution)
+    return ,([string]$venvPy)
 }
 
 function Resolve-LrFilledXlsx {
