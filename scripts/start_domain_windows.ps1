@@ -1,6 +1,5 @@
 # Start local web (5001) + Cloudflare tunnel for domain access
 # Public dashboard: https://1.chuanzangyiqu.top/evaluation/xinshang
-# Other pages still need site password
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
@@ -12,29 +11,61 @@ New-Item -ItemType Directory -Force -Path ".\logs" | Out-Null
 
 Write-Host ("==> project: " + $Root)
 
-if (-not (Test-Path ".\.venv\Scripts\python.exe")) {
-  Write-Host "==> create venv and install deps"
-  python -m venv .venv
-  & ".\.venv\Scripts\python.exe" -m pip install -U pip
-  & ".\.venv\Scripts\python.exe" -m pip install -r requirements.txt
+function Get-SystemPython {
+  $cmd = Get-Command python -ErrorAction SilentlyContinue
+  if ($cmd -and $cmd.Source -notmatch "WindowsApps\\python.exe$") {
+    return $cmd.Source
+  }
+  $py = Get-Command py -ErrorAction SilentlyContinue
+  if ($py) { return $py.Source }
+  $cmd3 = Get-Command python3 -ErrorAction SilentlyContinue
+  if ($cmd3 -and $cmd3.Source -notmatch "WindowsApps\\python.exe$") {
+    return $cmd3.Source
+  }
+  return $null
+}
+
+$venvPython = Join-Path $Root ".venv\Scripts\python.exe"
+$sysPython = Get-SystemPython
+
+if (-not (Test-Path $venvPython)) {
+  if (-not $sysPython) {
+    Write-Host "[MISS] Python not found. Install Python 3 and rerun."
+    exit 1
+  }
+  Write-Host ("==> create venv with: " + $sysPython)
+  if ($sysPython -match "\\py.exe$") {
+    & $sysPython -3 -m venv (Join-Path $Root ".venv")
+  } else {
+    & $sysPython -m venv (Join-Path $Root ".venv")
+  }
+  if (-not (Test-Path $venvPython)) {
+    Write-Host "[BAD] venv created but python.exe missing"
+    Write-Host ("expected: " + $venvPython)
+    exit 1
+  }
+  & $venvPython -m pip install -U pip
+  & $venvPython -m pip install -r (Join-Path $Root "requirements.txt")
 }
 
 if (-not $env:CZ_SITE_PASSWORD) { $env:CZ_SITE_PASSWORD = "chuanzang2026" }
 if (-not $env:CZ_SECRET_KEY) { $env:CZ_SECRET_KEY = "chuanzang-change-me-in-production" }
 
 Write-Host "==> init db"
-& ".\.venv\Scripts\python.exe" -c "import db; db.init_db(); db.seed_demo_if_empty(); print('DB ready')"
+& $venvPython -c "import db; db.init_db(); db.seed_demo_if_empty(); print('DB ready')"
 
 $listening = netstat -ano | Select-String ":5001\s+.*LISTENING"
 if ($listening) {
   Write-Host "==> port 5001 already listening"
 } else {
-  Write-Host "==> starting web on 5001"
-  $arg = "-c"
-  $py = "from app import create_app; create_app().run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)"
-  $web = Start-Process -FilePath ".\.venv\Scripts\python.exe" -ArgumentList @($arg, $py) -PassThru -WindowStyle Minimized
-  $web.Id | Out-File -Encoding ascii ".\logs\web_windows.pid" -Force
-  Start-Sleep -Seconds 3
+  Write-Host ("==> starting web with: " + $venvPython)
+  $argList = @(
+    "-c",
+    "from app import create_app; create_app().run(host='0.0.0.0', port=5001, debug=False, use_reloader=False)"
+  )
+  $web = Start-Process -FilePath $venvPython -ArgumentList $argList -WorkingDirectory $Root -PassThru -WindowStyle Minimized
+  $web.Id | Out-File -Encoding ascii (Join-Path $Root "logs\web_windows.pid") -Force
+  Start-Sleep -Seconds 4
 }
 
 try {
@@ -46,18 +77,35 @@ try {
 
 $cfConfig = Join-Path $env:USERPROFILE ".cloudflared\config.yml"
 $cloudflared = Get-Command cloudflared -ErrorAction SilentlyContinue
+if (-not $cloudflared) {
+  $guess = @(
+    "$env:ProgramFiles\cloudflared\cloudflared.exe",
+    "$env:LOCALAPPDATA\cloudflared\cloudflared.exe",
+    "$env:USERPROFILE\bin\cloudflared.exe"
+  ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+  if ($guess) {
+    $cloudflared = @{ Source = $guess }
+    Write-Host ("==> found cloudflared at " + $guess)
+  }
+}
 
 if (-not $cloudflared) {
   Write-Host "[MISS] cloudflared not installed"
-  Write-Host "Install Windows cloudflared, then rerun this script."
-  exit 1
+  Write-Host "Install steps:"
+  Write-Host "  winget install --id Cloudflare.cloudflared -e"
+  Write-Host "  OR download from Cloudflare cloudflared Windows releases"
+  Write-Host "Then: cloudflared tunnel login"
+  Write-Host "      cloudflared tunnel create chuanzang-data"
+  Write-Host "      cloudflared tunnel route dns chuanzang-data 1.chuanzangyiqu.top"
+  Write-Host "Local web may already be up: http://127.0.0.1:5001/evaluation/xinshang"
+  exit 2
 }
 
 if (-not (Test-Path $cfConfig)) {
   Write-Host ("[MISS] tunnel config not found: " + $cfConfig)
-  Write-Host "Copy cloudflared.config.windows.example.yml to that path and fill tunnel id."
-  Write-Host "Also ensure: cloudflared tunnel login / create / route dns"
-  exit 1
+  Write-Host "Create it from cloudflared.config.windows.example.yml and set tunnel id + credentials-file"
+  Write-Host "Local web may already be up: http://127.0.0.1:5001/evaluation/xinshang"
+  exit 3
 }
 
 $cfProc = Get-Process cloudflared -ErrorAction SilentlyContinue
@@ -65,8 +113,8 @@ if ($cfProc) {
   Write-Host "==> cloudflared already running"
 } else {
   Write-Host "==> starting cloudflared"
-  # Do not redirect stdout/stderr to the same file (Start-Process will fail on Windows)
-  Start-Process -FilePath $cloudflared.Source -ArgumentList @("tunnel","--config",$cfConfig,"run","chuanzang-data") -WindowStyle Minimized
+  $cfPath = $cloudflared.Source
+  Start-Process -FilePath $cfPath -ArgumentList @("tunnel","--config",$cfConfig,"run","chuanzang-data") -WorkingDirectory $Root -WindowStyle Minimized
   Start-Sleep -Seconds 3
 }
 
@@ -75,5 +123,3 @@ Write-Host "Done. Verify:"
 Write-Host "  local : http://127.0.0.1:5001/evaluation/xinshang"
 Write-Host "  domain: https://1.chuanzangyiqu.top/evaluation/xinshang"
 Write-Host "  home  : https://1.chuanzangyiqu.top/  (password required)"
-Write-Host ""
-Write-Host "If domain still fails, run check_domain_windows.ps1 and paste output."
