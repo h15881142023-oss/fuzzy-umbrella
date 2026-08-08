@@ -1,5 +1,5 @@
-# Install web + cloudflared as background (no need keep PowerShell windows open)
-# Run PowerShell as Administrator once:
+# Use Scheduled Tasks for both web + cloudflared (more reliable than Windows service on this PC)
+# Run PowerShell as Administrator:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\install_background_windows.ps1
 
 $ErrorActionPreference = "Stop"
@@ -10,89 +10,82 @@ Set-Location $Root
 $venvPython = Join-Path $Root ".venv\Scripts\python.exe"
 $runWeb = Join-Path $Root "scripts\run_web_windows.py"
 $userCfDir = Join-Path $env:USERPROFILE ".cloudflared"
-$sysCfDir = "C:\Windows\System32\config\systemprofile\.cloudflared"
 $tunnelId = "7224a724-0471-45a8-8adc-80b0fc846b10"
 $credName = "$tunnelId.json"
+$userConfig = Join-Path $userCfDir "config.yml"
+$cfExe = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
+if (-not $cfExe) {
+  $guess = @(
+    "${env:ProgramFiles(x86)}\cloudflared\cloudflared.exe",
+    "$env:ProgramFiles\cloudflared\cloudflared.exe"
+  ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+  $cfExe = $guess
+}
 
 Write-Host "==> project: $Root"
 
-# Require admin
 $principal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
   Write-Host "[MISS] Please run this script as Administrator"
   exit 1
 }
 
-if (-not (Test-Path $venvPython)) {
-  Write-Host "[MISS] venv python not found: $venvPython"
-  exit 1
-}
-if (-not (Test-Path $runWeb)) {
-  Write-Host "[MISS] launcher not found: $runWeb"
-  exit 1
-}
-if (-not (Test-Path (Join-Path $userCfDir $credName))) {
-  Write-Host ("[MISS] tunnel credentials not found: " + (Join-Path $userCfDir $credName))
-  exit 1
-}
+if (-not (Test-Path $venvPython)) { Write-Host "[MISS] $venvPython"; exit 1 }
+if (-not (Test-Path $runWeb)) { Write-Host "[MISS] $runWeb"; exit 1 }
+if (-not (Test-Path (Join-Path $userCfDir $credName))) { Write-Host "[MISS] credentials"; exit 1 }
+if (-not $cfExe) { Write-Host "[MISS] cloudflared.exe"; exit 1 }
 
-# 1) Scheduled task for Flask web (at startup)
-$taskName = "ChuanzangWeb5001"
-Write-Host "==> register scheduled task: $taskName"
-Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
-
-$action = New-ScheduledTaskAction -Execute $venvPython -Argument "`"$runWeb`"" -WorkingDirectory $Root
-# At logon under current user (avoids SYSTEM permission issues on Documents)
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
-$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
-$principalTask = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Principal $principalTask -Force | Out-Null
-Start-ScheduledTask -TaskName $taskName
-Write-Host "==> web task started"
-
-# 2) cloudflared Windows service (needs config under systemprofile)
-Write-Host "==> prepare cloudflared system config"
-New-Item -ItemType Directory -Force -Path $sysCfDir | Out-Null
-
-$config = @"
+# Ensure user config exists
+New-Item -ItemType Directory -Force -Path $userCfDir | Out-Null
+@"
 tunnel: $tunnelId
-credentials-file: $sysCfDir\$credName
+credentials-file: $userCfDir\$credName
 
 ingress:
   - hostname: 1.chuanzangyiqu.top
     service: http://127.0.0.1:5001
   - service: http_status:404
-"@
-Set-Content -Path (Join-Path $sysCfDir "config.yml") -Value $config -Encoding ascii
-Copy-Item -Force (Join-Path $userCfDir $credName) (Join-Path $sysCfDir $credName)
+"@ | Set-Content -Path $userConfig -Encoding ascii
 
-$cf = Get-Command cloudflared -ErrorAction SilentlyContinue
-if (-not $cf) {
-  Write-Host "[MISS] cloudflared not in PATH"
-  exit 1
-}
-
-# Stop any running interactive cloudflared first
+# Stop broken Windows service if present (optional, keep AUTO but unused)
 Get-Process cloudflared -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-
-# Reinstall service cleanly
-Write-Host "==> install cloudflared service"
+try { Stop-Service cloudflared -Force -ErrorAction SilentlyContinue } catch {}
 try { & cloudflared service uninstall | Out-Null } catch {}
-& cloudflared service install
-Start-Sleep -Seconds 2
-Start-Service cloudflared -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 2
 
-$svc = Get-Service cloudflared -ErrorAction SilentlyContinue
-if ($svc -and $svc.Status -eq "Running") {
-  Write-Host "[OK] cloudflared service Running"
-} else {
-  Write-Host "[BAD] cloudflared service not running. Check: Get-Service cloudflared"
+function Register-BgTask {
+  param(
+    [string]$TaskName,
+    [string]$Execute,
+    [string]$Argument,
+    [string]$WorkDir
+  )
+  Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue
+  $action = New-ScheduledTaskAction -Execute $Execute -Argument $Argument -WorkingDirectory $WorkDir
+  $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -RestartCount 5 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero)
+  $prin = New-ScheduledTaskPrincipal -UserId "$env:USERDOMAIN\$env:USERNAME" -LogonType Interactive -RunLevel Highest
+  Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $prin -Force | Out-Null
+  Start-ScheduledTask -TaskName $TaskName
+  Write-Host ("[OK] task started: " + $TaskName)
 }
+
+Write-Host "==> register web task"
+Register-BgTask -TaskName "ChuanzangWeb5001" -Execute $venvPython -Argument "`"$runWeb`"" -WorkDir $Root
+
+Write-Host "==> register tunnel task"
+$cfArgs = "tunnel --config `"$userConfig`" run chuanzang-win"
+Register-BgTask -TaskName "ChuanzangTunnel" -Execute $cfExe -Argument $cfArgs -WorkDir $userCfDir
+
+Start-Sleep -Seconds 4
+
+# Checks
+$listen = netstat -ano | Select-String ":5001\s+.*LISTENING"
+if ($listen) { Write-Host "[OK] port 5001 listening" } else { Write-Host "[BAD] port 5001 not listening" }
+
+$cfProc = Get-Process cloudflared -ErrorAction SilentlyContinue
+if ($cfProc) { Write-Host ("[OK] cloudflared process running pid=" + ($cfProc.Id -join ",")) } else { Write-Host "[BAD] cloudflared process not running" }
 
 Write-Host ""
-Write-Host "Done. You can close all PowerShell windows now."
-Write-Host "Public URL: https://1.chuanzangyiqu.top/evaluation/xinshang"
-Write-Host "Web task:   $taskName (AtStartup)"
-Write-Host "Tunnel:     Windows service 'cloudflared' (Automatic)"
+Write-Host "Done. Close PowerShell windows and test:"
+Write-Host "  https://1.chuanzangyiqu.top/evaluation/xinshang"
+Write-Host "Tasks: ChuanzangWeb5001 + ChuanzangTunnel (AtLogOn, auto restart)"
