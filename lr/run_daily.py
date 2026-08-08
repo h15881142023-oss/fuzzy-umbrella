@@ -141,14 +141,16 @@ def main() -> int:
         print(f"[lr] fill template -> {WORK_DIR} target={target}", flush=True)
         filled = fill_template(args.template, rows, target, WORK_DIR)
         print(f"[lr] filled: {filled}", flush=True)
-        try:
-            from lr.fill_template import count_filled_days
-
-            n_days = count_filled_days(filled)
-            print(f"[lr] workbook days in 数据源(日): {n_days}", flush=True)
-        except Exception:
-            pass
         _write_fill_marker(filled, target)
+        # fill-only 跳过二次打开大表统计；避免 read_only 随机访问导致“假死”
+        if not args.fill_only:
+            try:
+                from lr.fill_template import count_filled_days
+
+                n_days = count_filled_days(filled)
+                print(f"[lr] workbook days in 数据源(日): {n_days}", flush=True)
+            except Exception as exc:
+                print(f"[lr] count_filled_days skip: {exc}", flush=True)
 
     if args.fill_only:
         summary = {

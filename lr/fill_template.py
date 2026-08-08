@@ -57,19 +57,40 @@ def _resolve_base_workbook(template: Path, out_dir: Path, target: date) -> Path:
 
 
 def count_filled_days(out_path: Path) -> int:
-    """统计数据源(日)里已有多少个不同日期（五城齐算一天）。"""
+    """统计数据源(日)里已有多少个不同日期（五城齐算一天）。
+
+    注意：read_only 模式禁止 ws.cell(r,c) 随机访问（会极慢/像卡死），必须 iter_rows。
+    """
     wb = load_workbook(out_path, read_only=True, data_only=True)
     try:
         if DATA_SHEET not in wb.sheetnames:
             return 0
         ws = wb[DATA_SHEET]
-        col_map = _header_col_map(ws)
-        day_col = col_map.get("日", 3)
         days: set[str] = set()
-        for r in range(HEADER_ROW + 1, ws.max_row + 1):
-            region = norm_header(ws.cell(r, col_map.get("区域", 1)).value)
-            city = norm_header(ws.cell(r, col_map.get("组织结构", 2)).value)
-            day = _read_row_day(ws.cell(r, day_col).value)
+        region_i = city_i = day_i = 0, 1, 2
+        for i, row in enumerate(
+            ws.iter_rows(min_row=HEADER_ROW, max_col=MAX_INPUT_COL, values_only=True),
+            start=HEADER_ROW,
+        ):
+            if i == HEADER_ROW:
+                headers = [norm_header(c) for c in row]
+                def _idx(name: str, default: int) -> int:
+                    try:
+                        return headers.index(name)
+                    except ValueError:
+                        return default
+                region_i = _idx("区域", 0)
+                city_i = _idx("组织结构", 1)
+                day_i = _idx("日", 2)
+                continue
+            vals = list(row)
+
+            def _get(idx: int):
+                return vals[idx] if 0 <= idx < len(vals) else None
+
+            region = norm_header(_get(region_i))
+            city = norm_header(_get(city_i))
+            day = _read_row_day(_get(day_i))
             if region == REGION_NAME and city in CITIES and day:
                 days.add(day.isoformat())
         return len(days)
