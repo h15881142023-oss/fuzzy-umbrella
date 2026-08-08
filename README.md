@@ -58,6 +58,27 @@ chmod +x start_all.sh stop.sh
 
 NS 生效后访问：https://1.chuanzangyiqu.top
 
+### Windows 域名恢复（站点密码保留，看板免登录）
+
+目标看板地址：`https://1.chuanzangyiqu.top/evaluation/xinshang`
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+git fetch origin "cursor/cz1-merchant-dashboard-74a9"
+git restore --source="origin/cursor/cz1-merchant-dashboard-74a9" -- app.py static/dashboards/cz1-xinshang-pingjia.html scripts/start_domain_windows.ps1 scripts/check_domain_windows.ps1 cloudflared.config.windows.example.yml
+
+# 先自检缺什么
+powershell -ExecutionPolicy Bypass -File .\scripts\check_domain_windows.ps1
+
+# 再启动 Web + 隧道
+powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
+```
+
+说明：
+- 看板 `/evaluation/xinshang` **免登录**
+- 站点其它页面仍用 `CZ_SITE_PASSWORD`（默认 `chuanzang2026`）
+- 域名打不开时，优先看自检脚本：5001 是否监听、cloudflared 是否安装/配置/在跑
+
 ## 新商评价看板（免登录外发）
 
 单页 HTML：`static/dashboards/cz1-xinshang-pingjia.html`  
