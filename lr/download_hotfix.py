@@ -13,9 +13,14 @@ BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
 FILES = [
     # core LR
     "lr/fill_template.py",
+    "lr/table_utils.py",
+    "lr/xlsx_sanitize.py",
     "lr/inspect_workbook_days.py",
     "lr/write_kanban_export_cfg.py",
     "lr/verify_kanban_pngs.py",
+    "lr/kanban_image.py",
+    "lr/export_kanban_com.py",
+    "lr/wecom_push.py",
     "lr/run_daily.py",
     "lr/run_datasource_push.py",
     "lr/scrape_live.py",
@@ -81,15 +86,30 @@ def main() -> int:
         print("ERROR missing after download: " + ", ".join(missing), file=sys.stderr)
         return 2
 
-    fill = ROOT / ("lr\\fill_template.py" if sys.platform == "win32" else "lr/fill_template.py")
+    win = sys.platform == "win32"
+    fill = ROOT / ("lr\\fill_template.py" if win else "lr/fill_template.py")
     text = fill.read_text(encoding="utf-8", errors="replace")
     if "monthly_master_path" not in text or "_resolve_base_workbook" not in text:
         print("ERROR: fill_template.py is OLD (no cumulative fill). Abort.", file=sys.stderr)
         return 2
 
+    kanban = ROOT / ("lr\\kanban_image.py" if win else "lr/kanban_image.py")
+    ktext = kanban.read_text(encoding="utf-8", errors="replace")
+    if "def export_kanban_pngs(" not in ktext:
+        print("ERROR: kanban_image.py missing export_kanban_pngs. Abort.", file=sys.stderr)
+        return 2
+
+    daily = ROOT / ("lr\\run_daily.py" if win else "lr/run_daily.py")
+    dtext = daily.read_text(encoding="utf-8", errors="replace")
+    if "from lr.kanban_image import export_kanban_pngs" in dtext.split("def main")[0]:
+        print("ERROR: run_daily.py still imports kanban_image at top-level. Abort.", file=sys.stderr)
+        return 2
+
     print(f"done {ok} files from {BASE}")
     print("OK all required local runners present")
     print("OK fill_template.py has cumulative fill")
+    print("OK kanban_image.py has export_kanban_pngs")
+    print("OK run_daily.py lazy-imports kanban for fill-only")
     return 0
 
 

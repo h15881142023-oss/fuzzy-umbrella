@@ -30,9 +30,8 @@ sys.path.insert(0, str(BASE))
 
 from config import CITIES, LR_DIR, LR_TEMPLATE_DEFAULT, LR_WECOM_WEBHOOK, REGION_NAME  # noqa: E402
 from lr.fill_template import fill_template  # noqa: E402
-from lr.kanban_image import export_kanban_pngs  # noqa: E402
 from lr.table_utils import filter_target_date, parse_scrape_payload  # noqa: E402
-from lr.wecom_push import push_lr_report  # noqa: E402
+# kanban_image / wecom_push 仅在导出或推送时导入，避免本机旧文件阻断 --fill-only
 
 DEFAULT_TEMPLATE = Path(os.environ.get("LR_TEMPLATE_PATH", LR_TEMPLATE_DEFAULT))
 WORK_DIR = LR_DIR / "work"
@@ -173,6 +172,8 @@ def main() -> int:
             pngs.append(cand)
         print(f"[lr] push-only pngs: {[str(p) for p in pngs]}", flush=True)
     elif not args.skip_images:
+        from lr.kanban_image import export_kanban_pngs
+
         allow_pillow = args.pillow_fallback or os.environ.get("LR_ALLOW_PILLOW") == "1"
         try:
             print("[lr] export kanban pngs (WPS/Excel) ...", flush=True)
@@ -208,6 +209,8 @@ def main() -> int:
     if not pngs:
         print("无看板图片，拒绝推送（避免只发残缺消息）", file=sys.stderr, flush=True)
         return 1
+
+    from lr.wecom_push import push_lr_report
 
     print("[lr] push wecom (5 images + excel) ...", flush=True)
     result = push_lr_report(args.webhook, pngs=pngs, xlsx=filled)
