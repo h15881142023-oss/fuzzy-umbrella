@@ -16,10 +16,22 @@ from lr.xlsx_sanitize import sanitize_for_openpyxl
 
 DATA_SHEET = "数据源(日)"
 KANBAN_SHEET = "看板-单城"
+TUANGOU_SHEET = "团购利润"
 HEADER_ROW = 3
 # 模板里 A–V（1–22）为网页录入列；其后多为公式/手工费用，不可覆盖
 MAX_INPUT_COL = 22
 FORMULA_TEMPLATE_ROW = 4
+# 团购利润：仅仁寿/南溪；U 列每日利润固定值（覆盖模板公式）
+TUANGOU_DAILY_PROFIT = {
+    "仁寿县": -1500,
+    "南溪": -1200,
+}
+TUANGOU_HEADER_ROW = 1
+TUANGOU_COL_REGION = 1
+TUANGOU_COL_CITY = 2
+TUANGOU_COL_MONTH = 3
+TUANGOU_COL_DAY = 4
+TUANGOU_COL_PROFIT = 21  # U
 
 
 def monthly_master_path(out_dir: Path, target: date) -> Path:
@@ -67,7 +79,7 @@ def count_filled_days(out_path: Path) -> int:
             return 0
         ws = wb[DATA_SHEET]
         days: set[str] = set()
-        region_i = city_i = day_i = 0, 1, 2
+        region_i, city_i, day_i = 0, 1, 2
         for i, row in enumerate(
             ws.iter_rows(min_row=HEADER_ROW, max_col=MAX_INPUT_COL, values_only=True),
             start=HEADER_ROW,
@@ -152,6 +164,64 @@ def _set_kanban_month_city(wb, target: date, city: str = CITIES[0]) -> None:
     ws["E3"] = REGION_NAME
 
 
+def _tuangou_day_label(val: Any) -> str | None:
+    """统一为「M月D日」文本，便于与新表展示一致。"""
+    if isinstance(val, datetime):
+        return f"{val.month}月{val.day}日"
+    if isinstance(val, date):
+        return f"{val.month}月{val.day}日"
+    if isinstance(val, str):
+        s = val.replace("\n", "").replace(" ", "").strip()
+        return s or None
+    return None
+
+
+def _last_used_row(ws, col: int = 1) -> int:
+    last = 1
+    for r in range(1, (ws.max_row or 1) + 1):
+        if ws.cell(r, col).value is not None:
+            last = r
+    return last
+
+
+def _fill_tuangou_profit(wb, target: date) -> None:
+    """写入团购利润：A 区域、B 城市、C 月份、D 日期、U 每日利润（仁寿-1500/南溪-1200）。"""
+    if TUANGOU_SHEET not in wb.sheetnames:
+        print(f"[lr] skip {TUANGOU_SHEET}: sheet missing", flush=True)
+        return
+    ws = wb[TUANGOU_SHEET]
+    month_num = int(f"{target.year}{target.month:02d}")
+    day_label = f"{target.month}月{target.day}日"
+
+    index: dict[tuple[str, str], int] = {}
+    for r in range(TUANGOU_HEADER_ROW + 1, (ws.max_row or 1) + 1):
+        city = norm_header(ws.cell(r, TUANGOU_COL_CITY).value)
+        label = _tuangou_day_label(ws.cell(r, TUANGOU_COL_DAY).value)
+        if city and label:
+            index[(city, label)] = r
+
+    next_row = _last_used_row(ws, TUANGOU_COL_REGION) + 1
+    for city, profit in TUANGOU_DAILY_PROFIT.items():
+        key = (city, day_label)
+        row_idx = index.get(key)
+        if row_idx is None:
+            row_idx = next_row
+            next_row += 1
+        ws.cell(row_idx, TUANGOU_COL_REGION, REGION_NAME)
+        ws.cell(row_idx, TUANGOU_COL_CITY, city)
+        # 月份必须是 202608 这种数字，不能被单元格日期格式吞成序列日
+        mcell = ws.cell(row_idx, TUANGOU_COL_MONTH, month_num)
+        mcell.number_format = "0"
+        dcell = ws.cell(row_idx, TUANGOU_COL_DAY, day_label)
+        dcell.number_format = "@"
+        pcell = ws.cell(row_idx, TUANGOU_COL_PROFIT, profit)
+        pcell.number_format = "General"
+        print(
+            f"[lr] 团购利润 row={row_idx} {city} {day_label} month={month_num} U={profit}",
+            flush=True,
+        )
+
+
 def _sanitized_template_cache(template: Path, out_dir: Path) -> Path:
     """首次清洗模板较慢；缓存到 work，后续天直接复制。"""
     cache = out_dir / "_template_sanitized.xlsx"
@@ -234,6 +304,7 @@ def fill_template(
         ws.cell(row_idx, col_map.get("组织结构", 2), city)
         ws.cell(row_idx, day_col, datetime.combine(target, datetime.min.time()))
 
+    _fill_tuangou_profit(wb, target)
     _set_kanban_month_city(wb, target)
     print("[lr] saving workbook ...", flush=True)
     wb.save(out_path)

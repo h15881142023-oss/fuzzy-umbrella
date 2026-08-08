@@ -105,9 +105,12 @@ LR_ADMIN_SIGNIN_URL = os.environ.get(
     "http://www.chuxin.city/v/signin",
 )
 LR_SCRAPE_DIR = Path(os.environ.get("LR_SCRAPE_DIR", str(BASE_DIR / "data" / "lr_scrape")))
+# 默认用新表；若本机尚未复制 LR日报_新.xlsx，可设 LR_TEMPLATE_PATH 覆盖
+_LR_TEMPLATE_NEW = LR_DIR / "templates" / "LR日报_新.xlsx"
+_LR_TEMPLATE_OLD = LR_DIR / "templates" / "LR日报总表模版5.4版(川藏一区).xlsx"
 LR_TEMPLATE_DEFAULT = os.environ.get(
     "LR_TEMPLATE_PATH",
-    str(LR_DIR / "templates" / "LR日报总表模版5.4版(川藏一区).xlsx"),
+    str(_LR_TEMPLATE_NEW if _LR_TEMPLATE_NEW.exists() else _LR_TEMPLATE_OLD),
 )
 
 # KPI 待办进度（周一/周四 14:00 本机 launchd）

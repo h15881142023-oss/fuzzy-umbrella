@@ -33,6 +33,7 @@ FILES = [
     "scripts/run_lr_kanban_push_existing.ps1",
     "scripts/run_lr_profit_fill_local.ps1",
     "scripts/run_lr_profit_fill_backfill.ps1",
+    "scripts/install_lr_new_template.ps1",
     "scripts/run_lr_datasource_local.ps1",
     "scripts/run_store_morning_monitor_local.ps1",
     "scripts/start_chrome_powerbi.ps1",
@@ -92,6 +93,9 @@ def main() -> int:
     if "monthly_master_path" not in text or "_resolve_base_workbook" not in text:
         print("ERROR: fill_template.py is OLD (no cumulative fill). Abort.", file=sys.stderr)
         return 2
+    if "_fill_tuangou_profit" not in text or "TUANGOU_DAILY_PROFIT" not in text:
+        print("ERROR: fill_template.py missing 团购利润 fill. Abort.", file=sys.stderr)
+        return 2
 
     kanban = ROOT / ("lr\\kanban_image.py" if win else "lr/kanban_image.py")
     ktext = kanban.read_text(encoding="utf-8", errors="replace")
@@ -108,6 +112,7 @@ def main() -> int:
     print(f"done {ok} files from {BASE}")
     print("OK all required local runners present")
     print("OK fill_template.py has cumulative fill")
+    print("OK fill_template.py has 团购利润 fill")
     print("OK kanban_image.py has export_kanban_pngs")
     print("OK run_daily.py lazy-imports kanban for fill-only")
     return 0
