@@ -1,5 +1,5 @@
 Param(
-    [string]$TaskName = "SelfDeliveryMonitor"
+    [string]$TaskName = "自配上线播报"
 )
 
 if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
