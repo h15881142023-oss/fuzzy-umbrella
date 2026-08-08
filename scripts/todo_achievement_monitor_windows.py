@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 from PIL import Image, ImageDraw, ImageFont
 
-BASE_URL = "http://47.112.178.78:13000"
+BASE_URL = "http://www.chuxin.city"
 ACCOUNT = "qiaoxianhai"
 PASSWORD = "123"
 REGION = "川藏一区"

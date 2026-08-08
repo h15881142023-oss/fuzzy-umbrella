@@ -2,6 +2,9 @@
 
 周一 / 周三 / 周五 **14:00** 自动拉取川藏一区本月 Todo，生成表格图片并推送企业微信。
 
+后台页面：`http://www.chuxin.city/v/admin/itgnwhaar7u`  
+API 基址：`http://www.chuxin.city`
+
 ## 安装依赖
 
 ```powershell
