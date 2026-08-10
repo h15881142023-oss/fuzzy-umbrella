@@ -6,129 +6,71 @@
   <title>川藏一区 · 新商能力评价看板（详表版）</title>
   <style>
     :root {
-      --bg: #102028;
-      --panel: #f7faf8;
-      --ink: #152228;
-      --muted: #5a6b73;
-      --line: #d7e0e4;
-      --brand: #0b6b5d;
-      --brand-deep: #074f45;
-      --danger: #a33b2b;
+      --bg: #102028; --panel: #f7faf8; --ink: #152228; --muted: #5a6b73;
+      --line: #d7e0e4; --brand: #0b6b5d; --brand-deep: #074f45;
     }
     * { box-sizing: border-box; }
     body {
-      margin: 0;
-      color: var(--ink);
-      font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      margin:0; color:var(--ink);
+      font-family:"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
       background:
         radial-gradient(900px 420px at 0% 0%, rgba(11,107,93,.35), transparent 60%),
-        linear-gradient(165deg, #0d1a20, #163038 50%, #1a3c46);
-      padding: 20px 12px 48px;
+        linear-gradient(165deg,#0d1a20,#163038 50%,#1a3c46);
+      padding:20px 12px 48px;
     }
-    .wrap { width: min(1600px, 100%); margin: 0 auto; }
+    .wrap { width:min(1600px,100%); margin:0 auto; }
     .hero {
-      background: linear-gradient(135deg, #0a5a4e, #12343d 60%, #1a4550);
-      color: #f4fffb;
-      border-radius: 18px;
-      padding: 22px 24px;
-      margin-bottom: 14px;
+      background:linear-gradient(135deg,#0a5a4e,#12343d 60%,#1a4550);
+      color:#f4fffb; border-radius:18px; padding:22px 24px; margin-bottom:14px;
     }
-    .hero h1 { margin: 0 0 6px; font-size: 2rem; letter-spacing: .02em; }
-    .hero p { margin: 0; color: rgba(244,255,251,.88); line-height: 1.55; max-width: 78ch; }
-    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .hero h1 { margin:0 0 6px; font-size:2rem; letter-spacing:.02em; }
+    .hero p { margin:0; color:rgba(244,255,251,.88); line-height:1.55; max-width:78ch; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
     .chip {
-      background: rgba(255,255,255,.12);
-      border: 1px solid rgba(255,255,255,.18);
-      border-radius: 999px;
-      padding: 6px 12px;
-      font-size: .86rem;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18);
+      border-radius:999px; padding:6px 12px; font-size:.86rem;
     }
     .section {
-      background: var(--panel);
-      border-radius: 14px;
-      padding: 16px 16px 10px;
-      margin-bottom: 12px;
-      box-shadow: 0 10px 28px rgba(0,0,0,.16);
+      background:var(--panel); border-radius:14px; padding:16px 16px 10px;
+      margin-bottom:12px; box-shadow:0 10px 28px rgba(0,0,0,.16);
     }
-    .section h2 {
-      margin: 0 0 4px;
-      font-size: 1.2rem;
-      color: var(--brand-deep);
-    }
-    .section .desc {
-      margin: 0 0 12px;
-      color: var(--muted);
-      font-size: .9rem;
-    }
-    .scroll { overflow-x: auto; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: .86rem;
-      min-width: 720px;
-    }
+    .section h2 { margin:0 0 4px; font-size:1.2rem; color:var(--brand-deep); }
+    .section .desc { margin:0 0 12px; color:var(--muted); font-size:.9rem; }
+    .scroll { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:720px; }
     th, td {
-      border: 1px solid var(--line);
-      padding: 8px 10px;
-      text-align: left;
-      vertical-align: top;
-      white-space: nowrap;
+      border:1px solid var(--line); padding:8px 10px; text-align:left;
+      vertical-align:top; white-space:nowrap;
     }
     th {
-      background: #e7f3ef;
-      color: #35545c;
-      font-weight: 700;
-      position: sticky;
-      top: 0;
-      z-index: 1;
+      background:#e7f3ef; color:#35545c; font-weight:700;
+      position:sticky; top:0; z-index:1;
     }
-    tr:nth-child(even) td { background: #fbfdfc; }
-    .wrap-cell { white-space: normal; min-width: 180px; line-height: 1.45; }
-    .city { font-weight: 700; color: var(--brand-deep); }
+    th.group-head {
+      background:#f5e6a6; color:#5c4b10; text-align:center;
+    }
+    tr:nth-child(even) td { background:#fbfdfc; }
+    .wrap-cell { white-space:normal; min-width:180px; line-height:1.45; }
+    .city { font-weight:700; color:var(--brand-deep); }
     .badge {
-      display: inline-block;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: .78rem;
-      font-weight: 700;
-      line-height: 1.4;
+      display:inline-block; padding:2px 8px; border-radius:6px;
+      font-size:.78rem; font-weight:700; line-height:1.4;
     }
-    .warn-cell { display: inline-flex; align-items: center; gap: 6px; }
-    .delta {
-      display: inline-block;
-      min-width: 1em;
-      text-align: center;
-      font-weight: 800;
-      font-size: .95rem;
-      line-height: 1;
-    }
-    .delta.up { color: #b42318; }
-    .delta.down { color: #027a48; }
-    .delta.flat, .delta.na { color: #667780; }
-    .b0 { background: #fde8e6; color: #8f1d14; }
-    .b1 { background: #ffedd5; color: #9a3412; }
-    .b2 { background: #fef3c7; color: #92400e; }
-    .b3 { background: #ecfccb; color: #3f6212; }
-    .b4 { background: #dcfce7; color: #166534; }
-    .b5 { background: #bbf7d0; color: #14532d; }
-    .bna { background: #eef2f4; color: #667780; }
-    .brisk { background: #fde8e6; color: #8f1d14; }
-    .bsafe { background: #e5f6ec; color: #1f7a4c; }
-    .bwatch { background: #fff1df; color: #b7791f; }
-    .legend {
-      display: flex; flex-wrap: wrap; gap: 8px;
-      margin: 0 0 10px; font-size: .8rem; color: var(--muted);
-    }
-    .footer {
-      text-align: center;
-      color: rgba(244,255,251,.72);
-      font-size: .82rem;
-      margin-top: 8px;
-    }
+    .warn-cell { display:inline-flex; align-items:center; gap:6px; }
+    .delta { display:inline-block; min-width:1em; text-align:center; font-weight:800; font-size:.95rem; }
+    .delta.up { color:#b42318; }
+    .delta.down { color:#027a48; }
+    .delta.flat, .delta.na { color:#667780; }
+    .b0{background:#fde8e6;color:#8f1d14} .b1{background:#ffedd5;color:#9a3412}
+    .b2{background:#fef3c7;color:#92400e} .b3{background:#ecfccb;color:#3f6212}
+    .b4{background:#dcfce7;color:#166534} .b5{background:#bbf7d0;color:#14532d}
+    .bna{background:#eef2f4;color:#667780} .brisk{background:#fde8e6;color:#8f1d14}
+    .bsafe{background:#e5f6ec;color:#1f7a4c} .bwatch{background:#fff1df;color:#b7791f}
+    .legend { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; font-size:.8rem; color:var(--muted); }
+    .footer { text-align:center; color:rgba(244,255,251,.72); font-size:.82rem; margin-top:8px; }
     @media print {
-      body { background: #fff; padding: 0; }
-      .hero { break-after: avoid; }
-      .section { box-shadow: none; break-inside: avoid; }
+      body { background:#fff; padding:0; }
+      .section { box-shadow:none; break-inside:avoid; }
     }
   </style>
 </head>
@@ -136,7 +78,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>川藏一区</h1>
-      <p>新商能力评价详表看板 · 只看预警区间与业务明细；带预警的指标旁用 ↑ / ↓ / — 表示相对上一期上升、下降、持平（两期数据齐全后自动填充）。</p>
+      <p>新商能力评价详表看板 · 只看预警区间与业务明细；带预警的指标旁用 ↑ / ↓ / — 表示相对上一期上升、下降、持平。子指标（如月交易商家数、4n+1货架达标数）不加预警。</p>
       <div class="meta">
         <div class="chip">考核周期 <strong id="period">—</strong></div>
         <div class="chip">数据日期 <strong id="date">—</strong></div>
@@ -196,6 +138,165 @@
     "仁寿县",
     "南溪"
   ],
+  "layouts": {
+    "外卖": [
+      {
+        "kind": "metric",
+        "name": "市场开发率(订单量)",
+        "warn": true
+      },
+      {
+        "kind": "metric",
+        "name": "市场开发率(GTV)",
+        "warn": true
+      },
+      {
+        "kind": "group",
+        "name": "餐饮商家渗透率",
+        "warn": true,
+        "children": [
+          "月交易商家数",
+          "月在线商家数",
+          "月动销率"
+        ]
+      }
+    ],
+    "团购": [
+      {
+        "kind": "metric",
+        "name": "团购市场开发率",
+        "warn": true
+      },
+      {
+        "kind": "group",
+        "name": "优质商家渗透率",
+        "warn": true,
+        "children": [
+          "4n+1货架达标数",
+          "4n+1达标商家动销数",
+          "整体商家数",
+          "智能点餐占比"
+        ]
+      }
+    ],
+    "履约": [
+      {
+        "kind": "metric",
+        "name": "推单完成率",
+        "warn": true
+      },
+      {
+        "kind": "metric",
+        "name": "压力天出勤率",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "超45分钟订单占比",
+        "warn": true
+      }
+    ],
+    "零售": [
+      {
+        "kind": "metric",
+        "name": "日均零售 YOY",
+        "warn": true
+      },
+      {
+        "kind": "metric",
+        "name": "优质仓数达标情况",
+        "warn": false
+      }
+    ],
+    "组织": [
+      {
+        "kind": "metric",
+        "name": "外卖BD满编率",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "团购BD满编率",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "外卖BD效能",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "团购BD效能",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "高效能BD流失率",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "关键岗位认证通过率(城)",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "关键岗位认证通过率(商)",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "外卖BD件均成本",
+        "warn": false
+      }
+    ],
+    "商业增值": [
+      {
+        "kind": "metric",
+        "name": "外卖货币化率",
+        "warn": true
+      },
+      {
+        "kind": "metric",
+        "name": "团购货币化率",
+        "warn": true
+      }
+    ],
+    "用户体验": [
+      {
+        "kind": "metric",
+        "name": "用户投诉商家问题万服排名",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "用户投诉履约问题万服排名",
+        "warn": false
+      }
+    ],
+    "综合治理": [
+      {
+        "kind": "metric",
+        "name": "月外卖虚假业绩占比",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "月团购虚假业绩占比",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "月异常骑手率",
+        "warn": false
+      },
+      {
+        "kind": "metric",
+        "name": "安全事件扣分情况",
+        "warn": false
+      }
+    ]
+  },
   "cities": [
     {
       "name": "彭州市",
@@ -243,208 +344,122 @@
         "履约万服": "-0.095"
       },
       "details": {
-        "外卖": [
-          [
-            "市场开发率(订单量)",
-            "4.37%",
-            "(90%-100%]",
-            null
-          ],
-          [
-            "市场开发率(GTV)",
-            "3.16%",
-            "(90%-100%]",
-            null
-          ],
-          [
-            "餐饮商家渗透率",
-            "23.27%",
-            "[0%-10%]",
-            null
-          ],
-          [
-            "月交易商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月在线商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月动销率",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "零售": [
-          [
-            "日均零售 YOY",
-            "6.61%",
-            "(30%-50%]",
-            null
-          ],
-          [
-            "优质仓数达标情况",
-            "5",
-            null,
-            null
-          ]
-        ],
-        "团购": [
-          [
-            "是否团购城市",
-            "否",
-            "不预警",
-            null
-          ],
-          [
-            "团购市场开发率",
-            "—",
-            "不预警",
-            null
-          ],
-          [
-            "优质商家渗透率",
-            "—",
-            "不预警",
-            null
-          ],
-          [
-            "4n+1达标数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "货架达标商家动销数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "整体商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "智能点餐占比",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "履约": [
-          [
-            "推单完成率",
-            "99.14%",
-            "(70%-90%]",
-            null
-          ],
-          [
-            "压力天出勤率",
-            "96.08%",
-            null,
-            null
-          ],
-          [
-            "超45分钟订单占比",
-            "1.33%",
-            "(50%-70%]",
-            null
-          ]
-        ],
-        "用户体验": [
-          [
-            "用户投诉商家问题万服排名",
-            "0.6125",
-            null,
-            null
-          ],
-          [
-            "用户投诉履约问题万服排名",
-            "0.7906",
-            null,
-            null
-          ]
-        ],
-        "组织": [
-          [
-            "外卖BD满编率",
-            "166.7%",
-            null,
-            null
-          ],
-          [
-            "团购BD满编率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "外卖BD效能",
-            "16.84",
-            null,
-            null
-          ],
-          [
-            "高效能BD流失率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "关键岗位认证通过率(城)",
-            "99.63%",
-            null,
-            null
-          ],
-          [
-            "关键岗位认证通过率(商)",
-            "99.85%",
-            null,
-            null
-          ]
-        ],
-        "商业增值": [
-          [
-            "外卖货币化率",
-            "2.05%",
-            "[0%-10%]",
-            null
-          ],
-          [
-            "团购货币化率",
-            "—",
-            "不预警",
-            null
-          ]
-        ],
-        "综合治理": [
-          [
-            "月外卖虚假业绩占比",
-            "0.084%",
-            null,
-            null
-          ],
-          [
-            "月异常骑手率",
-            "0.025%",
-            null,
-            null
-          ],
-          [
-            "安全事件扣分情况",
-            "无扣分",
-            null,
-            null
-          ]
-        ]
+        "外卖": {
+          "市场开发率(订单量)": {
+            "value": "4.37%",
+            "band": "(90%-100%]"
+          },
+          "市场开发率(GTV)": {
+            "value": "3.16%",
+            "band": "(90%-100%]"
+          },
+          "餐饮商家渗透率": {
+            "value": "23.27%",
+            "band": "[0%-10%]"
+          },
+          "月交易商家数": {
+            "value": "—"
+          },
+          "月在线商家数": {
+            "value": "—"
+          },
+          "月动销率": {
+            "value": "—"
+          }
+        },
+        "零售": {
+          "日均零售 YOY": {
+            "value": "6.61%",
+            "band": "(30%-50%]"
+          },
+          "优质仓数达标情况": {
+            "value": "5"
+          }
+        },
+        "团购": {
+          "团购市场开发率": {
+            "value": "—",
+            "band": "不预警"
+          },
+          "优质商家渗透率": {
+            "value": "—",
+            "band": "不预警"
+          },
+          "4n+1货架达标数": {
+            "value": "—"
+          },
+          "4n+1达标商家动销数": {
+            "value": "—"
+          },
+          "整体商家数": {
+            "value": "—"
+          },
+          "智能点餐占比": {
+            "value": "—"
+          }
+        },
+        "履约": {
+          "推单完成率": {
+            "value": "99.14%",
+            "band": "(70%-90%]"
+          },
+          "压力天出勤率": {
+            "value": "96.08%"
+          },
+          "超45分钟订单占比": {
+            "value": "1.33%",
+            "band": "(50%-70%]"
+          }
+        },
+        "用户体验": {
+          "用户投诉商家问题万服排名": {
+            "value": "0.6125"
+          },
+          "用户投诉履约问题万服排名": {
+            "value": "0.7906"
+          }
+        },
+        "组织": {
+          "外卖BD满编率": {
+            "value": "166.7%"
+          },
+          "团购BD满编率": {
+            "value": "0%"
+          },
+          "外卖BD效能": {
+            "value": "16.84"
+          },
+          "高效能BD流失率": {
+            "value": "0%"
+          },
+          "关键岗位认证通过率(城)": {
+            "value": "99.63%"
+          },
+          "关键岗位认证通过率(商)": {
+            "value": "99.85%"
+          }
+        },
+        "商业增值": {
+          "外卖货币化率": {
+            "value": "2.05%",
+            "band": "[0%-10%]"
+          },
+          "团购货币化率": {
+            "value": "—",
+            "band": "不预警"
+          }
+        },
+        "综合治理": {
+          "月外卖虚假业绩占比": {
+            "value": "0.084%"
+          },
+          "月异常骑手率": {
+            "value": "0.025%"
+          },
+          "安全事件扣分情况": {
+            "value": "无扣分"
+          }
+        }
       }
     },
     {
@@ -493,208 +508,123 @@
         "履约万服": "-0.768"
       },
       "details": {
-        "外卖": [
-          [
-            "市场开发率(订单量)",
-            "5.35%",
-            "(90%-100%]",
-            null
-          ],
-          [
-            "市场开发率(GTV)",
-            "4.49%",
-            "(90%-100%]",
-            null
-          ],
-          [
-            "餐饮商家渗透率",
-            "31.44%",
-            "(50%-70%]",
-            null
-          ],
-          [
-            "月交易商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月在线商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月动销率",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "零售": [
-          [
-            "日均零售 YOY",
-            "1.99%",
-            "(30%-50%]",
-            null
-          ],
-          [
-            "优质仓数达标情况",
-            "4",
-            null,
-            null
-          ]
-        ],
-        "团购": [
-          [
-            "团购市场开发率",
-            "-1.77%",
-            "[0%-10%]",
-            null
-          ],
-          [
-            "优质商家渗透率",
-            "13.98%",
-            "(50%-70%]",
-            null
-          ],
-          [
-            "4n+1达标数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "货架达标商家动销数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "整体商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "智能点餐占比",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "履约": [
-          [
-            "推单完成率",
-            "99.06%",
-            "(90%-100%]",
-            null
-          ],
-          [
-            "压力天出勤率",
-            "92.54%",
-            null,
-            null
-          ],
-          [
-            "超45分钟订单占比",
-            "0.78%",
-            "(50%-70%]",
-            null
-          ]
-        ],
-        "用户体验": [
-          [
-            "用户投诉商家问题万服排名",
-            "0.1799",
-            null,
-            null
-          ],
-          [
-            "用户投诉履约问题万服排名",
-            "0.4685",
-            null,
-            null
-          ]
-        ],
-        "组织": [
-          [
-            "外卖BD满编率",
-            "175%",
-            null,
-            null
-          ],
-          [
-            "团购BD满编率",
-            "75%",
-            null,
-            null
-          ],
-          [
-            "外卖BD效能",
-            "14.34",
-            null,
-            null
-          ],
-          [
-            "团购BD效能",
-            "3.28",
-            null,
-            null
-          ],
-          [
-            "高效能BD流失率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "关键岗位认证通过率(城)",
-            "99.0%",
-            null,
-            null
-          ]
-        ],
-        "商业增值": [
-          [
-            "外卖货币化率",
-            "1.84%",
-            null,
-            null
-          ],
-          [
-            "团购货币化率",
-            "0.25%",
-            null,
-            null
-          ]
-        ],
-        "综合治理": [
-          [
-            "月外卖虚假业绩占比",
-            "0.116%",
-            null,
-            null
-          ],
-          [
-            "月团购虚假业绩占比",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "月异常骑手率",
-            "0.013%",
-            null,
-            null
-          ],
-          [
-            "安全事件扣分情况",
-            "无扣分",
-            null,
-            null
-          ]
-        ]
+        "外卖": {
+          "市场开发率(订单量)": {
+            "value": "5.35%",
+            "band": "(90%-100%]"
+          },
+          "市场开发率(GTV)": {
+            "value": "4.49%",
+            "band": "(90%-100%]"
+          },
+          "餐饮商家渗透率": {
+            "value": "31.44%",
+            "band": "(50%-70%]"
+          },
+          "月交易商家数": {
+            "value": "—"
+          },
+          "月在线商家数": {
+            "value": "—"
+          },
+          "月动销率": {
+            "value": "—"
+          }
+        },
+        "零售": {
+          "日均零售 YOY": {
+            "value": "1.99%",
+            "band": "(30%-50%]"
+          },
+          "优质仓数达标情况": {
+            "value": "4"
+          }
+        },
+        "团购": {
+          "团购市场开发率": {
+            "value": "-1.77%",
+            "band": "[0%-10%]"
+          },
+          "优质商家渗透率": {
+            "value": "13.98%",
+            "band": "(50%-70%]"
+          },
+          "4n+1货架达标数": {
+            "value": "—"
+          },
+          "4n+1达标商家动销数": {
+            "value": "—"
+          },
+          "整体商家数": {
+            "value": "—"
+          },
+          "智能点餐占比": {
+            "value": "—"
+          }
+        },
+        "履约": {
+          "推单完成率": {
+            "value": "99.06%",
+            "band": "(90%-100%]"
+          },
+          "压力天出勤率": {
+            "value": "92.54%"
+          },
+          "超45分钟订单占比": {
+            "value": "0.78%",
+            "band": "(50%-70%]"
+          }
+        },
+        "用户体验": {
+          "用户投诉商家问题万服排名": {
+            "value": "0.1799"
+          },
+          "用户投诉履约问题万服排名": {
+            "value": "0.4685"
+          }
+        },
+        "组织": {
+          "外卖BD满编率": {
+            "value": "175%"
+          },
+          "团购BD满编率": {
+            "value": "75%"
+          },
+          "外卖BD效能": {
+            "value": "14.34"
+          },
+          "团购BD效能": {
+            "value": "3.28"
+          },
+          "高效能BD流失率": {
+            "value": "0%"
+          },
+          "关键岗位认证通过率(城)": {
+            "value": "99.0%"
+          }
+        },
+        "商业增值": {
+          "外卖货币化率": {
+            "value": "1.84%"
+          },
+          "团购货币化率": {
+            "value": "0.25%"
+          }
+        },
+        "综合治理": {
+          "月外卖虚假业绩占比": {
+            "value": "0.116%"
+          },
+          "月团购虚假业绩占比": {
+            "value": "0%"
+          },
+          "月异常骑手率": {
+            "value": "0.013%"
+          },
+          "安全事件扣分情况": {
+            "value": "无扣分"
+          }
+        }
       }
     },
     {
@@ -743,202 +673,119 @@
         "履约万服": "+2.588"
       },
       "details": {
-        "外卖": [
-          [
-            "市场开发率(订单量)",
-            "1.05%",
-            "(30%-50%]",
-            null
-          ],
-          [
-            "市场开发率(GTV)",
-            "1.05%",
-            "(70%-90%]",
-            null
-          ],
-          [
-            "餐饮商家渗透率",
-            "34.06%",
-            "(30%-50%]",
-            null
-          ],
-          [
-            "月交易商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月在线商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月动销率",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "零售": [
-          [
-            "日均零售 YOY",
-            "17.20%",
-            "(70%-90%]",
-            null
-          ],
-          [
-            "优质仓数达标情况",
-            "2",
-            null,
-            null
-          ]
-        ],
-        "团购": [
-          [
-            "是否团购城市",
-            "否",
-            "不预警",
-            null
-          ],
-          [
-            "团购市场开发率",
-            "—",
-            "不预警",
-            null
-          ],
-          [
-            "优质商家渗透率",
-            "—",
-            "不预警",
-            null
-          ],
-          [
-            "4n+1达标数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "货架达标商家动销数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "整体商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "智能点餐占比",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "履约": [
-          [
-            "推单完成率",
-            "98.92%",
-            "(50%-70%]",
-            null
-          ],
-          [
-            "压力天出勤率",
-            "92.11%",
-            null,
-            null
-          ],
-          [
-            "超45分钟订单占比",
-            "0.96%",
-            "(30%-50%]",
-            null
-          ]
-        ],
-        "用户体验": [
-          [
-            "用户投诉商家问题万服排名",
-            "0.6698",
-            null,
-            null
-          ],
-          [
-            "用户投诉履约问题万服排名",
-            "0.2430",
-            null,
-            null
-          ]
-        ],
-        "组织": [
-          [
-            "外卖BD满编率",
-            "100%",
-            null,
-            null
-          ],
-          [
-            "团购BD满编率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "外卖BD效能",
-            "14.89",
-            null,
-            null
-          ],
-          [
-            "高效能BD流失率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "关键岗位认证通过率(城)",
-            "99.8%",
-            null,
-            null
-          ]
-        ],
-        "商业增值": [
-          [
-            "外卖货币化率",
-            "2.14%",
-            "(70%-90%]",
-            null
-          ],
-          [
-            "团购货币化率",
-            "—",
-            "不预警",
-            null
-          ]
-        ],
-        "综合治理": [
-          [
-            "月外卖虚假业绩占比",
-            "0.088%",
-            null,
-            null
-          ],
-          [
-            "月异常骑手率",
-            "0.019%",
-            null,
-            null
-          ],
-          [
-            "安全事件扣分情况",
-            "无扣分",
-            null,
-            null
-          ]
-        ]
+        "外卖": {
+          "市场开发率(订单量)": {
+            "value": "1.05%",
+            "band": "(30%-50%]"
+          },
+          "市场开发率(GTV)": {
+            "value": "1.05%",
+            "band": "(70%-90%]"
+          },
+          "餐饮商家渗透率": {
+            "value": "34.06%",
+            "band": "(30%-50%]"
+          },
+          "月交易商家数": {
+            "value": "—"
+          },
+          "月在线商家数": {
+            "value": "—"
+          },
+          "月动销率": {
+            "value": "—"
+          }
+        },
+        "零售": {
+          "日均零售 YOY": {
+            "value": "17.20%",
+            "band": "(70%-90%]"
+          },
+          "优质仓数达标情况": {
+            "value": "2"
+          }
+        },
+        "团购": {
+          "团购市场开发率": {
+            "value": "—",
+            "band": "不预警"
+          },
+          "优质商家渗透率": {
+            "value": "—",
+            "band": "不预警"
+          },
+          "4n+1货架达标数": {
+            "value": "—"
+          },
+          "4n+1达标商家动销数": {
+            "value": "—"
+          },
+          "整体商家数": {
+            "value": "—"
+          },
+          "智能点餐占比": {
+            "value": "—"
+          }
+        },
+        "履约": {
+          "推单完成率": {
+            "value": "98.92%",
+            "band": "(50%-70%]"
+          },
+          "压力天出勤率": {
+            "value": "92.11%"
+          },
+          "超45分钟订单占比": {
+            "value": "0.96%",
+            "band": "(30%-50%]"
+          }
+        },
+        "用户体验": {
+          "用户投诉商家问题万服排名": {
+            "value": "0.6698"
+          },
+          "用户投诉履约问题万服排名": {
+            "value": "0.2430"
+          }
+        },
+        "组织": {
+          "外卖BD满编率": {
+            "value": "100%"
+          },
+          "团购BD满编率": {
+            "value": "0%"
+          },
+          "外卖BD效能": {
+            "value": "14.89"
+          },
+          "高效能BD流失率": {
+            "value": "0%"
+          },
+          "关键岗位认证通过率(城)": {
+            "value": "99.8%"
+          }
+        },
+        "商业增值": {
+          "外卖货币化率": {
+            "value": "2.14%",
+            "band": "(70%-90%]"
+          },
+          "团购货币化率": {
+            "value": "—",
+            "band": "不预警"
+          }
+        },
+        "综合治理": {
+          "月外卖虚假业绩占比": {
+            "value": "0.088%"
+          },
+          "月异常骑手率": {
+            "value": "0.019%"
+          },
+          "安全事件扣分情况": {
+            "value": "无扣分"
+          }
+        }
       }
     },
     {
@@ -987,208 +834,123 @@
         "履约万服": "+0.218"
       },
       "details": {
-        "外卖": [
-          [
-            "市场开发率(订单量)",
-            "1.95%",
-            "(70%-90%]",
-            null
-          ],
-          [
-            "市场开发率(GTV)",
-            "1.56%",
-            "(30%-50%]",
-            null
-          ],
-          [
-            "餐饮商家渗透率",
-            "29.17%",
-            "[0%-10%]",
-            null
-          ],
-          [
-            "月交易商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月在线商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月动销率",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "零售": [
-          [
-            "日均零售 YOY",
-            "13.28%",
-            "(50%-70%]",
-            null
-          ],
-          [
-            "优质仓数达标情况",
-            "6",
-            null,
-            null
-          ]
-        ],
-        "团购": [
-          [
-            "团购市场开发率",
-            "6.36%",
-            "(30%-50%]",
-            null
-          ],
-          [
-            "优质商家渗透率",
-            "9.11%",
-            "(10%-30%]",
-            null
-          ],
-          [
-            "4n+1达标数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "货架达标商家动销数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "整体商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "智能点餐占比",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "履约": [
-          [
-            "推单完成率",
-            "98.80%",
-            "(50%-70%]",
-            null
-          ],
-          [
-            "压力天出勤率",
-            "91.96%",
-            null,
-            null
-          ],
-          [
-            "超45分钟订单占比",
-            "1.96%",
-            "(50%-70%]",
-            null
-          ]
-        ],
-        "用户体验": [
-          [
-            "用户投诉商家问题万服排名",
-            "0.7469",
-            null,
-            null
-          ],
-          [
-            "用户投诉履约问题万服排名",
-            "0.5844",
-            null,
-            null
-          ]
-        ],
-        "组织": [
-          [
-            "外卖BD满编率",
-            "150%",
-            null,
-            null
-          ],
-          [
-            "团购BD满编率",
-            "90%",
-            null,
-            null
-          ],
-          [
-            "外卖BD效能",
-            "16.91",
-            null,
-            null
-          ],
-          [
-            "团购BD效能",
-            "8.39",
-            null,
-            null
-          ],
-          [
-            "高效能BD流失率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "关键岗位认证通过率(城)",
-            "99.25%",
-            null,
-            null
-          ]
-        ],
-        "商业增值": [
-          [
-            "外卖货币化率",
-            "2.20%",
-            null,
-            null
-          ],
-          [
-            "团购货币化率",
-            "1.05%",
-            null,
-            null
-          ]
-        ],
-        "综合治理": [
-          [
-            "月外卖虚假业绩占比",
-            "0.122%",
-            null,
-            null
-          ],
-          [
-            "月团购虚假业绩占比",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "月异常骑手率",
-            "0.004%",
-            null,
-            null
-          ],
-          [
-            "安全事件扣分情况",
-            "无扣分",
-            null,
-            null
-          ]
-        ]
+        "外卖": {
+          "市场开发率(订单量)": {
+            "value": "1.95%",
+            "band": "(70%-90%]"
+          },
+          "市场开发率(GTV)": {
+            "value": "1.56%",
+            "band": "(30%-50%]"
+          },
+          "餐饮商家渗透率": {
+            "value": "29.17%",
+            "band": "[0%-10%]"
+          },
+          "月交易商家数": {
+            "value": "—"
+          },
+          "月在线商家数": {
+            "value": "—"
+          },
+          "月动销率": {
+            "value": "—"
+          }
+        },
+        "零售": {
+          "日均零售 YOY": {
+            "value": "13.28%",
+            "band": "(50%-70%]"
+          },
+          "优质仓数达标情况": {
+            "value": "6"
+          }
+        },
+        "团购": {
+          "团购市场开发率": {
+            "value": "6.36%",
+            "band": "(30%-50%]"
+          },
+          "优质商家渗透率": {
+            "value": "9.11%",
+            "band": "(10%-30%]"
+          },
+          "4n+1货架达标数": {
+            "value": "—"
+          },
+          "4n+1达标商家动销数": {
+            "value": "—"
+          },
+          "整体商家数": {
+            "value": "—"
+          },
+          "智能点餐占比": {
+            "value": "—"
+          }
+        },
+        "履约": {
+          "推单完成率": {
+            "value": "98.80%",
+            "band": "(50%-70%]"
+          },
+          "压力天出勤率": {
+            "value": "91.96%"
+          },
+          "超45分钟订单占比": {
+            "value": "1.96%",
+            "band": "(50%-70%]"
+          }
+        },
+        "用户体验": {
+          "用户投诉商家问题万服排名": {
+            "value": "0.7469"
+          },
+          "用户投诉履约问题万服排名": {
+            "value": "0.5844"
+          }
+        },
+        "组织": {
+          "外卖BD满编率": {
+            "value": "150%"
+          },
+          "团购BD满编率": {
+            "value": "90%"
+          },
+          "外卖BD效能": {
+            "value": "16.91"
+          },
+          "团购BD效能": {
+            "value": "8.39"
+          },
+          "高效能BD流失率": {
+            "value": "0%"
+          },
+          "关键岗位认证通过率(城)": {
+            "value": "99.25%"
+          }
+        },
+        "商业增值": {
+          "外卖货币化率": {
+            "value": "2.20%"
+          },
+          "团购货币化率": {
+            "value": "1.05%"
+          }
+        },
+        "综合治理": {
+          "月外卖虚假业绩占比": {
+            "value": "0.122%"
+          },
+          "月团购虚假业绩占比": {
+            "value": "0%"
+          },
+          "月异常骑手率": {
+            "value": "0.004%"
+          },
+          "安全事件扣分情况": {
+            "value": "无扣分"
+          }
+        }
       }
     },
     {
@@ -1237,215 +999,128 @@
         "履约万服": "-1.241"
       },
       "details": {
-        "外卖": [
-          [
-            "市场开发率(订单量)",
-            "-0.33%",
-            "(10%-30%]",
-            null
-          ],
-          [
-            "市场开发率(GTV)",
-            "-0.27%",
-            "[0%-10%]",
-            null
-          ],
-          [
-            "餐饮商家渗透率",
-            "33.94%",
-            "[0%-10%]",
-            null
-          ],
-          [
-            "月交易商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月在线商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "月动销率",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "零售": [
-          [
-            "日均零售 YOY",
-            "37.17%",
-            "(90%-100%]",
-            null
-          ],
-          [
-            "优质仓数达标情况",
-            "3",
-            null,
-            null
-          ]
-        ],
-        "团购": [
-          [
-            "是否团购城市",
-            "否",
-            "不预警",
-            null
-          ],
-          [
-            "团购市场开发率",
-            "—",
-            "不预警",
-            null
-          ],
-          [
-            "优质商家渗透率",
-            "—",
-            "不预警",
-            null
-          ],
-          [
-            "4n+1达标数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "货架达标商家动销数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "整体商家数",
-            "—",
-            null,
-            null
-          ],
-          [
-            "智能点餐占比",
-            "—",
-            null,
-            null
-          ]
-        ],
-        "履约": [
-          [
-            "推单完成率",
-            "98.94%",
-            "(10%-30%]",
-            null
-          ],
-          [
-            "压力天出勤率",
-            "95.58%",
-            null,
-            null
-          ],
-          [
-            "超45分钟订单占比",
-            "0.89%",
-            "(10%-30%]",
-            null
-          ]
-        ],
-        "用户体验": [
-          [
-            "用户投诉商家问题万服排名",
-            "0.2926",
-            null,
-            null
-          ],
-          [
-            "用户投诉履约问题万服排名",
-            "0.3034",
-            null,
-            null
-          ]
-        ],
-        "组织": [
-          [
-            "外卖BD满编率",
-            "125%",
-            null,
-            null
-          ],
-          [
-            "团购BD满编率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "外卖BD效能",
-            "9.11",
-            null,
-            null
-          ],
-          [
-            "外卖BD件均成本",
-            "18.3",
-            null,
-            null
-          ],
-          [
-            "高效能BD流失率",
-            "0%",
-            null,
-            null
-          ],
-          [
-            "关键岗位认证通过率(城)",
-            "99.8%",
-            null,
-            null
-          ]
-        ],
-        "商业增值": [
-          [
-            "外卖货币化率",
-            "1.89%",
-            "(50%-70%]",
-            null
-          ],
-          [
-            "团购货币化率",
-            "—",
-            "不预警",
-            null
-          ]
-        ],
-        "综合治理": [
-          [
-            "月外卖虚假业绩占比",
-            "0.063%",
-            null,
-            null
-          ],
-          [
-            "月异常骑手率",
-            "0.030%",
-            null,
-            null
-          ],
-          [
-            "安全事件扣分情况",
-            "无扣分",
-            null,
-            null
-          ]
-        ]
+        "外卖": {
+          "市场开发率(订单量)": {
+            "value": "-0.33%",
+            "band": "(10%-30%]"
+          },
+          "市场开发率(GTV)": {
+            "value": "-0.27%",
+            "band": "[0%-10%]"
+          },
+          "餐饮商家渗透率": {
+            "value": "33.94%",
+            "band": "[0%-10%]"
+          },
+          "月交易商家数": {
+            "value": "—"
+          },
+          "月在线商家数": {
+            "value": "—"
+          },
+          "月动销率": {
+            "value": "—"
+          }
+        },
+        "零售": {
+          "日均零售 YOY": {
+            "value": "37.17%",
+            "band": "(90%-100%]"
+          },
+          "优质仓数达标情况": {
+            "value": "3"
+          }
+        },
+        "团购": {
+          "团购市场开发率": {
+            "value": "—",
+            "band": "不预警"
+          },
+          "优质商家渗透率": {
+            "value": "—",
+            "band": "不预警"
+          },
+          "4n+1货架达标数": {
+            "value": "—"
+          },
+          "4n+1达标商家动销数": {
+            "value": "—"
+          },
+          "整体商家数": {
+            "value": "—"
+          },
+          "智能点餐占比": {
+            "value": "—"
+          }
+        },
+        "履约": {
+          "推单完成率": {
+            "value": "98.94%",
+            "band": "(10%-30%]"
+          },
+          "压力天出勤率": {
+            "value": "95.58%"
+          },
+          "超45分钟订单占比": {
+            "value": "0.89%",
+            "band": "(10%-30%]"
+          }
+        },
+        "用户体验": {
+          "用户投诉商家问题万服排名": {
+            "value": "0.2926"
+          },
+          "用户投诉履约问题万服排名": {
+            "value": "0.3034"
+          }
+        },
+        "组织": {
+          "外卖BD满编率": {
+            "value": "125%"
+          },
+          "团购BD满编率": {
+            "value": "0%"
+          },
+          "外卖BD效能": {
+            "value": "9.11"
+          },
+          "外卖BD件均成本": {
+            "value": "18.3"
+          },
+          "高效能BD流失率": {
+            "value": "0%"
+          },
+          "关键岗位认证通过率(城)": {
+            "value": "99.8%"
+          }
+        },
+        "商业增值": {
+          "外卖货币化率": {
+            "value": "1.89%",
+            "band": "(50%-70%]"
+          },
+          "团购货币化率": {
+            "value": "—",
+            "band": "不预警"
+          }
+        },
+        "综合治理": {
+          "月外卖虚假业绩占比": {
+            "value": "0.063%"
+          },
+          "月异常骑手率": {
+            "value": "0.030%"
+          },
+          "安全事件扣分情况": {
+            "value": "无扣分"
+          }
+        }
       }
     }
   ]
 };
 
     const NO_WARN = new Set(["—", "不预警", "暂不预警", "无预警", "不考核", "", null, undefined]);
-    const MODULE_WARN_SUFFIX = "模块预警";
 
     function bandClass(band) {
       if (NO_WARN.has(band) || band == null) return "bna";
@@ -1486,25 +1161,14 @@
       if (!hasRealWarn(band)) return badge(band == null || band === "" ? "—" : band);
       return `<span class="warn-cell">${badge(band)}${deltaIcon(delta, {forceNa: true})}</span>`;
     }
-    function normalizeRow(row) {
-      if (!row) return null;
-      if (Array.isArray(row)) {
-        return { name: row[0], value: row[1], band: row.length > 2 ? row[2] : null, delta: row.length > 3 ? row[3] : null };
-      }
-      return {
-        name: row.name,
-        value: row.value,
-        band: row.band != null ? row.band : null,
-        delta: row.delta != null ? row.delta : null
-      };
+    function cellValue(v) {
+      if (v == null || v === "") return "—";
+      if (typeof v === "object") return (v.value == null || v.value === "") ? "—" : v.value;
+      return v;
     }
-    function isModuleWarnMetric(name) {
-      return String(name || "").endsWith(MODULE_WARN_SUFFIX);
-    }
-    function metricNeedsWarnCol(mod, metricName) {
-      if (mod === "综合治理") return false;
-      if (mod === "零售" && (metricName.includes("优质") && metricName.includes("达标"))) return false;
-      return true;
+    function getMetric(city, mod, name) {
+      const block = (city.details && city.details[mod]) || {};
+      return block[name] || null;
     }
     function weakModules(city) {
       return DATA.modules.filter(m => {
@@ -1519,6 +1183,15 @@
       }
       return DATA.cities;
     }
+    function layoutFor(mod) {
+      return (DATA.layouts && DATA.layouts[mod]) || [];
+    }
+    function spanOf(item) {
+      if (item.kind === "group") {
+        return (item.warn ? 2 : 1) + (item.children || []).length;
+      }
+      return item.warn ? 2 : 1;
+    }
 
     function renderLegend() {
       document.getElementById("legend").innerHTML = [
@@ -1526,7 +1199,10 @@
         ["(50%-70%]", "b3"], ["(70%-90%]", "b4"], ["(90%-100%]", "b5"],
         ["暂不预警/不预警", "bna"],
         ["↑上升", ""], ["↓下降", ""], ["—持平/暂无对比", ""]
-      ].map(([t, c]) => c ? `<span class="badge ${c}">${t}</span>` : `<span class="chip" style="background:#eef2f4;color:#35545c;border:1px solid #d7e0e4">${t}</span>`).join("");
+      ].map(([t, c]) => c
+        ? `<span class="badge ${c}">${t}</span>`
+        : `<span class="chip" style="background:#eef2f4;color:#35545c;border:1px solid #d7e0e4">${t}</span>`
+      ).join("");
     }
 
     function renderOverview() {
@@ -1605,43 +1281,60 @@
       };
       document.getElementById("moduleSections").innerHTML = DATA.modules.map(mod => {
         const cities = citiesForModule(mod);
-        const metricNames = [];
-        cities.forEach(c => {
-          (c.details[mod] || []).forEach(row => {
-            const r = normalizeRow(row);
-            if (!r || isModuleWarnMetric(r.name)) return;
-            if (!metricNames.includes(r.name)) metricNames.push(r.name);
-          });
-        });
-        const cols = metricNames.map(n => ({ name: n, warn: metricNeedsWarnCol(mod, n) }));
-        const headTop = `<tr><th rowspan="2">城市</th>${cols.map(c =>
-          `<th colspan="${c.warn ? 2 : 1}">${c.name}</th>`
-        ).join("")}</tr>`;
-        const headSub = `<tr>${cols.map(c =>
-          c.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`
-        ).join("")}</tr>`;
+        let layout = layoutFor(mod).slice();
+        // 组织：仅保留至少一城有值的列，避免空列过多
+        if (mod === "组织") {
+          layout = layout.filter(item => cities.some(c => {
+            const m = getMetric(c, mod, item.name);
+            return m && m.value != null && m.value !== "" && m.value !== "—";
+          }) || item.name === "外卖BD满编率" || item.name === "团购BD满编率" || item.name === "外卖BD效能" || item.name === "高效能BD流失率");
+        }
+        if (mod === "综合治理") {
+          layout = layout.filter(item => cities.some(c => getMetric(c, mod, item.name)));
+        }
+
+        const headTop = `<tr><th rowspan="2">城市</th>${layout.map(item => {
+          const span = spanOf(item);
+          const cls = item.kind === "group" ? ' class="group-head"' : "";
+          return `<th colspan="${span}"${cls}>${item.name}</th>`;
+        }).join("")}</tr>`;
+
+        const headSub = `<tr>${layout.map(item => {
+          if (item.kind === "group") {
+            const main = item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
+            const kids = (item.children || []).map(n => `<th>${n}</th>`).join("");
+            return main + kids;
+          }
+          return item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
+        }).join("")}</tr>`;
+
         const body = cities.map(c => {
-          const map = {};
-          (c.details[mod] || []).forEach(row => {
-            const r = normalizeRow(row);
-            if (!r || isModuleWarnMetric(r.name)) return;
-            map[r.name] = r;
-          });
-          return `<tr>
-            <td class="city">${c.name}</td>
-            ${cols.map(col => {
-              const r = map[col.name];
-              if (!r) return col.warn ? `<td>—</td><td>—</td>` : `<td>—</td>`;
-              if (!col.warn) return `<td>${r.value == null || r.value === "" ? "—" : r.value}</td>`;
-              return `<td>${r.value == null || r.value === "" ? "—" : r.value}</td><td>${warnWithDelta(r.band, r.delta)}</td>`;
-            }).join("")}
-          </tr>`;
+          const tds = layout.map(item => {
+            if (item.kind === "group") {
+              const main = getMetric(c, mod, item.name) || {};
+              let html = `<td>${cellValue(main)}</td>`;
+              if (item.warn) html += `<td>${warnWithDelta(main.band, main.delta)}</td>`;
+              for (const child of (item.children || [])) {
+                const cm = getMetric(c, mod, child) || {};
+                html += `<td>${cellValue(cm)}</td>`;
+              }
+              return html;
+            }
+            const m = getMetric(c, mod, item.name) || {};
+            if (!item.warn) return `<td>${cellValue(m)}</td>`;
+            return `<td>${cellValue(m)}</td><td>${warnWithDelta(m.band, m.delta)}</td>`;
+          }).join("");
+          return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
         }).join("");
+
         const desc = mod === "团购"
-          ? "仅展示团购城市仁寿、南溪；指标值 + 预警区间（旁注↑↓—），不展示得分；已去掉模块预警列。"
-          : (mod === "综合治理"
-            ? "综合治理只展示指标值，不展示预警区间列。"
-            : "城市横排对比；带预警的指标旁显示较上期↑↓—；已去掉各模块右侧「xx模块预警」。");
+          ? "仅仁寿、南溪；「优质商家渗透率」为父指标，其子列不加预警。"
+          : (mod === "外卖"
+            ? "「餐饮商家渗透率」为父指标，月交易/在线/动销为子列且不加预警；带预警指标旁显示↑↓—。"
+            : (mod === "综合治理"
+              ? "综合治理只展示指标值，不展示预警区间列。"
+              : "城市横排对比；带预警的指标旁显示较上期↑↓—；已去掉各模块「xx模块预警」。"));
+
         return `<section class="section">
           <h2>${titles[mod]}</h2>
           <p class="desc">${desc}</p>
