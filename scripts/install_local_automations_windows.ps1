@@ -100,6 +100,8 @@ function Register-CzTask {
 }
 
 Remove-CzTaskQuiet -Name "ChuanzangLrDailyLocal"
+# 利润数据源推送已停用：卸载旧任务，不再注册
+Remove-CzTaskQuiet -Name "ChuanzangLrDatasourceLocal"
 
 Register-CzTask -Name "ChuanzangVisitCheckLocal" `
     -ScriptRel "scripts\run_visit_check_local.ps1" `
@@ -108,10 +110,6 @@ Register-CzTask -Name "ChuanzangVisitCheckLocal" `
 Register-CzTask -Name "ChuanzangStoreMorningLocal" `
     -ScriptRel "scripts\run_store_morning_monitor_local.ps1" `
     -Schedule DAILY -StartTime "08:30"
-
-Register-CzTask -Name "ChuanzangLrDatasourceLocal" `
-    -ScriptRel "scripts\run_lr_datasource_local.ps1" `
-    -Schedule DAILY -StartTime "23:15"
 
 Register-CzTask -Name "ChuanzangLrProfitFillLocal" `
     -ScriptRel "scripts\run_lr_profit_fill_local.ps1" `
@@ -127,9 +125,8 @@ Register-CzTask -Name "ChuanzangKpiTodoThuLocal" `
 
 Write-Host ""
 Write-Host "All Windows scheduled tasks installed."
-Write-Host "LR tasks (separate):"
-Write-Host "  ChuanzangLrDatasourceLocal  23:15  利润数据源推送"
-Write-Host "  ChuanzangLrProfitFillLocal  23:30  利润填写推送"
+Write-Host "LR:"
+Write-Host "  ChuanzangLrProfitFillLocal  23:30  profit-fill (datasource task removed)"
 Write-Host "Verify:"
 Write-Host "  Get-ScheduledTask -TaskName ChuanzangLr*"
 Write-Host "Docs: scripts\LOCAL_AUTOMATIONS.md"
