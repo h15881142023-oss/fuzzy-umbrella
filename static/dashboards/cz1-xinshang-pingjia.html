@@ -109,7 +109,20 @@
     .mod-card table { min-width:0; }
     .single-modules { display:flex; flex-direction:column; gap:12px; }
     .child-name { color:var(--muted); padding-left:12px; }
-    .single-grid { min-width:680px; }
+    .single-grid-wrap {
+      overflow:auto;
+      max-height:min(70vh, 720px);
+      border:1px solid var(--line);
+      border-radius:8px;
+    }
+    .single-grid { min-width:860px; margin:0; }
+    .single-grid thead th {
+      position:sticky;
+      top:0;
+      z-index:3;
+      background:#e7f3ef;
+      box-shadow:0 1px 0 var(--line);
+    }
     .single-grid .mod-cell {
       background:#eef7f4; vertical-align:middle; text-align:center;
       min-width:88px; border-right:2px solid #cfe3dc;
@@ -1498,25 +1511,29 @@
           </tr>`).join("")}</tbody>`;
     }
 
+    function formatDeltaCell(d) {
+      const n = normalizeDelta(d);
+      if (n === "up") return `<span class="warn-cell"><span class="delta up">↑</span></span>`;
+      if (n === "down") return `<span class="warn-cell"><span class="delta down">↓</span></span>`;
+      if (n === "flat") return `<span class="warn-cell"><span class="delta flat">—</span></span>`;
+      // 两期数据未齐：占位
+      if (d == null || d === "") return "—";
+      return String(d);
+    }
+
     function collectSingleModuleRows(city, mod) {
       const layout = filteredLayout(mod, [city]);
       const rows = [];
-      if (!layout.length && mod === "团购") {
-        rows.push({
-          metric: "团购明细",
-          value: "非团购明细展示范围（仅仁寿/南溪）",
-          warnHtml: badge(city.bands[mod] || "不预警"),
-          isChild: false
-        });
-        return rows;
-      }
       layout.forEach(item => {
         if (item.kind === "group") {
           const main = getMetric(city, mod, item.name) || {};
           rows.push({
             metric: item.name,
             value: cellValue(main),
-            warnHtml: item.warn ? warnWithDelta(main.band, main.delta) : "—",
+            valueDelta: main.valueDelta != null ? main.valueDelta : main.mom,
+            warnHtml: item.warn ? badge(main.band == null || main.band === "" ? "—" : main.band) : "—",
+            warnDelta: item.warn ? (main.delta != null ? main.delta : main.warnDelta) : null,
+            showWarnDelta: !!item.warn,
             isChild: false
           });
           (item.children || []).forEach(child => {
@@ -1524,7 +1541,10 @@
             rows.push({
               metric: child,
               value: cellValue(cm),
+              valueDelta: cm.valueDelta != null ? cm.valueDelta : cm.mom,
               warnHtml: "—",
+              warnDelta: null,
+              showWarnDelta: false,
               isChild: true
             });
           });
@@ -1534,7 +1554,10 @@
         rows.push({
           metric: item.name,
           value: cellValue(m),
-          warnHtml: item.warn ? warnWithDelta(m.band, m.delta) : "—",
+          valueDelta: m.valueDelta != null ? m.valueDelta : m.mom,
+          warnHtml: item.warn ? badge(m.band == null || m.band === "" ? "—" : m.band) : "—",
+          warnDelta: item.warn ? (m.delta != null ? m.delta : m.warnDelta) : null,
+          showWarnDelta: !!item.warn,
           isChild: false
         });
       });
@@ -1543,11 +1566,14 @@
 
     function buildSingleCityModuleTable(city) {
       const order = ["外卖", "团购", "履约", "用户体验", "零售", "组织", "商业增值", "综合治理"];
-      const blocks = order.map(mod => ({
-        mod,
-        band: city.bands[mod],
-        rows: collectSingleModuleRows(city, mod)
-      })).filter(b => b.rows.length > 0);
+      const blocks = order
+        .filter(mod => !(mod === "团购" && !city.hasTuango))
+        .map(mod => ({
+          mod,
+          band: city.bands[mod],
+          rows: collectSingleModuleRows(city, mod)
+        }))
+        .filter(b => b.rows.length > 0);
 
       const body = blocks.map(block => {
         const n = block.rows.length;
@@ -1556,16 +1582,19 @@
             ? `<td class="mod-cell" rowspan="${n}"><div class="mod-name">${block.mod}</div><div class="mod-band">${badge(block.band)}</div></td>`
             : "";
           const metricCls = r.isChild ? ' class="child-name"' : "";
-          return `<tr>${modCell}<td${metricCls}>${r.isChild ? "└ " : ""}${r.metric}</td><td>${r.value}</td><td>${r.warnHtml}</td></tr>`;
+          const warnDeltaCell = r.showWarnDelta ? formatDeltaCell(r.warnDelta) : "—";
+          return `<tr>${modCell}<td${metricCls}>${r.isChild ? "└ " : ""}${r.metric}</td><td>${r.value}</td><td>${formatDeltaCell(r.valueDelta)}</td><td>${r.warnHtml}</td><td>${warnDeltaCell}</td></tr>`;
         }).join("");
       }).join("");
 
       return `<section class="section">
         <h2>模块明细总表</h2>
-        <p class="desc">模块纵向合并；每行一个指标，展示指标值 + 预警区间（子指标不加预警）。</p>
-        <div class="scroll"><table class="single-grid">
-          <thead><tr><th>模块</th><th>指标</th><th>指标值</th><th>预警区间</th></tr></thead>
-          <tbody>${body || `<tr><td colspan="4">暂无明细</td></tr>`}</tbody>
+        <p class="desc">模块纵向合并；指标值/预警各带环比列（两期数据到位后自动填充）。表头冻结，可上下滑动查看。</p>
+        <div class="single-grid-wrap"><table class="single-grid">
+          <thead><tr>
+            <th>模块</th><th>指标</th><th>指标值</th><th>指标环比</th><th>预警区间</th><th>预警环比</th>
+          </tr></thead>
+          <tbody>${body || `<tr><td colspan="6">暂无明细</td></tr>`}</tbody>
         </table></div>
       </section>`;
     }
@@ -1631,7 +1660,7 @@
       document.getElementById("singleView").innerHTML = `
         <section class="section" style="padding-bottom:14px">
           <h2>${city.name}<span class="mode-tag">单城视角</span></h2>
-          <p class="desc">顶部三块看结论，下方一张总表按模块查看全部指标；勾选多个城市可回多城对比。</p>
+          <p class="desc">顶部三块看结论；下方总表按模块合并展示。无团购城不显示团购模块；指标/预警环比列待两期数据填充。表头已冻结。</p>
         </section>
         ${top}
         ${buildSingleCityModuleTable(city)}
