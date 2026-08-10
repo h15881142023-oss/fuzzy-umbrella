@@ -4,7 +4,7 @@
 #   powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap_xinshang_html_windows.ps1
 
 param(
-  [string]$Ref = "fa76d66"
+  [string]$Ref = "b276487"
 )
 
 $ErrorActionPreference = "Stop"

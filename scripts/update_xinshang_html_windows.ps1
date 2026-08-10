@@ -2,11 +2,11 @@
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
 # Optional:
-#   powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 4ee4db6
+#   powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref b276487
 
 param(
   # Prefer short commit SHA. Branch names with "/" may 403 on jsDelivr.
-  [string]$Ref = "fa76d66"
+  [string]$Ref = "b276487"
 )
 
 $ErrorActionPreference = "Stop"

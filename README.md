@@ -106,14 +106,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
 
 # 直接更新看板（提交号可按我最新通知替换）
-powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 4ee4db6
+powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref b276487
 ```
 
 若本机脚本损坏/不存在，先下载再跑（同样用提交号）：
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-$ref = "4ee4db6"
+$ref = "b276487"
 $u = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$ref/scripts/update_xinshang_html_windows.ps1"
 Invoke-WebRequest $u -OutFile ".\scripts\update_xinshang_html_windows.ps1" -UseBasicParsing
 powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref $ref
