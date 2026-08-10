@@ -109,6 +109,13 @@
     .mod-card table { min-width:0; }
     .single-modules { display:flex; flex-direction:column; gap:12px; }
     .child-name { color:var(--muted); padding-left:12px; }
+    .single-grid { min-width:680px; }
+    .single-grid .mod-cell {
+      background:#eef7f4; vertical-align:middle; text-align:center;
+      min-width:88px; border-right:2px solid #cfe3dc;
+    }
+    .single-grid .mod-name { font-weight:800; color:var(--brand-deep); margin-bottom:6px; }
+    .single-grid .mod-band { line-height:1.4; }
     .mode-tag {
       display:inline-block; margin-left:8px; font-size:.75rem; font-weight:600;
       background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22);
@@ -1491,46 +1498,74 @@
           </tr>`).join("")}</tbody>`;
     }
 
-    function buildSingleModuleCard(city, mod, title) {
+    function collectSingleModuleRows(city, mod) {
       const layout = filteredLayout(mod, [city]);
-      const band = city.bands[mod];
-      if (!layout.length && mod === "团购") {
-        return `<section class="section mod-card">
-          <h3>${title} ${badge(band || "不预警")}</h3>
-          <p class="desc">该城非团购明细展示范围（仅仁寿/南溪展示团购明细）。</p>
-        </section>`;
-      }
       const rows = [];
+      if (!layout.length && mod === "团购") {
+        rows.push({
+          metric: "团购明细",
+          value: "非团购明细展示范围（仅仁寿/南溪）",
+          warnHtml: badge(city.bands[mod] || "不预警"),
+          isChild: false
+        });
+        return rows;
+      }
       layout.forEach(item => {
         if (item.kind === "group") {
           const main = getMetric(city, mod, item.name) || {};
-          rows.push(`<tr>
-            <td>${item.name}</td>
-            <td>${cellValue(main)}</td>
-            <td>${item.warn ? warnWithDelta(main.band, main.delta) : "—"}</td>
-          </tr>`);
+          rows.push({
+            metric: item.name,
+            value: cellValue(main),
+            warnHtml: item.warn ? warnWithDelta(main.band, main.delta) : "—",
+            isChild: false
+          });
           (item.children || []).forEach(child => {
             const cm = getMetric(city, mod, child) || {};
-            rows.push(`<tr>
-              <td class="child-name">└ ${child}</td>
-              <td>${cellValue(cm)}</td>
-              <td>—</td>
-            </tr>`);
+            rows.push({
+              metric: child,
+              value: cellValue(cm),
+              warnHtml: "—",
+              isChild: true
+            });
           });
           return;
         }
         const m = getMetric(city, mod, item.name) || {};
-        rows.push(`<tr>
-          <td>${item.name}</td>
-          <td>${cellValue(m)}</td>
-          <td>${item.warn ? warnWithDelta(m.band, m.delta) : "—"}</td>
-        </tr>`);
+        rows.push({
+          metric: item.name,
+          value: cellValue(m),
+          warnHtml: item.warn ? warnWithDelta(m.band, m.delta) : "—",
+          isChild: false
+        });
       });
-      return `<section class="section mod-card">
-        <h3>${title} ${badge(band)}</h3>
-        <div class="scroll"><table>
-          <thead><tr><th>指标</th><th>指标值</th><th>预警区间</th></tr></thead>
-          <tbody>${rows.join("") || `<tr><td colspan="3">暂无指标</td></tr>`}</tbody>
+      return rows;
+    }
+
+    function buildSingleCityModuleTable(city) {
+      const order = ["外卖", "团购", "履约", "用户体验", "零售", "组织", "商业增值", "综合治理"];
+      const blocks = order.map(mod => ({
+        mod,
+        band: city.bands[mod],
+        rows: collectSingleModuleRows(city, mod)
+      })).filter(b => b.rows.length > 0);
+
+      const body = blocks.map(block => {
+        const n = block.rows.length;
+        return block.rows.map((r, i) => {
+          const modCell = i === 0
+            ? `<td class="mod-cell" rowspan="${n}"><div class="mod-name">${block.mod}</div><div class="mod-band">${badge(block.band)}</div></td>`
+            : "";
+          const metricCls = r.isChild ? ' class="child-name"' : "";
+          return `<tr>${modCell}<td${metricCls}>${r.isChild ? "└ " : ""}${r.metric}</td><td>${r.value}</td><td>${r.warnHtml}</td></tr>`;
+        }).join("");
+      }).join("");
+
+      return `<section class="section">
+        <h2>模块明细总表</h2>
+        <p class="desc">模块纵向合并；每行一个指标，展示指标值 + 预警区间（子指标不加预警）。</p>
+        <div class="scroll"><table class="single-grid">
+          <thead><tr><th>模块</th><th>指标</th><th>指标值</th><th>预警区间</th></tr></thead>
+          <tbody>${body || `<tr><td colspan="4">暂无明细</td></tr>`}</tbody>
         </table></div>
       </section>`;
     }
@@ -1593,39 +1628,13 @@
         </section>
       </div>`;
 
-      // modules: 外卖 团购 履约+体验(列少则并排) 零售 组织 商业增值 综合治理
-      const titles = {
-        外卖: "外卖", 团购: "团购", 履约: "履约", 零售: "零售",
-        组织: "组织", 商业增值: "商业增值", 用户体验: "用户体验", 综合治理: "综合治理"
-      };
-      const lvyueLayout = filteredLayout("履约", [city]);
-      const tiyanLayout = filteredLayout("用户体验", [city]);
-      const sideBySide = (lvyueLayout.length + tiyanLayout.length) <= 6;
-
-      const mods = [];
-      mods.push(buildSingleModuleCard(city, "外卖", titles.外卖));
-      mods.push(buildSingleModuleCard(city, "团购", titles.团购));
-      if (sideBySide) {
-        mods.push(`<div class="module-row">
-          ${buildSingleModuleCard(city, "履约", titles.履约)}
-          ${buildSingleModuleCard(city, "用户体验", titles.用户体验)}
-        </div>`);
-      } else {
-        mods.push(buildSingleModuleCard(city, "履约", titles.履约));
-        mods.push(buildSingleModuleCard(city, "用户体验", titles.用户体验));
-      }
-      mods.push(buildSingleModuleCard(city, "零售", titles.零售));
-      mods.push(buildSingleModuleCard(city, "组织", titles.组织));
-      mods.push(buildSingleModuleCard(city, "商业增值", titles.商业增值));
-      mods.push(buildSingleModuleCard(city, "综合治理", titles.综合治理));
-
       document.getElementById("singleView").innerHTML = `
         <section class="section" style="padding-bottom:14px">
           <h2>${city.name}<span class="mode-tag">单城视角</span></h2>
-          <p class="desc">按城负责人视角聚合呈现；勾选多个城市可回到多城对比。</p>
+          <p class="desc">顶部三块看结论，下方一张总表按模块查看全部指标；勾选多个城市可回多城对比。</p>
         </section>
         ${top}
-        <div class="single-modules">${mods.join("")}</div>
+        ${buildSingleCityModuleTable(city)}
       `;
     }
 
