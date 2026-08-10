@@ -1,13 +1,12 @@
-# 一键更新新商评看板 HTML（不依赖 GitHub git 协议，走 CDN 镜像）
-# 用法：
-#   双击 scripts\update_xinshang_html_windows.cmd
-#   或：powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
-#
-# 可选：指定提交/分支
-#   powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref f6f08cd
+# Update xinshang dashboard HTML via CDN (no git required).
+# Usage:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
+# Optional:
+#   powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 4ee4db6
 
 param(
-  [string]$Ref = "cursor/cz1-merchant-dashboard-74a9"
+  # Prefer short commit SHA. Branch names with "/" may 403 on jsDelivr.
+  [string]$Ref = "4ee4db6"
 )
 
 $ErrorActionPreference = "Stop"
@@ -20,71 +19,62 @@ $out2 = Join-Path $Root "docs\xinshang\index.html"
 New-Item -ItemType Directory -Force -Path (Split-Path $out1) | Out-Null
 New-Item -ItemType Directory -Force -Path (Split-Path $out2) | Out-Null
 
-$stamp = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-$encRef = [Uri]::EscapeDataString($Ref)
-
-# 多镜像：按顺序尝试（国内通常 jsDelivr / gitmirror 更稳）
-$urls = @(
-  "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@${Ref}/${relPath}?t=${stamp}",
-  "https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@${Ref}/${relPath}?t=${stamp}",
-  "https://gcore.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@${Ref}/${relPath}?t=${stamp}",
-  "https://raw.gitmirror.com/h15881142023-oss/fuzzy-umbrella/${Ref}/${relPath}?t=${stamp}",
-  "https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/${Ref}/${relPath}?t=${stamp}"
-)
-
+$stamp = [int][double]::Parse((Get-Date -UFormat %s))
 $tmp = Join-Path $env:TEMP ("cz1-xinshang-" + $stamp + ".html")
+
+$urls = New-Object System.Collections.Generic.List[string]
+$urls.Add("https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $relPath + "?t=" + $stamp)
+$urls.Add("https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $relPath + "?t=" + $stamp)
+$urls.Add("https://gcore.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $relPath + "?t=" + $stamp)
+$urls.Add("https://raw.gitmirror.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $relPath + "?t=" + $stamp)
+$urls.Add("https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $relPath + "?t=" + $stamp)
+
 $ok = $false
 $used = $null
 
 foreach ($url in $urls) {
-  Write-Host "==> try: $url"
+  Write-Host ("==> try: " + $url)
   try {
     Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 60
-    $text = Get-Content -Path $tmp -Raw -Encoding UTF8
-    if ($text -notmatch "新商能力评价看板") {
-      Write-Host "[WARN] downloaded but content marker missing, skip"
+    $bytes = [System.IO.File]::ReadAllBytes($tmp)
+    if ($bytes.Length -lt 5000) {
+      Write-Host ("[WARN] too small: " + $bytes.Length)
       continue
     }
-    # 基本完整性：不能太小
-    if ($text.Length -lt 5000) {
-      Write-Host "[WARN] file too small ($($text.Length)), skip"
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes)
+    if ($text -notmatch "新商能力评价看板") {
+      Write-Host "[WARN] marker missing, skip"
       continue
     }
     $ok = $true
     $used = $url
     break
   } catch {
-    Write-Host "[WARN] failed: $($_.Exception.Message)"
+    Write-Host ("[WARN] failed: " + $_.Exception.Message)
   }
 }
 
 if (-not $ok) {
-  Write-Host "[BAD] all mirrors failed. Check network / try -Ref <commitSha>"
+  Write-Host "[BAD] all mirrors failed. Ask for a newer -Ref commit SHA."
   exit 1
 }
 
-# UTF-8 无 BOM 写入，避免部分浏览器异常
 $utf8 = New-Object System.Text.UTF8Encoding $false
-[System.IO.File]::WriteAllText($out1, (Get-Content -Path $tmp -Raw -Encoding UTF8), $utf8)
-[System.IO.File]::WriteAllText($out2, (Get-Content -Path $tmp -Raw -Encoding UTF8), $utf8)
+[System.IO.File]::WriteAllText($out1, [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($tmp)), $utf8)
+[System.IO.File]::WriteAllText($out2, [System.Text.Encoding]::UTF8.GetString([System.IO.File]::ReadAllBytes($tmp)), $utf8)
 Remove-Item $tmp -Force -ErrorAction SilentlyContinue
 
-Write-Host "[OK] wrote $out1"
-Write-Host "[OK] wrote $out2"
-Write-Host "[OK] source: $used"
+Write-Host ("[OK] wrote " + $out1)
+Write-Host ("[OK] wrote " + $out2)
+Write-Host ("[OK] source: " + $used)
 
 $hit = Select-String -Path $out1 -Pattern "group-head|4n\+1货架达标数|餐饮商家渗透率"
 if ($hit) {
   Write-Host "[OK] content markers found"
-  $hit | Select-Object -First 3 | ForEach-Object {
-    $line = $_.Line.Trim()
-    if ($line.Length -gt 80) { $line = $line.Substring(0, 80) }
-    Write-Host ("  line " + $_.LineNumber + ": " + $line)
-  }
 } else {
-  Write-Host "[WARN] expected markers not found; file written but please eyeball the page"
+  Write-Host "[WARN] expected markers not found; please open the page and check"
 }
 
 Write-Host ""
-Write-Host "Next: open https://1.chuanzangyiqu.top/evaluation/xinshang and hard refresh"
-Write-Host "  Mac: Cmd+Shift+R    Windows: Ctrl+F5"
+Write-Host "Next: https://1.chuanzangyiqu.top/evaluation/xinshang"
+Write-Host "Hard refresh  Mac: Cmd+Shift+R   Windows: Ctrl+F5"

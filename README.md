@@ -100,24 +100,26 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 
 ### Windows 更新看板（推荐，不依赖 GitHub git）
 
-GitHub 时通时断时，用 CDN 镜像一键覆盖本机 HTML（域名立刻可读新文件）：
+用 CDN 覆盖本机 HTML（**请用提交号，不要用带 `/` 的分支名**，否则 jsDelivr 可能 Forbidden）：
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
+
+# 直接更新看板（提交号可按我最新通知替换）
+powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 4ee4db6
 ```
 
-或资源管理器双击：`scripts\update_xinshang_html_windows.cmd`
-
-若本机还没有该脚本，先下载一次：
+若本机脚本损坏/不存在，先下载再跑（同样用提交号）：
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-$base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@cursor/cz1-merchant-dashboard-74a9/scripts"
-Invoke-WebRequest "$base/update_xinshang_html_windows.ps1" -OutFile ".\scripts\update_xinshang_html_windows.ps1" -UseBasicParsing
-Invoke-WebRequest "$base/update_xinshang_html_windows.cmd" -OutFile ".\scripts\update_xinshang_html_windows.cmd" -UseBasicParsing
-powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
+$ref = "4ee4db6"
+$u = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$ref/scripts/update_xinshang_html_windows.ps1"
+Invoke-WebRequest $u -OutFile ".\scripts\update_xinshang_html_windows.ps1" -UseBasicParsing
+powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref $ref
 ```
+
+或双击：`scripts\update_xinshang_html_windows.cmd`
 
 更新后打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 并强制刷新。
 
