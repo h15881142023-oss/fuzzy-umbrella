@@ -53,6 +53,10 @@ DE_EXPORT_URL = "http://47.112.178.78:8100/de2api/chartData/innerExportDetails"
 DE_REFERER = "http://47.112.178.78:8100/"
 
 
+def _log(msg: str) -> None:
+    print(msg, file=sys.stderr, flush=True)
+
+
 def _pick_column(df: pd.DataFrame, candidates: list[str], fallback_index: int) -> str:
     lower_map = {str(c).strip().lower(): c for c in df.columns}
     for name in candidates:
@@ -378,32 +382,35 @@ async def _download_excel_async(
         page = await context.new_page()
         last_error: Optional[Exception] = None
         try:
+            _log("启动 Chromium…")
+            _log(f"打开看板: {url}")
             await page.goto(url, wait_until="networkidle", timeout=180000)
+            _log("页面已加载，检查密码弹窗…")
             await _login_if_needed(page, password)
             await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=180000)
+            _log("看板标题已出现，等待「商家明细-昨日」…")
 
             wait_task = asyncio.create_task(_wait_target_chart(page, timeout_ms=150000))
             await _open_target_tab(page)
             capture = await wait_task
             capture = await _resolve_link_token(page, capture)
-            print(
-                f"使用图表ID: {capture.chart_id}（API 导出, token={'有' if capture.link_token else '无'}）",
-                file=sys.stderr,
+            _log(
+                f"使用图表ID: {capture.chart_id}（API 导出, token={'有' if capture.link_token else '无'}）"
             )
             await page.wait_for_timeout(1500)
 
             for attempt in range(2):
                 try:
-                    return await _export_excel_via_api(page, capture, download_dir)
+                    _log(f"开始 API 导出（第 {attempt + 1} 次）…")
+                    path = await _export_excel_via_api(page, capture, download_dir)
+                    _log(f"API 导出完成: {path.name} ({path.stat().st_size} bytes)")
+                    return path
                 except Exception as exc:  # noqa: BLE001
                     last_error = exc
-                    print(
-                        f"API 导出第 {attempt + 1} 次失败: {exc}",
-                        file=sys.stderr,
-                    )
+                    _log(f"API 导出第 {attempt + 1} 次失败: {exc}")
                     await page.wait_for_timeout(1500)
 
-            print("API 导出失败，回退 canvas 悬停下载", file=sys.stderr)
+            _log("API 导出失败，回退 canvas 悬停下载")
             try:
                 return await _download_excel_from_chart(page, capture.chart_id, download_dir)
             except Exception as exc:  # noqa: BLE001
@@ -414,7 +421,7 @@ async def _download_excel_async(
                 shot = download_dir / "debug_failed.png"
                 try:
                     await page.screenshot(path=str(shot), full_page=True)
-                    print(f"调试截图已保存: {shot}", file=sys.stderr)
+                    _log(f"调试截图已保存: {shot}")
                 except Exception:  # noqa: BLE001
                     pass
             raise
@@ -466,6 +473,7 @@ def download_excel(
 
     cmd = [
         sys.executable,
+        "-u",
         str(Path(__file__).resolve()),
         "--download-only",
         "--url",
@@ -480,10 +488,11 @@ def download_excel(
     if debug:
         cmd.append("--debug")
 
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=420, check=False)
+    # 实时透传子进程输出，避免 Windows 定时/手动跑时长时间无日志。
+    _log("启动子进程下载 DataEase Excel…")
+    proc = subprocess.run(cmd, timeout=420, check=False)
     if proc.returncode != 0:
-        detail = (proc.stderr or proc.stdout or "").strip()
-        raise RuntimeError(detail or "浏览器下载子进程失败")
+        raise RuntimeError("浏览器下载子进程失败（详见上方日志）")
 
     if not marker.exists():
         raise RuntimeError("下载完成但未生成结果标记文件")
@@ -600,7 +609,7 @@ def push_failure_alert(webhook: str, error: str) -> None:
     try:
         _post_json(webhook, {"msgtype": "text", "text": {"content": text}})
     except Exception as alert_exc:  # noqa: BLE001
-        print(f"失败告警发送异常: {alert_exc}", file=sys.stderr)
+        print(f"失败告警发送异常: {alert_exc}", file=sys.stderr, flush=True)
 
 
 def push_wecom(webhook: str, result: MonitorResult) -> dict:
@@ -644,6 +653,7 @@ def main() -> int:
 
     temp_dir = Path(args.temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
+    _log(f"自配监控启动 headless={args.headless} debug={args.debug} temp={temp_dir}")
 
     if args.download_only:
         try:
@@ -659,9 +669,10 @@ def main() -> int:
                 json.dumps({"path": str(downloaded)}, ensure_ascii=False),
                 encoding="utf-8",
             )
+            _log(f"download-only 完成: {downloaded}")
             return 0
         except Exception as exc:  # noqa: BLE001
-            print(f"执行失败: {exc}", file=sys.stderr)
+            _log(f"执行失败: {exc}")
             return 1
 
     downloaded_excel: Optional[Path] = None
@@ -675,18 +686,21 @@ def main() -> int:
             headless=args.headless,
             debug=args.debug,
         )
+        _log("开始筛选 Excel…")
         result = build_filtered_result(downloaded_excel, temp_dir)
         filtered_excel = result.recent_file
+        _log(f"筛选完成 当月={result.month_count} 近3天={result.recent_count}，开始推送企微…")
         push_resp = push_wecom(args.webhook, result)
-        print(json.dumps(push_resp, ensure_ascii=False, indent=2))
+        print(json.dumps(push_resp, ensure_ascii=False, indent=2), flush=True)
 
         # 仅在推送成功（errcode=0）后删除临时 Excel。
         safe_unlink(downloaded_excel)
         safe_unlink(filtered_excel)
+        _log("推送成功，临时文件已清理")
         return 0
     except Exception as exc:  # noqa: BLE001
         err_text = str(exc)
-        print(f"执行失败: {err_text}", file=sys.stderr)
+        _log(f"执行失败: {err_text}")
         push_failure_alert(args.webhook, err_text)
         return 1
 
