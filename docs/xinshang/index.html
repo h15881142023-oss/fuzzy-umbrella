@@ -93,6 +93,31 @@
     .bsafe{background:#e5f6ec;color:#1f7a4c} .bwatch{background:#fff1df;color:#b7791f}
     .legend { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; font-size:.8rem; color:var(--muted); }
     .footer { text-align:center; color:rgba(244,255,251,.72); font-size:.82rem; margin-top:8px; }
+    .hidden { display:none !important; }
+    .single-top {
+      display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:12px; margin-bottom:12px;
+    }
+    .single-top .section { margin-bottom:0; }
+    .kv { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; font-size:.9rem; }
+    .kv .k { color:var(--muted); }
+    .kv .v { font-weight:700; color:var(--brand-deep); }
+    .focus-list { margin:0; padding-left:1.1rem; line-height:1.7; }
+    .mod-card h3 {
+      margin:0 0 8px; font-size:1.05rem; color:var(--brand-deep);
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    }
+    .mod-card table { min-width:0; }
+    .single-modules { display:flex; flex-direction:column; gap:12px; }
+    .child-name { color:var(--muted); padding-left:12px; }
+    .mode-tag {
+      display:inline-block; margin-left:8px; font-size:.75rem; font-weight:600;
+      background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22);
+      border-radius:999px; padding:2px 8px; vertical-align:middle;
+    }
+    @media (max-width:1100px) {
+      .module-row { grid-template-columns:1fr; }
+      .single-top { grid-template-columns:1fr; }
+    }
     @media print {
       body { background:#fff; padding:0; }
       .section { box-shadow:none; break-inside:avoid; }
@@ -103,7 +128,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>川藏一区</h1>
-      <p>新商能力评价详表看板 · 只看预警区间与业务明细；带预警的指标旁用 ↑ / ↓ / — 表示相对上一期上升、下降、持平。子指标（如月交易商家数、4n+1货架达标数）不加预警。</p>
+      <p>新商能力评价详表看板 · 多城对比 / 单城档案。只选 1 城进入单城视角；带预警指标旁用 ↑ / ↓ / — 表示较上期变化。</p>
       <div class="meta">
         <div class="chip">考核周期 <strong id="period">—</strong></div>
         <div class="chip">数据日期 <strong id="date">—</strong></div>
@@ -120,32 +145,41 @@
       </div>
     </header>
 
-    <section class="section">
-      <h2>一、城市总览（风险 / 预警）</h2>
-      <p class="desc">滚动风险、当月风险、加权预警、大盘预警及环比；落后模块按预警区间标出。</p>
-      <div class="legend" id="legend"></div>
-      <div class="scroll"><table id="overviewTable"></table></div>
-    </section>
+    <div id="emptyView" class="section hidden">
+      <h2>请选择城市</h2>
+      <p class="desc">勾选上方城市后查看；只选 1 个城进入「单城视角」，选 2 个及以上为多城对比。</p>
+    </div>
 
-    <section class="section">
-      <h2>二、八大模块预警矩阵</h2>
-      <p class="desc">城市 × 模块的同级排名区间；无团购城市显示「不预警/不适用」。</p>
-      <div class="scroll"><table id="matrixTable"></table></div>
-    </section>
+    <div id="multiView">
+      <section class="section">
+        <h2>一、城市总览（风险 / 预警）</h2>
+        <p class="desc">滚动风险、当月风险、加权预警、大盘预警及环比；落后模块按预警区间标出。</p>
+        <div class="legend" id="legend"></div>
+        <div class="scroll"><table id="overviewTable"></table></div>
+      </section>
 
-    <section class="section">
-      <h2>三、城市档案</h2>
-      <p class="desc">合作商基础信息与分群标签（考核分群口径）。</p>
-      <div class="scroll"><table id="档案Table"></table></div>
-    </section>
+      <section class="section">
+        <h2>二、八大模块预警矩阵</h2>
+        <p class="desc">城市 × 模块的同级排名区间；无团购城市显示「不预警/不适用」。</p>
+        <div class="scroll"><table id="matrixTable"></table></div>
+      </section>
 
-    <div id="moduleSections"></div>
+      <section class="section">
+        <h2>三、城市档案</h2>
+        <p class="desc">合作商基础信息与分群标签（考核分群口径）。</p>
+        <div class="scroll"><table id="档案Table"></table></div>
+      </section>
 
-    <section class="section">
-      <h2>十二、业务环比明细</h2>
-      <p class="desc">关键业务指标相对上期变化（开发率、渗透率、履约、零售、货币化、万服等）。</p>
-      <div class="scroll"><table id="momTable"></table></div>
-    </section>
+      <div id="moduleSections"></div>
+
+      <section class="section">
+        <h2>十二、业务环比明细</h2>
+        <p class="desc">关键业务指标相对上期变化（开发率、渗透率、履约、零售、货币化、万服等）。</p>
+        <div class="scroll"><table id="momTable"></table></div>
+      </section>
+    </div>
+
+    <div id="singleView" class="hidden"></div>
 
     <p class="footer">数据由川藏一区负责人统一更新 · 详表版 · 源表：新商考核体系 1.1（2026年7月）</p>
   </div>
@@ -1215,8 +1249,12 @@
       return DATA.cities.map(c => c.name);
     }
     function activeCities() {
-      if (!selectedCityNames || selectedCityNames.size === 0) return DATA.cities;
+      if (selectedCityNames == null) return DATA.cities;
+      if (selectedCityNames.size === 0) return [];
       return DATA.cities.filter(c => selectedCityNames.has(c.name));
+    }
+    function isSingleCityMode() {
+      return activeCities().length === 1;
     }
     function citiesForModule(mod) {
       let list = activeCities();
@@ -1234,6 +1272,19 @@
         return (item.warn ? 2 : 1) + (item.children || []).length;
       }
       return item.warn ? 2 : 1;
+    }
+    function filteredLayout(mod, cities) {
+      let layout = layoutFor(mod).slice();
+      if (mod === "组织") {
+        layout = layout.filter(item => cities.some(c => {
+          const m = getMetric(c, mod, item.name);
+          return m && m.value != null && m.value !== "" && m.value !== "—";
+        }) || ["外卖BD满编率","团购BD满编率","外卖BD效能","高效能BD流失率"].includes(item.name));
+      }
+      if (mod === "综合治理") {
+        layout = layout.filter(item => cities.some(c => getMetric(c, mod, item.name)));
+      }
+      return layout;
     }
 
     function renderCityFilter() {
@@ -1267,7 +1318,9 @@
     }
 
     function renderLegend() {
-      document.getElementById("legend").innerHTML = [
+      const el = document.getElementById("legend");
+      if (!el) return;
+      el.innerHTML = [
         ["[0%-10%]", "b0"], ["(10%-30%]", "b1"], ["(30%-50%]", "b2"],
         ["(50%-70%]", "b3"], ["(70%-90%]", "b4"], ["(90%-100%]", "b5"],
         ["暂不预警/不预警", "bna"],
@@ -1303,7 +1356,7 @@
             <td>${deltaIcon(c.warnDelta, {forceNa: true})}</td>
             <td class="wrap-cell">${weak.length ? weak.map(w => badge(w + " " + c.bands[w])).join(" ") : "—"}</td>
           </tr>`;
-        }).join("") || `<tr><td colspan="9">请至少勾选一个城市</td></tr>`}</tbody>`;
+        }).join("")}</tbody>`;
     }
 
     function renderMatrix() {
@@ -1314,7 +1367,7 @@
           <tr>
             <td class="city">${c.name}</td>
             ${DATA.modules.map(m => `<td>${badge(c.bands[m])}</td>`).join("")}
-          </tr>`).join("") || `<tr><td colspan="${DATA.modules.length + 1}">请至少勾选一个城市</td></tr>`}</tbody>`;
+          </tr>`).join("")}</tbody>`;
     }
 
     function renderArchive() {
@@ -1340,28 +1393,17 @@
             <td>${c.cluster.shangye}</td>
             <td>${c.cluster.tiyan}</td>
             <td>${c.cluster.zhili}</td>
-          </tr>`).join("") || `<tr><td colspan="13">请至少勾选一个城市</td></tr>`}</tbody>`;
+          </tr>`).join("")}</tbody>`;
     }
 
     function buildModuleTable(mod) {
       const cities = citiesForModule(mod);
-      let layout = layoutFor(mod).slice();
-      if (mod === "组织") {
-        layout = layout.filter(item => cities.some(c => {
-          const m = getMetric(c, mod, item.name);
-          return m && m.value != null && m.value !== "" && m.value !== "—";
-        }) || item.name === "外卖BD满编率" || item.name === "团购BD满编率" || item.name === "外卖BD效能" || item.name === "高效能BD流失率");
-      }
-      if (mod === "综合治理") {
-        layout = layout.filter(item => cities.some(c => getMetric(c, mod, item.name)));
-      }
-
+      const layout = filteredLayout(mod, cities);
       const headTop = `<tr><th rowspan="2">城市</th>${layout.map(item => {
         const span = spanOf(item);
         const cls = item.kind === "group" ? ' class="group-head"' : "";
         return `<th colspan="${span}"${cls}>${item.name}</th>`;
       }).join("")}</tr>`;
-
       const headSub = `<tr>${layout.map(item => {
         if (item.kind === "group") {
           const main = item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
@@ -1370,7 +1412,6 @@
         }
         return item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
       }).join("")}</tr>`;
-
       const body = cities.map(c => {
         const tds = layout.map(item => {
           if (item.kind === "group") {
@@ -1389,7 +1430,6 @@
         }).join("");
         return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
       }).join("") || `<tr><td colspan="2">无匹配城市</td></tr>`;
-
       return `<div class="scroll"><table><thead>${headTop}${headSub}</thead><tbody>${body}</tbody></table></div>`;
     }
 
@@ -1412,7 +1452,6 @@
         用户体验: "十、用户体验模块明细",
         综合治理: "十一、综合治理模块明细"
       };
-      // display order: 外卖 团购 履约+体验(并排) 零售 组织 商业增值 综合治理
       const order = ["外卖", "团购", "履约", "零售", "组织", "商业增值", "综合治理"];
       const parts = [];
       for (const mod of order) {
@@ -1449,12 +1488,170 @@
           <tr>
             <td class="city">${c.name}</td>
             ${keys.map(k => `<td>${c.mom[k]}</td>`).join("")}
-          </tr>`).join("") || `<tr><td colspan="${keys.length + 1}">请至少勾选一个城市</td></tr>`}</tbody>`;
+          </tr>`).join("")}</tbody>`;
+    }
+
+    function buildSingleModuleCard(city, mod, title) {
+      const layout = filteredLayout(mod, [city]);
+      const band = city.bands[mod];
+      if (!layout.length && mod === "团购") {
+        return `<section class="section mod-card">
+          <h3>${title} ${badge(band || "不预警")}</h3>
+          <p class="desc">该城非团购明细展示范围（仅仁寿/南溪展示团购明细）。</p>
+        </section>`;
+      }
+      const rows = [];
+      layout.forEach(item => {
+        if (item.kind === "group") {
+          const main = getMetric(city, mod, item.name) || {};
+          rows.push(`<tr>
+            <td>${item.name}</td>
+            <td>${cellValue(main)}</td>
+            <td>${item.warn ? warnWithDelta(main.band, main.delta) : "—"}</td>
+          </tr>`);
+          (item.children || []).forEach(child => {
+            const cm = getMetric(city, mod, child) || {};
+            rows.push(`<tr>
+              <td class="child-name">└ ${child}</td>
+              <td>${cellValue(cm)}</td>
+              <td>—</td>
+            </tr>`);
+          });
+          return;
+        }
+        const m = getMetric(city, mod, item.name) || {};
+        rows.push(`<tr>
+          <td>${item.name}</td>
+          <td>${cellValue(m)}</td>
+          <td>${item.warn ? warnWithDelta(m.band, m.delta) : "—"}</td>
+        </tr>`);
+      });
+      return `<section class="section mod-card">
+        <h3>${title} ${badge(band)}</h3>
+        <div class="scroll"><table>
+          <thead><tr><th>指标</th><th>指标值</th><th>预警区间</th></tr></thead>
+          <tbody>${rows.join("") || `<tr><td colspan="3">暂无指标</td></tr>`}</tbody>
+        </table></div>
+      </section>`;
+    }
+
+    function renderSingleCity(city) {
+      const weak = weakModules(city);
+      const momKeys = Object.keys(city.mom || {});
+      const focusItems = [];
+      if (weak.length) focusItems.push(`落后模块：${weak.map(w => w + " " + city.bands[w]).join("、")}`);
+      if (String(city.riskMonth || "").includes("高风险") || String(city.riskRoll || "").includes("风险")) {
+        focusItems.push(`风险状态需盯防：滚动 ${city.riskRoll} / 当月 ${city.riskMonth}`);
+      }
+      if (String(city.warnDelta || "").includes("下跌") || String(city.warnDelta || "").includes("下降")) {
+        focusItems.push("大盘预警环比下跌，建议核对过程指标。");
+      }
+      if (!focusItems.length) focusItems.push("本期无 ≤30% 落后模块，维持监控即可。");
+
+      const top = `<div class="single-top">
+        <section class="section">
+          <h2>本城总览</h2>
+          <p class="desc">${city.name} · 风险与预警一眼看完</p>
+          <div class="kv">
+            <div class="k">等级 / 类型</div><div class="v">${city.level} · ${city.type}</div>
+            <div class="k">风险(滚动)</div><div class="v">${badge(city.riskRoll)}</div>
+            <div class="k">风险(当月)</div><div class="v">${badge(city.riskMonth)}</div>
+            <div class="k">加权预警</div><div class="v">${badge(city.warnWeighted)}</div>
+            <div class="k">大盘预警</div><div class="v">${warnWithDelta(city.warnMarket, city.warnDelta)}</div>
+            <div class="k">预警环比</div><div class="v">${city.warnDelta || "—"} ${deltaIcon(city.warnDelta, {forceNa: true})}</div>
+          </div>
+          <p class="desc" style="margin-top:12px;margin-bottom:6px">本城焦点</p>
+          <ul class="focus-list">${focusItems.map(x => `<li>${x}</li>`).join("")}</ul>
+          <div class="legend" style="margin-top:10px">${[
+            ["[0%-10%]","b0"],["(10%-30%]","b1"],["(30%-50%]","b2"],
+            ["(50%-70%]","b3"],["(70%-90%]","b4"],["(90%-100%]","b5"]
+          ].map(([t,c]) => `<span class="badge ${c}">${t}</span>`).join("")}</div>
+        </section>
+        <section class="section">
+          <h2>城市档案</h2>
+          <p class="desc">合作商与分群</p>
+          <div class="kv">
+            <div class="k">合作商ID</div><div class="v">${city.partnerId}</div>
+            <div class="k">账号主体</div><div class="v">${city.account}</div>
+            <div class="k">外卖分群</div><div class="v">${city.cluster.waimai}</div>
+            <div class="k">团购分群</div><div class="v">${city.cluster.tuango}</div>
+            <div class="k">履约分群</div><div class="v">${city.cluster.lvyue}</div>
+            <div class="k">零售分群</div><div class="v">${city.cluster.lingshou}</div>
+            <div class="k">组织 / 商业 / 体验 / 治理</div>
+            <div class="v">${city.cluster.zuzhi} / ${city.cluster.shangye} / ${city.cluster.tiyan} / ${city.cluster.zhili}</div>
+          </div>
+          <p class="desc" style="margin-top:12px;margin-bottom:6px">模块预警速览</p>
+          <div class="wrap-cell">${DATA.modules.map(m => badge(m + " " + (city.bands[m] || "—"))).join(" ")}</div>
+        </section>
+        <section class="section">
+          <h2>业务环比</h2>
+          <p class="desc">相对上期变化</p>
+          <div class="scroll"><table>
+            <thead><tr><th>指标</th><th>环比</th></tr></thead>
+            <tbody>${momKeys.map(k => `<tr><td>${k}</td><td>${city.mom[k]}</td></tr>`).join("")}</tbody>
+          </table></div>
+        </section>
+      </div>`;
+
+      // modules: 外卖 团购 履约+体验(列少则并排) 零售 组织 商业增值 综合治理
+      const titles = {
+        外卖: "外卖", 团购: "团购", 履约: "履约", 零售: "零售",
+        组织: "组织", 商业增值: "商业增值", 用户体验: "用户体验", 综合治理: "综合治理"
+      };
+      const lvyueLayout = filteredLayout("履约", [city]);
+      const tiyanLayout = filteredLayout("用户体验", [city]);
+      const sideBySide = (lvyueLayout.length + tiyanLayout.length) <= 6;
+
+      const mods = [];
+      mods.push(buildSingleModuleCard(city, "外卖", titles.外卖));
+      mods.push(buildSingleModuleCard(city, "团购", titles.团购));
+      if (sideBySide) {
+        mods.push(`<div class="module-row">
+          ${buildSingleModuleCard(city, "履约", titles.履约)}
+          ${buildSingleModuleCard(city, "用户体验", titles.用户体验)}
+        </div>`);
+      } else {
+        mods.push(buildSingleModuleCard(city, "履约", titles.履约));
+        mods.push(buildSingleModuleCard(city, "用户体验", titles.用户体验));
+      }
+      mods.push(buildSingleModuleCard(city, "零售", titles.零售));
+      mods.push(buildSingleModuleCard(city, "组织", titles.组织));
+      mods.push(buildSingleModuleCard(city, "商业增值", titles.商业增值));
+      mods.push(buildSingleModuleCard(city, "综合治理", titles.综合治理));
+
+      document.getElementById("singleView").innerHTML = `
+        <section class="section" style="padding-bottom:14px">
+          <h2>${city.name}<span class="mode-tag">单城视角</span></h2>
+          <p class="desc">按城负责人视角聚合呈现；勾选多个城市可回到多城对比。</p>
+        </section>
+        ${top}
+        <div class="single-modules">${mods.join("")}</div>
+      `;
+    }
+
+    function setViewMode(mode) {
+      document.getElementById("emptyView").classList.toggle("hidden", mode !== "empty");
+      document.getElementById("multiView").classList.toggle("hidden", mode !== "multi");
+      document.getElementById("singleView").classList.toggle("hidden", mode !== "single");
     }
 
     function rerenderAll() {
-      const n = activeCities().length;
-      document.getElementById("cityCount").textContent = n + " / " + DATA.cities.length;
+      const cities = activeCities();
+      const n = cities.length;
+      const modeLabel = n === 0 ? "未选择" : (n === 1 ? "单城视角" : "多城对比");
+      document.getElementById("cityCount").textContent = `${n} / ${DATA.cities.length} · ${modeLabel}`;
+
+      if (n === 0) {
+        setViewMode("empty");
+        return;
+      }
+      if (n === 1) {
+        setViewMode("single");
+        renderSingleCity(cities[0]);
+        return;
+      }
+      setViewMode("multi");
+      renderLegend();
       renderOverview();
       renderMatrix();
       renderArchive();
@@ -1464,7 +1661,6 @@
 
     document.getElementById("period").textContent = DATA.meta.period;
     document.getElementById("date").textContent = DATA.meta.dataDate;
-    renderLegend();
     renderCityFilter();
     rerenderAll();
   </script>
