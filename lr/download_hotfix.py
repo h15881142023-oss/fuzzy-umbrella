@@ -22,7 +22,6 @@ FILES = [
     "lr/export_kanban_com.py",
     "lr/wecom_push.py",
     "lr/run_daily.py",
-    "lr/run_datasource_push.py",
     "lr/scrape_live.py",
     "lr/download_hotfix.py",
     "config.py",
@@ -36,7 +35,6 @@ FILES = [
     "scripts/install_lr_new_template.ps1",
     "scripts/run_aug_tuangou_once.ps1",
     "scripts/uninstall_lr_datasource_task.ps1",
-    "scripts/run_lr_datasource_local.ps1",
     "scripts/run_store_morning_monitor_local.ps1",
     "scripts/start_chrome_powerbi.ps1",
     "scripts/run_visit_check_local.ps1",
@@ -73,7 +71,6 @@ def main() -> int:
         ok += 1
 
     required = [
-        "scripts/run_lr_datasource_local.ps1",
         "scripts/run_lr_profit_fill_local.ps1",
         "scripts/run_store_morning_monitor_local.ps1",
         "scripts/run_visit_check_local.ps1",

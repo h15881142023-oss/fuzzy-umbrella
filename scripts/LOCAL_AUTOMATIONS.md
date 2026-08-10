@@ -10,12 +10,11 @@
 | Automations / 业务名 | Windows 脚本 | 时间 | 说明 |
 |---|---|---|---|
 | 川藏一区Todo周报 | `scripts/run_kpi_todo_local.ps1` | 周一/周四 14:00 | |
-| **利润数据源推送** | `scripts/run_lr_datasource_local.ps1` | 每天 **23:15** | 只推五城原始日利润 Excel，**不填模板、不截看板** |
-| **利润填写推送**（原 LR日报日更） | `scripts/run_lr_profit_fill_local.ps1` | 每天 **23:30** | 填 `数据源(日)` → WPS 五城看板 → 企微 5 图 + Excel |
+| **利润填写推送**（原 LR日报日更） | `scripts/run_lr_profit_fill_local.ps1` | 每天 **23:30** | 填 `数据源(日)` + 团购利润 → WPS 五城看板 → 企微 5 图 + Excel |
 | 拜访检核日更 | `scripts/run_visit_check_local.ps1` | 每天 09:00 | |
 | 自配门店早间监控 | `scripts/run_store_morning_monitor_local.ps1` | 每天 08:30 | |
 
-> **禁止把「利润数据源推送」和「利润填写推送」混成同一个脚本/任务。**
+> 「利润数据源推送」已停用并删除（原 23:15 / `ChuanzangLrDatasourceLocal`）。
 
 ## Windows 一键安装（推荐）
 
@@ -44,15 +43,12 @@ powershell -ExecutionPolicy Bypass -File scripts\uninstall_local_automations_win
 ### 手动试跑
 
 ```powershell
-# 利润数据源推送（仅原始 Excel）
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_datasource_local.ps1 -TargetDate 2026-07-22
-
 # 利润填写推送（填表+五城图+Excel）
 powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -TargetDate 2026-07-22
 
 # 表已填好但 COM 出图失败（无效的类字符串）时：只导出看板并推送
 # 先同步 hotfix（本机没有 sync 脚本时用下面一键下载；把 REPLACE_SHA 换成最新 short sha）
- = "ec5576c"
+$sha = "ec5576c"
 $base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
 @(
   "lr/export_kanban_com.py",

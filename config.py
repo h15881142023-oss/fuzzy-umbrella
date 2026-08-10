@@ -63,10 +63,10 @@ LR_WECOM_WEBHOOK = os.environ.get(
     "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
 )
 
-# 利润数据源推送（仅推原始日利润表五城数据，与填写推送分离）
+# 旧「利润数据源推送」已停用删除；保留变量以免外部 env 报错
 LR_DATASOURCE_WECOM_WEBHOOK = os.environ.get(
     "LR_DATASOURCE_WECOM_WEBHOOK",
-    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=c44fb1bf-ec7d-4c14-a397-7c9db0ac5a4f",
+    "",
 )
 
 # 拜访检核：后台导出目录（Cloud Agent 工作区；禁止落到用户 Downloads）

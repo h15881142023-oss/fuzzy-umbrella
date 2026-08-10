@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """川藏一区「利润填写推送」：抓取 JSON → 填模板 → WPS 五城看板 → 企微（5 图+Excel）。
 
-注意：本脚本 ≠「利润数据源推送」（见 lr/run_datasource_push.py）。
+注意：本脚本是「利润填写推送」（填表+看板+企微），数据源推送任务已停用删除。
 
 用法：
   python lr/run_daily.py --scrape-json data/lr_scrape/latest.json --target-date 2026-07-22
