@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -42,6 +43,20 @@ FILES = [
     "scripts/install_local_automations_windows.ps1",
 ]
 
+# 已删除任务：拉 hotfix 时顺带清掉本机残留
+OBSOLETE = [
+    "scripts/run_lr_datasource_local.ps1",
+    "lr/run_datasource_push.py",
+]
+
+
+def _mirrors(sha: str, rel: str) -> list[str]:
+    path = rel.replace("\\", "/")
+    return [
+        f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{sha}/{path}",
+        f"https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{sha}/{path}",
+    ]
+
 
 def fetch(url: str) -> bytes:
     req = urllib.request.Request(url, headers={"User-Agent": "fuzzy-umbrella-hotfix/1.0"})
@@ -50,6 +65,25 @@ def fetch(url: str) -> bytes:
     if len(data) < 40:
         raise RuntimeError(f"download too short: {url}")
     return data
+
+
+def fetch_first(sha: str, rel: str) -> bytes | None:
+    last_err: Exception | None = None
+    for url in _mirrors(sha, rel):
+        try:
+            return fetch(url)
+        except urllib.error.HTTPError as exc:
+            last_err = exc
+            if exc.code == 404:
+                continue
+            last_err = exc
+        except Exception as exc:  # noqa: BLE001
+            last_err = exc
+    if last_err is not None and getattr(last_err, "code", None) == 404:
+        return None
+    if last_err is not None:
+        raise last_err
+    return None
 
 
 def main() -> int:
@@ -61,14 +95,24 @@ def main() -> int:
         BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
 
     ok = 0
+    skipped = 0
     for rel in FILES:
-        url = f"{BASE}/{rel.replace(chr(92), '/')}"
         out = ROOT / rel.replace("/", "\\") if sys.platform == "win32" else ROOT / rel
         out.parent.mkdir(parents=True, exist_ok=True)
-        data = fetch(url)
+        data = fetch_first(SHA, rel)
+        if data is None:
+            print(f"SKIP 404 {rel} (removed upstream or CDN lag)")
+            skipped += 1
+            continue
         out.write_bytes(data)
         print(f"OK {out} ({len(data)} bytes)")
         ok += 1
+
+    for rel in OBSOLETE:
+        p = ROOT / rel.replace("/", "\\") if sys.platform == "win32" else ROOT / rel
+        if p.exists():
+            p.unlink()
+            print(f"REMOVED obsolete {p}")
 
     required = [
         "scripts/run_lr_profit_fill_local.ps1",
@@ -76,6 +120,7 @@ def main() -> int:
         "scripts/run_visit_check_local.ps1",
         "scripts/run_kpi_todo_local.ps1",
         "lr/fill_template.py",
+        "config.py",
     ]
     missing = []
     for rel in required:
@@ -117,7 +162,7 @@ def main() -> int:
         print("ERROR: run_daily.py still imports kanban_image at top-level. Abort.", file=sys.stderr)
         return 2
 
-    print(f"done {ok} files from {BASE}")
+    print(f"done {ok} files from {BASE} (skipped={skipped})")
     print("OK all required local runners present")
     print("OK fill_template.py has cumulative fill")
     print("OK fill_template.py has 团购利润 fill")
