@@ -98,6 +98,29 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 - **已外发冻结版（不变）**：`docs/xinshang/index-v1-frozen-202607.html`  
   此前发出去的旧版拷贝不受后续改动影响；需要旧版时发这个文件即可。
 
+### Windows 更新看板（推荐，不依赖 GitHub git）
+
+GitHub 时通时断时，用 CDN 镜像一键覆盖本机 HTML（域名立刻可读新文件）：
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
+```
+
+或资源管理器双击：`scripts\update_xinshang_html_windows.cmd`
+
+若本机还没有该脚本，先下载一次：
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+$base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@cursor/cz1-merchant-dashboard-74a9/scripts"
+Invoke-WebRequest "$base/update_xinshang_html_windows.ps1" -OutFile ".\scripts\update_xinshang_html_windows.ps1" -UseBasicParsing
+Invoke-WebRequest "$base/update_xinshang_html_windows.cmd" -OutFile ".\scripts\update_xinshang_html_windows.cmd" -UseBasicParsing
+powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
+```
+
+更新后打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 并强制刷新。
+
 首次启用 GitHub Pages：
 
 1. 合并本仓库到 `main`
