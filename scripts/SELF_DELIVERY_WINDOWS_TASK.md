@@ -54,7 +54,7 @@ powershell -ExecutionPolicy Bypass -File scripts/uninstall_self_delivery_task_wi
 ## 5) 逻辑说明（与原流程一致）
 
 1. 打开看板并自动处理密码弹窗（若出现）
-2. 点击 `商家明细-昨日`，下载 Excel 到临时目录
+2. 点击 `商家明细-昨日`，通过 **DataEase API** 直接导出 Excel（无需 canvas 悬停；失败时回退 UI 下载）
 3. 筛选条件：
    - C 列（一级商家配送类型）∈ `{跑腿, 商家配送}`
    - G 列（商家类型）∈ `{城市商家, 全国KA, 区域KA}`
@@ -64,6 +64,7 @@ powershell -ExecutionPolicy Bypass -File scripts/uninstall_self_delivery_task_wi
    - 有近 3 天数据：先 markdown，再上传并推送筛选后的 Excel（字段：`城市｜门店｜ID｜配送类型｜商家类型｜上线时间`）
    - 无近 3 天数据：只推送文本 `📋 自配门店监控（{今天日期}）：近3日无自配门店上线`
 6. 推送成功（`errcode=0`）后删除临时 Excel，不在电脑保留文件
+7. 下载/执行失败时，会向同一企微 Webhook 发送 `❌ 自配监控：DataEase数据下载失败` 告警
 
 ## 6) 日志
 

@@ -41,6 +41,18 @@ class MonitorResult:
     markdown: str
 
 
+@dataclass
+class ChartCapture:
+    chart_id: str
+    chart_req: dict
+    headers: list[str]
+    link_token: str
+
+
+DE_EXPORT_URL = "http://47.112.178.78:8100/de2api/chartData/innerExportDetails"
+DE_REFERER = "http://47.112.178.78:8100/"
+
+
 def _pick_column(df: pd.DataFrame, candidates: list[str], fallback_index: int) -> str:
     lower_map = {str(c).strip().lower(): c for c in df.columns}
     for name in candidates:
@@ -187,11 +199,22 @@ async def _open_target_tab(page: Page) -> None:
     raise RuntimeError(f"未能点击页签「{TARGET_CHART_TITLE}」: {last_error}")
 
 
-async def _wait_target_chart_id(page: Page, timeout_ms: int = 120000) -> str:
-    chart_id_box: dict[str, Optional[str]] = {"id": None}
+async def _wait_target_chart(page: Page, timeout_ms: int = 150000) -> ChartCapture:
+    """等待目标图表加载，并捕获 API 导出所需的 token 与请求体。"""
+    capture_box: dict[str, Optional[ChartCapture]] = {"value": None}
+    link_token_box: dict[str, Optional[str]] = {"value": None}
+
+    def remember_token(raw: Optional[str]) -> None:
+        if raw:
+            link_token_box["value"] = raw
+
+    def on_request(req) -> None:
+        remember_token(dict(req.headers).get("x-de-link-token"))
 
     async def on_response(resp) -> None:
-        if "chartData/getData" not in resp.url:
+        remember_token(dict(resp.request.headers).get("x-de-link-token"))
+        remember_token(dict(resp.headers).get("x-de-link-token"))
+        if not resp.url.endswith("/de2api/chartData/getData"):
             return
         try:
             payload = await resp.json()
@@ -203,24 +226,32 @@ async def _wait_target_chart_id(page: Page, timeout_ms: int = 120000) -> str:
         inner = data.get("data") or {}
         fields = inner.get("fields") or data.get("fields") or []
         names = {str(f.get("name") or "") for f in fields}
-        if all(field in names for field in REQUIRED_FIELDS):
-            chart_id_box["id"] = str(data.get("id") or "")
+        if not all(field in names for field in REQUIRED_FIELDS):
+            return
+        post_data = resp.request.post_data
+        if not post_data:
+            return
+        chart_req = json.loads(post_data)
+        headers = [str(f.get("name") or "") for f in fields]
+        capture_box["value"] = ChartCapture(
+            chart_id=str(data.get("id") or chart_req.get("id") or ""),
+            chart_req=chart_req,
+            headers=headers,
+            link_token=link_token_box["value"] or "",
+        )
 
+    page.on("request", on_request)
     page.on("response", lambda r: asyncio.create_task(on_response(r)))
 
     started = time.time()
     deadline = started + timeout_ms / 1000
     retried_tab = False
     while time.time() < deadline:
-        if chart_id_box["id"]:
-            return chart_id_box["id"]
-
-        # DOM 兜底：目标图表容器已出现则可直接用
-        fallback = page.locator(f"#wrapper-outer-id-{FALLBACK_CHART_ID}")
-        if await fallback.count() > 0:
-            box = await fallback.first.bounding_box()
-            if box and box.get("width", 0) > 200 and box.get("height", 0) > 200:
-                return FALLBACK_CHART_ID
+        captured = capture_box["value"]
+        if captured:
+            if link_token_box["value"]:
+                captured.link_token = link_token_box["value"]
+            return captured
 
         # 约 15 秒后再点一次页签，防止首次点到同名标题
         if (not retried_tab) and (time.time() - started) >= 15:
@@ -232,10 +263,97 @@ async def _wait_target_chart_id(page: Page, timeout_ms: int = 120000) -> str:
 
         await page.wait_for_timeout(500)
 
-    # 最后再尝试 fallback（即使尺寸较小）
-    if await page.locator(f"#wrapper-outer-id-{FALLBACK_CHART_ID}").count() > 0:
-        return FALLBACK_CHART_ID
+    captured = capture_box["value"]
+    if captured:
+        if link_token_box["value"]:
+            captured.link_token = link_token_box["value"]
+        return captured
     raise RuntimeError("等待目标图表超时：未识别到含「一级商家配送类型/上线时间」的商家明细-昨日")
+
+
+async def _resolve_link_token(page: Page, capture: ChartCapture) -> ChartCapture:
+    """补全 link token（部分环境下 wait 阶段可能尚未捕获）。"""
+    if capture.link_token:
+        return capture
+
+    token_box: dict[str, Optional[str]] = {"value": None}
+
+    def grab(req) -> None:
+        token = dict(req.headers).get("x-de-link-token")
+        if token:
+            token_box["value"] = token
+
+    page.on("request", grab)
+    for _ in range(6):
+        if token_box["value"]:
+            break
+        await page.wait_for_timeout(500)
+
+    if not token_box["value"]:
+        try:
+            await _open_target_tab(page)
+        except Exception:  # noqa: BLE001
+            pass
+        for _ in range(20):
+            if token_box["value"]:
+                break
+            await page.wait_for_timeout(500)
+
+    capture.link_token = token_box["value"] or capture.link_token
+    return capture
+
+
+async def _export_excel_via_api(
+    page: Page,
+    capture: ChartCapture,
+    download_dir: Path,
+) -> Path:
+    """通过 DataEase innerExportDetails API 导出 Excel，不依赖 canvas 悬停。"""
+    if not capture.link_token:
+        raise RuntimeError("缺少 x-de-link-token，无法调用 DataEase 导出 API")
+
+    view_name = (
+        f"每日指标看板-乔显海_{TARGET_CHART_TITLE}_"
+        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    )
+    payload = {
+        "proxy": None,
+        "dvId": capture.chart_req["sceneId"],
+        "viewId": capture.chart_id,
+        "viewInfo": capture.chart_req,
+        "viewName": view_name,
+        "busiFlag": "dashboard",
+        "downloadType": None,
+        "header": capture.headers,
+        "details": [],
+        "excelTypes": [0] * len(capture.headers),
+        "excelHeaderKeys": capture.headers,
+        "detailFields": [],
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "x-de-link-token": capture.link_token,
+        "Referer": DE_REFERER,
+    }
+    resp = await page.request.post(
+        DE_EXPORT_URL,
+        data=json.dumps(payload, ensure_ascii=False),
+        headers=headers,
+        timeout=180000,
+    )
+    if resp.status != 200:
+        body = (await resp.text())[:500]
+        raise RuntimeError(f"DataEase API 导出失败: HTTP {resp.status} {body}")
+
+    data = await resp.body()
+    if len(data) < 100 or not data.startswith(b"PK"):
+        body = data[:200].decode("utf-8", errors="replace")
+        raise RuntimeError(f"DataEase API 返回非 Excel 内容: {body}")
+
+    output = download_dir / f"{view_name}.xlsx"
+    output.write_bytes(data)
+    return output
 
 
 async def _download_excel_async(
@@ -248,24 +366,49 @@ async def _download_excel_async(
 ) -> Path:
     download_dir.mkdir(parents=True, exist_ok=True)
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless)
+        browser = await p.chromium.launch(
+            headless=headless,
+            args=["--disable-dev-shm-usage"],
+        )
         context = await browser.new_context(
             accept_downloads=True,
             locale="zh-CN",
             viewport={"width": 1600, "height": 900},
         )
         page = await context.new_page()
+        last_error: Optional[Exception] = None
         try:
             await page.goto(url, wait_until="networkidle", timeout=180000)
             await _login_if_needed(page, password)
             await page.get_by_text("每日指标看板", exact=False).first.wait_for(timeout=180000)
 
-            wait_task = asyncio.create_task(_wait_target_chart_id(page, timeout_ms=150000))
+            wait_task = asyncio.create_task(_wait_target_chart(page, timeout_ms=150000))
             await _open_target_tab(page)
-            chart_id = await wait_task
-            print(f"使用图表ID: {chart_id}", file=sys.stderr)
-            await page.wait_for_timeout(2000)
-            return await _download_excel_from_chart(page, chart_id, download_dir)
+            capture = await wait_task
+            capture = await _resolve_link_token(page, capture)
+            print(
+                f"使用图表ID: {capture.chart_id}（API 导出, token={'有' if capture.link_token else '无'}）",
+                file=sys.stderr,
+            )
+            await page.wait_for_timeout(1500)
+
+            for attempt in range(2):
+                try:
+                    return await _export_excel_via_api(page, capture, download_dir)
+                except Exception as exc:  # noqa: BLE001
+                    last_error = exc
+                    print(
+                        f"API 导出第 {attempt + 1} 次失败: {exc}",
+                        file=sys.stderr,
+                    )
+                    await page.wait_for_timeout(1500)
+
+            print("API 导出失败，回退 canvas 悬停下载", file=sys.stderr)
+            try:
+                return await _download_excel_from_chart(page, capture.chart_id, download_dir)
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+            raise RuntimeError(f"DataEase 数据下载失败: {last_error}")
         except Exception:
             if debug:
                 shot = download_dir / "debug_failed.png"
@@ -450,6 +593,16 @@ def _upload_file(webhook: str, path: Path) -> dict:
     return body
 
 
+def push_failure_alert(webhook: str, error: str) -> None:
+    """下载或推送失败时发送企微告警（忽略告警发送本身的失败）。"""
+    today = date.today().isoformat()
+    text = f"❌ 自配监控：DataEase数据下载失败\n> 日期：{today}\n> 原因：{error[:500]}"
+    try:
+        _post_json(webhook, {"msgtype": "text", "text": {"content": text}})
+    except Exception as alert_exc:  # noqa: BLE001
+        print(f"失败告警发送异常: {alert_exc}", file=sys.stderr)
+
+
 def push_wecom(webhook: str, result: MonitorResult) -> dict:
     if result.recent_count == 0:
         text = f"📋 自配门店监控（{date.today().isoformat()}）：近3日无自配门店上线"
@@ -532,7 +685,9 @@ def main() -> int:
         safe_unlink(filtered_excel)
         return 0
     except Exception as exc:  # noqa: BLE001
-        print(f"执行失败: {exc}", file=sys.stderr)
+        err_text = str(exc)
+        print(f"执行失败: {err_text}", file=sys.stderr)
+        push_failure_alert(args.webhook, err_text)
         return 1
 
 
