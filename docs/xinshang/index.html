@@ -47,7 +47,32 @@
       position:sticky; top:0; z-index:1;
     }
     th.group-head {
-      background:#f5e6a6; color:#5c4b10; text-align:center;
+      background:#e7f3ef; color:#35545c; text-align:center;
+    }
+    .filter-bar {
+      display:flex; flex-wrap:wrap; gap:10px 14px; align-items:center;
+      margin:12px 0 0; padding-top:12px; border-top:1px solid rgba(255,255,255,.18);
+    }
+    .filter-bar .flabel { font-size:.9rem; opacity:.9; margin-right:4px; }
+    .filter-bar label {
+      display:inline-flex; align-items:center; gap:6px;
+      background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.18);
+      border-radius:999px; padding:5px 10px; font-size:.86rem; cursor:pointer; user-select:none;
+    }
+    .filter-bar label input { accent-color:#7dceb8; }
+    .filter-actions { display:inline-flex; gap:8px; margin-left:4px; }
+    .filter-actions button {
+      border:1px solid rgba(255,255,255,.28); background:rgba(255,255,255,.14);
+      color:#f4fffb; border-radius:8px; padding:5px 10px; font-size:.82rem; cursor:pointer;
+    }
+    .filter-actions button:hover { background:rgba(255,255,255,.22); }
+    .module-row {
+      display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;
+    }
+    .module-row > .section { margin-bottom:0; min-width:0; }
+    .module-row table { min-width:520px; }
+    @media (max-width:1100px) {
+      .module-row { grid-template-columns:1fr; }
     }
     tr:nth-child(even) td { background:#fbfdfc; }
     .wrap-cell { white-space:normal; min-width:180px; line-height:1.45; }
@@ -82,8 +107,16 @@
       <div class="meta">
         <div class="chip">考核周期 <strong id="period">—</strong></div>
         <div class="chip">数据日期 <strong id="date">—</strong></div>
-        <div class="chip">城市数 <strong id="cityCount">—</strong></div>
+        <div class="chip">展示城市 <strong id="cityCount">—</strong></div>
         <div class="chip">口径：预警区间（如 [0%-10%]），不展示得分</div>
+      </div>
+      <div class="filter-bar" id="cityFilterBar">
+        <span class="flabel">城市筛选</span>
+        <span id="cityFilterChecks"></span>
+        <span class="filter-actions">
+          <button type="button" id="btnSelectAllCities">全选</button>
+          <button type="button" id="btnClearCities">清空</button>
+        </span>
       </div>
     </header>
 
@@ -1176,12 +1209,22 @@
         return String(b).includes("[0%-10%]") || String(b).includes("(10%-30%]");
       });
     }
+    let selectedCityNames = null; // null = all
+
+    function allCityNames() {
+      return DATA.cities.map(c => c.name);
+    }
+    function activeCities() {
+      if (!selectedCityNames || selectedCityNames.size === 0) return DATA.cities;
+      return DATA.cities.filter(c => selectedCityNames.has(c.name));
+    }
     function citiesForModule(mod) {
+      let list = activeCities();
       if (mod === "团购") {
         const allow = new Set(DATA.tuangoDetailCities || ["仁寿县", "南溪"]);
-        return DATA.cities.filter(c => allow.has(c.name));
+        list = list.filter(c => allow.has(c.name));
       }
-      return DATA.cities;
+      return list;
     }
     function layoutFor(mod) {
       return (DATA.layouts && DATA.layouts[mod]) || [];
@@ -1191,6 +1234,36 @@
         return (item.warn ? 2 : 1) + (item.children || []).length;
       }
       return item.warn ? 2 : 1;
+    }
+
+    function renderCityFilter() {
+      const box = document.getElementById("cityFilterChecks");
+      const names = allCityNames();
+      if (!selectedCityNames) selectedCityNames = new Set(names);
+      box.innerHTML = names.map(n => {
+        const checked = selectedCityNames.has(n) ? "checked" : "";
+        return `<label><input type="checkbox" data-city="${n}" ${checked} />${n}</label>`;
+      }).join("");
+      box.querySelectorAll("input[type=checkbox]").forEach(inp => {
+        inp.addEventListener("change", () => {
+          const next = new Set();
+          box.querySelectorAll("input[type=checkbox]").forEach(i => {
+            if (i.checked) next.add(i.getAttribute("data-city"));
+          });
+          selectedCityNames = next;
+          rerenderAll();
+        });
+      });
+      document.getElementById("btnSelectAllCities").onclick = () => {
+        selectedCityNames = new Set(names);
+        renderCityFilter();
+        rerenderAll();
+      };
+      document.getElementById("btnClearCities").onclick = () => {
+        selectedCityNames = new Set();
+        renderCityFilter();
+        rerenderAll();
+      };
     }
 
     function renderLegend() {
@@ -1206,7 +1279,7 @@
     }
 
     function renderOverview() {
-      const rows = [...DATA.cities].sort((a, b) => {
+      const rows = [...activeCities()].sort((a, b) => {
         const rank = (c) => (c.riskMonth.includes("高风险") ? 0 : c.riskRoll.includes("风险") ? 1 : 2);
         return rank(a) - rank(b) || a.name.localeCompare(b.name, "zh");
       });
@@ -1230,27 +1303,29 @@
             <td>${deltaIcon(c.warnDelta, {forceNa: true})}</td>
             <td class="wrap-cell">${weak.length ? weak.map(w => badge(w + " " + c.bands[w])).join(" ") : "—"}</td>
           </tr>`;
-        }).join("")}</tbody>`;
+        }).join("") || `<tr><td colspan="9">请至少勾选一个城市</td></tr>`}</tbody>`;
     }
 
     function renderMatrix() {
+      const rows = activeCities();
       document.getElementById("matrixTable").innerHTML = `
         <thead><tr><th>城市</th>${DATA.modules.map(m => `<th>${m}</th>`).join("")}</tr></thead>
-        <tbody>${DATA.cities.map(c => `
+        <tbody>${rows.map(c => `
           <tr>
             <td class="city">${c.name}</td>
             ${DATA.modules.map(m => `<td>${badge(c.bands[m])}</td>`).join("")}
-          </tr>`).join("")}</tbody>`;
+          </tr>`).join("") || `<tr><td colspan="${DATA.modules.length + 1}">请至少勾选一个城市</td></tr>`}</tbody>`;
     }
 
     function renderArchive() {
+      const rows = activeCities();
       document.getElementById("档案Table").innerHTML = `
         <thead><tr>
           <th>城市</th><th>合作商ID</th><th>账号主体</th><th>等级</th><th>城市类型</th>
           <th>外卖分群</th><th>团购分群</th><th>履约分群</th><th>零售分群</th>
           <th>组织</th><th>商业增值</th><th>用户体验</th><th>综合治理</th>
         </tr></thead>
-        <tbody>${DATA.cities.map(c => `
+        <tbody>${rows.map(c => `
           <tr>
             <td class="city">${c.name}</td>
             <td>${c.partnerId}</td>
@@ -1265,7 +1340,65 @@
             <td>${c.cluster.shangye}</td>
             <td>${c.cluster.tiyan}</td>
             <td>${c.cluster.zhili}</td>
-          </tr>`).join("")}</tbody>`;
+          </tr>`).join("") || `<tr><td colspan="13">请至少勾选一个城市</td></tr>`}</tbody>`;
+    }
+
+    function buildModuleTable(mod) {
+      const cities = citiesForModule(mod);
+      let layout = layoutFor(mod).slice();
+      if (mod === "组织") {
+        layout = layout.filter(item => cities.some(c => {
+          const m = getMetric(c, mod, item.name);
+          return m && m.value != null && m.value !== "" && m.value !== "—";
+        }) || item.name === "外卖BD满编率" || item.name === "团购BD满编率" || item.name === "外卖BD效能" || item.name === "高效能BD流失率");
+      }
+      if (mod === "综合治理") {
+        layout = layout.filter(item => cities.some(c => getMetric(c, mod, item.name)));
+      }
+
+      const headTop = `<tr><th rowspan="2">城市</th>${layout.map(item => {
+        const span = spanOf(item);
+        const cls = item.kind === "group" ? ' class="group-head"' : "";
+        return `<th colspan="${span}"${cls}>${item.name}</th>`;
+      }).join("")}</tr>`;
+
+      const headSub = `<tr>${layout.map(item => {
+        if (item.kind === "group") {
+          const main = item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
+          const kids = (item.children || []).map(n => `<th>${n}</th>`).join("");
+          return main + kids;
+        }
+        return item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
+      }).join("")}</tr>`;
+
+      const body = cities.map(c => {
+        const tds = layout.map(item => {
+          if (item.kind === "group") {
+            const main = getMetric(c, mod, item.name) || {};
+            let html = `<td>${cellValue(main)}</td>`;
+            if (item.warn) html += `<td>${warnWithDelta(main.band, main.delta)}</td>`;
+            for (const child of (item.children || [])) {
+              const cm = getMetric(c, mod, child) || {};
+              html += `<td>${cellValue(cm)}</td>`;
+            }
+            return html;
+          }
+          const m = getMetric(c, mod, item.name) || {};
+          if (!item.warn) return `<td>${cellValue(m)}</td>`;
+          return `<td>${cellValue(m)}</td><td>${warnWithDelta(m.band, m.delta)}</td>`;
+        }).join("");
+        return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
+      }).join("") || `<tr><td colspan="2">无匹配城市</td></tr>`;
+
+      return `<div class="scroll"><table><thead>${headTop}${headSub}</thead><tbody>${body}</tbody></table></div>`;
+    }
+
+    function moduleDesc(mod) {
+      if (mod === "团购") return "仅仁寿、南溪（且受上方城市筛选约束）；「优质商家渗透率」为父指标，子列不加预警。";
+      if (mod === "外卖") return "「餐饮商家渗透率」为父指标，子列不加预警；带预警指标旁显示↑↓—。";
+      if (mod === "综合治理") return "综合治理只展示指标值，不展示预警区间列。";
+      if (mod === "履约" || mod === "用户体验") return "与相邻模块并排展示；受上方城市筛选统一控制。";
+      return "城市横排对比；带预警的指标旁显示较上期↑↓—。";
     }
 
     function renderModules() {
@@ -1279,90 +1412,61 @@
         用户体验: "十、用户体验模块明细",
         综合治理: "十一、综合治理模块明细"
       };
-      document.getElementById("moduleSections").innerHTML = DATA.modules.map(mod => {
-        const cities = citiesForModule(mod);
-        let layout = layoutFor(mod).slice();
-        // 组织：仅保留至少一城有值的列，避免空列过多
-        if (mod === "组织") {
-          layout = layout.filter(item => cities.some(c => {
-            const m = getMetric(c, mod, item.name);
-            return m && m.value != null && m.value !== "" && m.value !== "—";
-          }) || item.name === "外卖BD满编率" || item.name === "团购BD满编率" || item.name === "外卖BD效能" || item.name === "高效能BD流失率");
+      // display order: 外卖 团购 履约+体验(并排) 零售 组织 商业增值 综合治理
+      const order = ["外卖", "团购", "履约", "零售", "组织", "商业增值", "综合治理"];
+      const parts = [];
+      for (const mod of order) {
+        if (mod === "履约") {
+          parts.push(`<div class="module-row">
+            <section class="section">
+              <h2>${titles["履约"]}</h2>
+              <p class="desc">${moduleDesc("履约")}</p>
+              ${buildModuleTable("履约")}
+            </section>
+            <section class="section">
+              <h2>${titles["用户体验"]}</h2>
+              <p class="desc">${moduleDesc("用户体验")}</p>
+              ${buildModuleTable("用户体验")}
+            </section>
+          </div>`);
+          continue;
         }
-        if (mod === "综合治理") {
-          layout = layout.filter(item => cities.some(c => getMetric(c, mod, item.name)));
-        }
-
-        const headTop = `<tr><th rowspan="2">城市</th>${layout.map(item => {
-          const span = spanOf(item);
-          const cls = item.kind === "group" ? ' class="group-head"' : "";
-          return `<th colspan="${span}"${cls}>${item.name}</th>`;
-        }).join("")}</tr>`;
-
-        const headSub = `<tr>${layout.map(item => {
-          if (item.kind === "group") {
-            const main = item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
-            const kids = (item.children || []).map(n => `<th>${n}</th>`).join("");
-            return main + kids;
-          }
-          return item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
-        }).join("")}</tr>`;
-
-        const body = cities.map(c => {
-          const tds = layout.map(item => {
-            if (item.kind === "group") {
-              const main = getMetric(c, mod, item.name) || {};
-              let html = `<td>${cellValue(main)}</td>`;
-              if (item.warn) html += `<td>${warnWithDelta(main.band, main.delta)}</td>`;
-              for (const child of (item.children || [])) {
-                const cm = getMetric(c, mod, child) || {};
-                html += `<td>${cellValue(cm)}</td>`;
-              }
-              return html;
-            }
-            const m = getMetric(c, mod, item.name) || {};
-            if (!item.warn) return `<td>${cellValue(m)}</td>`;
-            return `<td>${cellValue(m)}</td><td>${warnWithDelta(m.band, m.delta)}</td>`;
-          }).join("");
-          return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
-        }).join("");
-
-        const desc = mod === "团购"
-          ? "仅仁寿、南溪；「优质商家渗透率」为父指标，其子列不加预警。"
-          : (mod === "外卖"
-            ? "「餐饮商家渗透率」为父指标，月交易/在线/动销为子列且不加预警；带预警指标旁显示↑↓—。"
-            : (mod === "综合治理"
-              ? "综合治理只展示指标值，不展示预警区间列。"
-              : "城市横排对比；带预警的指标旁显示较上期↑↓—；已去掉各模块「xx模块预警」。"));
-
-        return `<section class="section">
+        parts.push(`<section class="section">
           <h2>${titles[mod]}</h2>
-          <p class="desc">${desc}</p>
-          <div class="scroll"><table><thead>${headTop}${headSub}</thead><tbody>${body}</tbody></table></div>
-        </section>`;
-      }).join("");
+          <p class="desc">${moduleDesc(mod)}</p>
+          ${buildModuleTable(mod)}
+        </section>`);
+      }
+      document.getElementById("moduleSections").innerHTML = parts.join("");
     }
 
     function renderMom() {
+      const rows = activeCities();
       const keys = Object.keys(DATA.cities[0].mom);
       document.getElementById("momTable").innerHTML = `
         <thead><tr><th>城市</th>${keys.map(k => `<th>${k}</th>`).join("")}</tr></thead>
-        <tbody>${DATA.cities.map(c => `
+        <tbody>${rows.map(c => `
           <tr>
             <td class="city">${c.name}</td>
             ${keys.map(k => `<td>${c.mom[k]}</td>`).join("")}
-          </tr>`).join("")}</tbody>`;
+          </tr>`).join("") || `<tr><td colspan="${keys.length + 1}">请至少勾选一个城市</td></tr>`}</tbody>`;
+    }
+
+    function rerenderAll() {
+      const n = activeCities().length;
+      document.getElementById("cityCount").textContent = n + " / " + DATA.cities.length;
+      renderOverview();
+      renderMatrix();
+      renderArchive();
+      renderModules();
+      renderMom();
     }
 
     document.getElementById("period").textContent = DATA.meta.period;
     document.getElementById("date").textContent = DATA.meta.dataDate;
-    document.getElementById("cityCount").textContent = DATA.cities.length;
     renderLegend();
-    renderOverview();
-    renderMatrix();
-    renderArchive();
-    renderModules();
-    renderMom();
+    renderCityFilter();
+    rerenderAll();
   </script>
 </body>
 </html>
