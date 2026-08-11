@@ -50,15 +50,28 @@ function Find-EtExe {
 
 function Ensure-WpsRegistered {
     $et = Find-EtExe
-    if (-not $et) { return }
+    if (-not $et) {
+        Write-Host "et.exe not found under WPS Office paths"
+        return $null
+    }
     Write-Host "regserver $et"
     try {
-        Start-Process -FilePath $et -ArgumentList "/regserver" -Wait -WindowStyle Hidden -ErrorAction SilentlyContinue | Out-Null
+        # Stop leftover ET that can block COM re-register (best-effort)
+        Get-Process -Name "et","wps","wpp" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Path -and $_.Path -like "*Kingsoft*" } |
+            ForEach-Object {
+                try { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue } catch {}
+            }
+        Start-Sleep -Seconds 1
     } catch {}
     try {
-        Start-Process -FilePath $et -WindowStyle Normal -ErrorAction SilentlyContinue | Out-Null
-        Start-Sleep -Seconds 3
-    } catch {}
+        $p = Start-Process -FilePath $et -ArgumentList "/regserver" -Wait -PassThru -WindowStyle Hidden
+        Write-Host ("regserver exit=" + $p.ExitCode)
+    } catch {
+        Write-Host ("regserver error: " + $_.Exception.Message)
+    }
+    Start-Sleep -Seconds 2
+    return $et
 }
 
 function Get-ClsidForProgId([string]$ProgId) {
@@ -95,26 +108,33 @@ function Get-OfficeApp {
     } catch {}
     $progIds = $progIds | Select-Object -Unique
 
-    foreach ($progId in $progIds) {
-        try {
-            $app = New-Object -ComObject $progId
-            if ($app) {
-                Write-Host "office_progid=$progId"
-                return @{ App = $app; ProgId = $progId }
-            }
-        } catch {
-            $errors += ("{0}: {1}" -f $progId, $_.Exception.Message)
+    for ($attempt = 1; $attempt -le 4; $attempt++) {
+        if ($attempt -gt 1) {
+            Write-Host ("COM create retry {0}/4 after regserver..." -f $attempt)
+            Ensure-WpsRegistered | Out-Null
+            Start-Sleep -Seconds (2 * $attempt)
         }
-        $clsid = Get-ClsidForProgId $progId
-        if ($clsid) {
+        foreach ($progId in $progIds) {
             try {
-                $app = [Activator]::CreateInstance([Type]::GetTypeFromCLSID($clsid))
+                $app = New-Object -ComObject $progId
                 if ($app) {
-                    Write-Host "office_progid=${progId} clsid=$clsid"
-                    return @{ App = $app; ProgId = "$progId/$clsid" }
+                    Write-Host "office_progid=$progId"
+                    return @{ App = $app; ProgId = $progId }
                 }
             } catch {
-                $errors += ("{0}/{1}: {2}" -f $progId, $clsid, $_.Exception.Message)
+                $errors += ("{0}: {1}" -f $progId, $_.Exception.Message)
+            }
+            $clsid = Get-ClsidForProgId $progId
+            if ($clsid) {
+                try {
+                    $app = [Activator]::CreateInstance([Type]::GetTypeFromCLSID($clsid))
+                    if ($app) {
+                        Write-Host "office_progid=${progId} clsid=$clsid"
+                        return @{ App = $app; ProgId = "$progId/$clsid" }
+                    }
+                } catch {
+                    $errors += ("{0}/{1}: {2}" -f $progId, $clsid, $_.Exception.Message)
+                }
             }
         }
     }

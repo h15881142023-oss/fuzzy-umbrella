@@ -43,17 +43,34 @@ if ($LASTEXITCODE -ne 0) {
 Write-Step ("Kanban export STA: xlsx={0} date={1}" -f $xlsxAbs, $TargetDate)
 $exportPs1 = Join-Path $PSScriptRoot "export_lr_kanban_wps.ps1"
 
-try {
-    & $exportPs1 -ConfigJson $cfgPath 2>&1 | Tee-Object -FilePath $logPath -Append | Out-Null
-    $code = $LASTEXITCODE
-    if ($null -eq $code) { $code = 0 }
-    if ($code -ne 0) {
-        Write-Step "export_lr_kanban_wps.ps1 failed"
-        exit $code
+$ok = $false
+$lastErr = $null
+for ($i = 1; $i -le 3; $i++) {
+    try {
+        Write-Step ("export attempt {0}/3" -f $i)
+        & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -ConfigJson $cfgPath 2>&1 |
+            Tee-Object -FilePath $logPath -Append | Out-Null
+        $code = $LASTEXITCODE
+        if ($null -eq $code) { $code = 0 }
+        if ($code -eq 0) {
+            $ok = $true
+            break
+        }
+        $lastErr = "export_lr_kanban_wps.ps1 exit=$code"
+        Write-Step $lastErr
+        Start-Sleep -Seconds (3 * $i)
+    } catch {
+        $lastErr = $_.Exception.Message
+        ($_ | Out-String) | Add-Content -LiteralPath $logPath -Encoding UTF8
+        Write-Step ("Kanban export failed attempt {0}: {1}" -f $i, $lastErr)
+        Start-Sleep -Seconds (3 * $i)
     }
-} catch {
-    ($_ | Out-String) | Add-Content -LiteralPath $logPath -Encoding UTF8
-    Write-Step ("Kanban export failed: {0}" -f $_.Exception.Message)
+}
+if (-not $ok) {
+    Write-Step ("Kanban export failed after retries: {0}" -f $lastErr)
+    if (Test-Path -LiteralPath $logPath) {
+        Get-Content -LiteralPath $logPath -Tail 40 -Encoding UTF8 | ForEach-Object { Write-Host $_ }
+    }
     exit 1
 }
 
