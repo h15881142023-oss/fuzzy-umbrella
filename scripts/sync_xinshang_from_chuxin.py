@@ -237,6 +237,16 @@ def load_powerbi_online() -> dict:
     return out
 
 
+def parse_count(v):
+    if blank(v):
+        return None
+    s = str(v).replace(",", "").replace("%", "").strip()
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 def fmt_online_count(val) -> str:
     if val is None:
         return "—"
@@ -245,6 +255,14 @@ def fmt_online_count(val) -> str:
         return f"{n:,}"
     except (TypeError, ValueError):
         return show(val)
+
+
+def calc_dongxiao(tx, online):
+    a = parse_count(tx)
+    b = parse_count(online)
+    if a is None or b is None or b == 0:
+        return "—"
+    return f"{a / b * 100:.2f}%"
 
 
 def fmt_pp(v):
@@ -396,7 +414,7 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
             ),
             "月交易商家数": metric(waimai.get("交易商家数"), value_delta=None),
             "月在线商家数": metric(online_shown or waimai.get("公海商家数"), value_delta=None),
-            "月动销率": metric(waimai.get("餐饮渗透率"), value_delta=fmt_pp(waimai.get("餐饮渗透率期环比"))),
+            "月动销率": metric(calc_dongxiao(waimai.get("交易商家数"), online_val if online_val is not None else waimai.get("公海商家数"))),
         },
         "零售": {
             "日均零售 YOY": metric(
@@ -490,19 +508,7 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
     if show(tg_mon.get("band")) in {"0", "0.0"}:
         tg_mon["band"] = "不预警"
     dst["details"] = details
-    dst["mom"] = {
-        "市场开发率(订单)": fmt_pp(board.get("期环比-市场开发率（订单）")),
-        "市场开发率(实付)": fmt_pp(board.get("期环比-市场开发率（实付）")),
-        "餐饮渗透率": fmt_pp(board.get("期环比-餐饮商家渗透率")),
-        "团购市场开发率": "—" if not dst["hasTuango"] else fmt_pp(board.get("期环比-团购市场开发率")),
-        "团购优质渗透率": "—" if not dst["hasTuango"] else fmt_pp(board.get("期环比-团购优质商家渗透率")),
-        "推单完成率": fmt_pp(board.get("期环比-推单完成率")),
-        "超45分钟占比": fmt_pp(board.get("期环比-超45分钟订单占比")),
-        "零售YoY": fmt_pp(board.get("期环比-零售YoY")),
-        "货币化率": fmt_pp(board.get("期环比-货币化率")),
-        "商家万服": fmt_num_delta(board.get("期环比-用户投诉商家问题万服")),
-        "履约万服": fmt_num_delta(board.get("期环比-用户投诉履约问题万服")),
-    }
+    dst.pop("mom", None)
 
 
 def extract_data_json(html: str) -> tuple[int, int, dict]:

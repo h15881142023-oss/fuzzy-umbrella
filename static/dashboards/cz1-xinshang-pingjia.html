@@ -95,7 +95,7 @@
     .footer { text-align:center; color:rgba(244,255,251,.72); font-size:.82rem; margin-top:8px; }
     .hidden { display:none !important; }
     .single-top {
-      display:grid; grid-template-columns:1.2fr 1fr 1.1fr; gap:12px; margin-bottom:12px;
+      display:grid; grid-template-columns:1.2fr 1fr; gap:12px; margin-bottom:12px;
     }
     .single-top .section { margin-bottom:0; }
     .kv { display:grid; grid-template-columns:auto 1fr; gap:8px 12px; font-size:.9rem; }
@@ -209,12 +209,6 @@
       </section>
 
       <div id="moduleSections"></div>
-
-      <section class="section">
-        <h2>十二、业务环比明细</h2>
-        <p class="desc">关键业务指标相对上期变化（开发率、渗透率、履约、零售、货币化、万服等）。</p>
-        <div class="scroll"><table id="momTable"></table></div>
-      </section>
     </div>
 
     <div id="singleView" class="hidden"></div>
@@ -254,17 +248,20 @@
       {
         "kind": "metric",
         "name": "市场开发率(订单量)",
-        "warn": true
+        "warn": true,
+        "mom": true
       },
       {
         "kind": "metric",
         "name": "市场开发率(GTV)",
-        "warn": true
+        "warn": true,
+        "mom": true
       },
       {
         "kind": "group",
         "name": "餐饮商家渗透率",
         "warn": true,
+        "mom": true,
         "children": [
           "月交易商家数",
           "月在线商家数",
@@ -276,12 +273,14 @@
       {
         "kind": "metric",
         "name": "团购市场开发率",
-        "warn": true
+        "warn": true,
+        "mom": true
       },
       {
         "kind": "group",
         "name": "优质商家渗透率",
         "warn": true,
+        "mom": true,
         "children": [
           "4n+1货架达标数",
           "4n+1达标商家动销数",
@@ -294,7 +293,8 @@
       {
         "kind": "metric",
         "name": "推单完成率",
-        "warn": true
+        "warn": true,
+        "mom": true
       },
       {
         "kind": "metric",
@@ -304,14 +304,16 @@
       {
         "kind": "metric",
         "name": "超45分钟订单占比",
-        "warn": true
+        "warn": true,
+        "mom": true
       }
     ],
     "零售": [
       {
         "kind": "metric",
         "name": "日均零售 YOY",
-        "warn": true
+        "warn": true,
+        "mom": true
       },
       {
         "kind": "metric",
@@ -365,7 +367,8 @@
       {
         "kind": "metric",
         "name": "外卖货币化率",
-        "warn": true
+        "warn": true,
+        "mom": true
       },
       {
         "kind": "metric",
@@ -377,12 +380,14 @@
       {
         "kind": "metric",
         "name": "用户投诉商家问题万服排名",
-        "warn": false
+        "warn": false,
+        "mom": true
       },
       {
         "kind": "metric",
         "name": "用户投诉履约问题万服排名",
-        "warn": false
+        "warn": false,
+        "mom": true
       }
     ],
     "综合治理": [
@@ -477,8 +482,7 @@
             "value": "843"
           },
           "月动销率": {
-            "value": "40.60%",
-            "valueDelta": "-0.41pp"
+            "value": "89.92%"
           }
         },
         "零售": {
@@ -670,8 +674,7 @@
             "value": "1,341"
           },
           "月动销率": {
-            "value": "22.77%",
-            "valueDelta": "+0.03pp"
+            "value": "78.45%"
           }
         },
         "零售": {
@@ -870,8 +873,7 @@
             "value": "579"
           },
           "月动销率": {
-            "value": "30.85%",
-            "valueDelta": "+0.26pp"
+            "value": "81.69%"
           }
         },
         "零售": {
@@ -1065,8 +1067,7 @@
             "value": "524"
           },
           "月动销率": {
-            "value": "27.95%",
-            "valueDelta": "+0.25pp"
+            "value": "74.62%"
           }
         },
         "零售": {
@@ -1263,8 +1264,7 @@
             "value": "429"
           },
           "月动销率": {
-            "value": "27.46%",
-            "valueDelta": "+0.89pp"
+            "value": "74.83%"
           }
         },
         "零售": {
@@ -2028,6 +2028,30 @@
       if (typeof v === "object") return (v.value == null || v.value === "") ? "—" : v.value;
       return v;
     }
+    function parseCount(v) {
+      const s = typeof v === "object" ? cellValue(v) : String(v == null ? "" : v);
+      if (!s || s === "—") return null;
+      const n = Number(String(s).replace(/,/g, ""));
+      return Number.isFinite(n) ? n : null;
+    }
+    function displayMetricValue(city, mod, name, metricObj) {
+      if (mod === "外卖" && name === "月动销率") {
+        const tx = parseCount(getMetric(city, "外卖", "月交易商家数"));
+        const online = parseCount(getMetric(city, "外卖", "月在线商家数"));
+        if (tx != null && online) return ((tx / online) * 100).toFixed(2) + "%";
+        return "—";
+      }
+      return cellValue(metricObj);
+    }
+    function metricValueDelta(metricObj) {
+      if (!metricObj) return null;
+      if (metricObj.valueDelta != null && metricObj.valueDelta !== "") return metricObj.valueDelta;
+      if (metricObj.mom != null && metricObj.mom !== "") return metricObj.mom;
+      return null;
+    }
+    function momCell(metricObj) {
+      return formatDeltaCell(metricValueDelta(metricObj));
+    }
     function getMetric(city, mod, name) {
       const block = (city.details && city.details[mod]) || {};
       return block[name] || null;
@@ -2063,10 +2087,11 @@
       return (DATA.layouts && DATA.layouts[mod]) || [];
     }
     function spanOf(item) {
-      if (item.kind === "group") {
-        return (item.warn ? 2 : 1) + (item.children || []).length;
-      }
-      return item.warn ? 2 : 1;
+      let n = 1;
+      if (item.mom) n += 1;
+      if (item.warn) n += 1;
+      if (item.kind === "group") n += (item.children || []).length;
+      return n;
     }
     function filteredLayout(mod, cities) {
       let layout = layoutFor(mod).slice();
@@ -2199,28 +2224,32 @@
         return `<th colspan="${span}"${cls}>${item.name}</th>`;
       }).join("")}</tr>`;
       const headSub = `<tr>${layout.map(item => {
+        let cols = `<th>指标值</th>`;
+        if (item.mom) cols += `<th>环比变化</th>`;
+        if (item.warn) cols += `<th>预警区间</th>`;
         if (item.kind === "group") {
-          const main = item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
-          const kids = (item.children || []).map(n => `<th>${n}</th>`).join("");
-          return main + kids;
+          cols += (item.children || []).map(n => `<th>${n}</th>`).join("");
         }
-        return item.warn ? `<th>指标值</th><th>预警区间</th>` : `<th>指标值</th>`;
+        return cols;
       }).join("")}</tr>`;
       const body = cities.map(c => {
         const tds = layout.map(item => {
           if (item.kind === "group") {
             const main = getMetric(c, mod, item.name) || {};
-            let html = `<td>${cellValue(main)}</td>`;
+            let html = `<td>${displayMetricValue(c, mod, item.name, main)}</td>`;
+            if (item.mom) html += `<td>${momCell(main)}</td>`;
             if (item.warn) html += `<td>${warnWithDelta(main.band, metricWarnDelta(c, mod, main))}</td>`;
             for (const child of (item.children || [])) {
               const cm = getMetric(c, mod, child) || {};
-              html += `<td>${cellValue(cm)}</td>`;
+              html += `<td>${displayMetricValue(c, mod, child, cm)}</td>`;
             }
             return html;
           }
           const m = getMetric(c, mod, item.name) || {};
-          if (!item.warn) return `<td>${cellValue(m)}</td>`;
-          return `<td>${cellValue(m)}</td><td>${warnWithDelta(m.band, metricWarnDelta(c, mod, m))}</td>`;
+          let html = `<td>${displayMetricValue(c, mod, item.name, m)}</td>`;
+          if (item.mom) html += `<td>${momCell(m)}</td>`;
+          if (item.warn) html += `<td>${warnWithDelta(m.band, metricWarnDelta(c, mod, m))}</td>`;
+          return html;
         }).join("");
         return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
       }).join("") || `<tr><td colspan="2">无匹配城市</td></tr>`;
@@ -2229,10 +2258,10 @@
 
     function moduleDesc(mod) {
       if (mod === "团购") return "仅仁寿、南溪（且受上方城市筛选约束）；「优质商家渗透率」为父指标，子列不加预警。";
-      if (mod === "外卖") return "「餐饮商家渗透率」为父指标，子列不加预警；月在线商家数来自 Power BI 业务风向看板。";
+      if (mod === "外卖") return "「餐饮商家渗透率」为父指标；月动销率 = 月交易商家数 ÷ 月在线商家数；月在线商家数来自 Power BI 业务风向看板。";
       if (mod === "综合治理") return "综合治理只展示指标值，不展示预警区间列。";
       if (mod === "履约" || mod === "用户体验") return "与相邻模块并排展示；受上方城市筛选统一控制。";
-      return "城市横排对比；带预警指标旁 ↑ / ↓ 表示预警区间较上期变化。";
+      return "城市横排对比；带预警指标旁 ↑ / ↓ 表示预警区间较上期变化；「环比变化」为指标值较上期变化。";
     }
 
     function buildTestsSection() {
@@ -2288,18 +2317,6 @@
       renderTests();
     }
 
-    function renderMom() {
-      const rows = activeCities();
-      const keys = Object.keys(DATA.cities[0].mom);
-      document.getElementById("momTable").innerHTML = `
-        <thead><tr><th>城市</th>${keys.map(k => `<th>${k}</th>`).join("")}</tr></thead>
-        <tbody>${rows.map(c => `
-          <tr>
-            <td class="city">${c.name}</td>
-            ${keys.map(k => `<td>${c.mom[k]}</td>`).join("")}
-          </tr>`).join("")}</tbody>`;
-    }
-
     function formatDeltaCell(d) {
       const n = normalizeDelta(d);
       if (n === "up") return `<span class="warn-cell"><span class="delta up">↑</span></span>`;
@@ -2316,8 +2333,8 @@
           const main = getMetric(city, mod, item.name) || {};
           rows.push({
             metric: item.name,
-            value: cellValue(main),
-            valueDelta: main.valueDelta != null ? main.valueDelta : main.mom,
+            value: displayMetricValue(city, mod, item.name, main),
+            valueDelta: metricValueDelta(main),
             warnHtml: item.warn ? warnWithDelta(main.band, metricWarnDelta(city, mod, main)) : "—",
             isChild: false
           });
@@ -2325,8 +2342,8 @@
             const cm = getMetric(city, mod, child) || {};
             rows.push({
               metric: child,
-              value: cellValue(cm),
-              valueDelta: cm.valueDelta != null ? cm.valueDelta : cm.mom,
+              value: displayMetricValue(city, mod, child, cm),
+              valueDelta: child === "月动销率" ? null : metricValueDelta(cm),
               warnHtml: "—",
               isChild: true
             });
@@ -2336,8 +2353,8 @@
         const m = getMetric(city, mod, item.name) || {};
         rows.push({
           metric: item.name,
-          value: cellValue(m),
-          valueDelta: m.valueDelta != null ? m.valueDelta : m.mom,
+          value: displayMetricValue(city, mod, item.name, m),
+          valueDelta: metricValueDelta(m),
           warnHtml: item.warn ? warnWithDelta(m.band, metricWarnDelta(city, mod, m)) : "—",
           isChild: false
         });
@@ -2381,7 +2398,6 @@
 
     function renderSingleCity(city) {
       const weak = weakModules(city);
-      const momKeys = Object.keys(city.mom || {});
       const focusItems = [];
       if (weak.length) focusItems.push(`落后模块：${weak.map(w => w + " " + city.bands[w]).join("、")}`);
       if (String(city.riskMonth || "").includes("高风险") || String(city.riskRoll || "").includes("风险")) {
@@ -2435,14 +2451,6 @@
           <p class="desc" style="margin-top:12px;margin-bottom:6px">模块预警速览</p>
           <div class="wrap-cell">${DATA.modules.map(m => `<span class="chip" style="margin:2px 4px 2px 0">${m} ${warnWithDelta(city.bands[m], (city.bandsDelta || {})[m])}</span>`).join("")}</div>
         </section>
-        <section class="section">
-          <h2>业务环比</h2>
-          <p class="desc">相对上期变化</p>
-          <div class="scroll"><table>
-            <thead><tr><th>指标</th><th>环比</th></tr></thead>
-            <tbody>${momKeys.map(k => `<tr><td>${k}</td><td>${city.mom[k]}</td></tr>`).join("")}</tbody>
-          </table></div>
-        </section>
       </div>`;
 
       document.getElementById("singleView").innerHTML = `
@@ -2484,7 +2492,6 @@
       renderMatrix();
       renderArchive();
       renderModules();
-      renderMom();
     }
 
     document.getElementById("period").textContent = DATA.meta.period;
