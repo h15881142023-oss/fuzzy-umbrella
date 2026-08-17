@@ -133,6 +133,40 @@ if ($ok) { Write-Host "OK" } else { Write-Host "FAILED" }
 
 更新后打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 并强制刷新。
 
+### Windows 自动更新数据（初心 + Power BI 在线商家数）
+
+本机 `Documents\fuzzy-umbrella` **通常只有看板 HTML**，没有 `scrapers/` 和 `scripts/sync_xinshang_from_chuxin.py`。所以直接跑 `python scrapers/scrape_powerbi_wind_online.py` 会报 No such file。
+
+请先下载工具文件，再同步（不要依赖 git）：
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+$ref = "cursor/cz1-merchant-dashboard-74a9"
+$files = @(
+  "scripts/sync_xinshang_from_chuxin.py",
+  "scripts/start_chrome_powerbi_windows.ps1",
+  "scripts/sync_xinshang_bi_windows.ps1",
+  "scrapers/__init__.py",
+  "scrapers/cdp_client.py",
+  "scrapers/powerbi_wind_js.py",
+  "scrapers/scrape_powerbi_wind_online.py"
+)
+foreach ($rel in $files) {
+  $dest = Join-Path $pwd ($rel -replace "/", "\")
+  New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+  $url = "https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/" + $ref + "/" + $rel
+  Write-Host ("get " + $rel)
+  Invoke-WebRequest $url -OutFile $dest -UseBasicParsing -TimeoutSec 60
+}
+python -m pip install websocket-client
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_xinshang_bi_windows.ps1
+```
+
+说明：
+- **初心同步**（模块预警/指标）走 Metabase，不需要 Power BI。
+- **在线商家数**才需要 Chrome CDP：脚本会另开一个 Chrome（端口 9222）。若弹出登录，账号 `qiaoxh@ppu.powerbi.bi`，登录后再跑一次 `sync_xinshang_bi_windows.ps1`。
+- 抓取失败时，在线商家数会沿用上次结果或内置默认五城数，其它模块仍会更新。
+
 首次启用 GitHub Pages：
 
 1. 合并本仓库到 `main`

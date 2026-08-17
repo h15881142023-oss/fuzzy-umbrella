@@ -1,7 +1,8 @@
 """抓取 Power BI「业务数据风向看板」川藏一区五城在线商家数。
 
-依赖本机 Chrome CDP（与代补看板相同用法）：
-  bash scripts/start_chrome_powerbi.sh
+依赖本机已登录的 Chrome CDP 9222：
+  Windows: powershell -File .\\scripts\\start_chrome_powerbi_windows.ps1
+  macOS:   bash scripts/start_chrome_powerbi.sh
   python scrapers/scrape_powerbi_wind_online.py
 
 输出：data/xinshang/powerbi_online_merchants.json
@@ -15,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from scrapers._common import connect_tab
+from scrapers.cdp_client import CDPError, connect_tab
 from scrapers.powerbi_wind_js import POWERBI_WIND_HELPERS_JS
 
 REPORT_URL = (
@@ -27,7 +28,13 @@ OUT = ROOT / "data" / "xinshang" / "powerbi_online_merchants.json"
 
 
 def main() -> int:
-    session = connect_tab(9222, ["app.powerbi.com", "reportEmbed"])
+    try:
+        session = connect_tab(9222, ["app.powerbi.com", "reportEmbed"])
+    except CDPError as exc:
+        print("[BAD] " + str(exc))
+        print("Windows: powershell -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\start_chrome_powerbi_windows.ps1")
+        print("Then login in that Chrome: qiaoxh@ppu.powerbi.bi")
+        return 1
     session.navigate(REPORT_URL)
     session.wait_ready(timeout=90)
     session.evaluate(POWERBI_WIND_HELPERS_JS)
