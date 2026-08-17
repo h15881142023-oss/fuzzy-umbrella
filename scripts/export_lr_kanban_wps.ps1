@@ -251,6 +251,50 @@ function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
     throw $lastErr
 }
 
+function Get-ComWriteCell($Worksheet, [string]$Address) {
+    $cell = $Worksheet.Range($Address)
+    try {
+        if ($cell.MergeCells) {
+            $cell = $cell.MergeArea.Cells.Item(1, 1)
+        }
+    } catch {}
+    return $cell
+}
+
+# WPS 32-bit: Range.Value2 is typed as Double. Assigning a string throws
+# InvalidCastException ("Specified cast is not valid").
+function Set-ComCellNumber($Worksheet, [string]$Address, [double]$Number) {
+    $cell = Get-ComWriteCell $Worksheet $Address
+    $errs = @()
+    try { $cell.Value2 = $Number; Write-Host ("set {0} number via=Value2" -f $Address); return } catch { $errs += $_.Exception.Message }
+    try { $cell.Value = $Number; Write-Host ("set {0} number via=Value" -f $Address); return } catch { $errs += $_.Exception.Message }
+    try { $cell.Formula = [string]$Number; Write-Host ("set {0} number via=Formula" -f $Address); return } catch { $errs += $_.Exception.Message }
+    throw ("Set-ComCellNumber {0} failed: {1}" -f $Address, ($errs -join " | "))
+}
+
+function Set-ComCellText($Worksheet, [string]$Address, [string]$Text) {
+    $cell = Get-ComWriteCell $Worksheet $Address
+    $errs = @()
+    try { $cell.Value = $Text; Write-Host ("set {0} text via=Value" -f $Address); return } catch { $errs += ("Value:{0}" -f $_.Exception.Message) }
+    try { $cell.Formula = $Text; Write-Host ("set {0} text via=Formula" -f $Address); return } catch { $errs += ("Formula:{0}" -f $_.Exception.Message) }
+    try { $cell.FormulaR1C1 = $Text; Write-Host ("set {0} text via=FormulaR1C1" -f $Address); return } catch { $errs += ("FormulaR1C1:{0}" -f $_.Exception.Message) }
+    try { $cell.FormulaLocal = $Text; Write-Host ("set {0} text via=FormulaLocal" -f $Address); return } catch { $errs += ("FormulaLocal:{0}" -f $_.Exception.Message) }
+    try {
+        $null = [System.__ComObject].InvokeMember(
+            "Value",
+            [System.Reflection.BindingFlags]::SetProperty,
+            $null,
+            $cell,
+            @([string]$Text)
+        )
+        Write-Host ("set {0} text via=InvokeMember.Value" -f $Address)
+        return
+    } catch {
+        $errs += ("InvokeMember:{0}" -f $_.Exception.Message)
+    }
+    throw ("Set-ComCellText {0} failed: {1}" -f $Address, ($errs -join " | "))
+}
+
 if (-not (Test-Path -LiteralPath $XlsxPath)) { throw "Xlsx not found: $XlsxPath" }
 $xlsx = (Resolve-Path -LiteralPath $XlsxPath).Path
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
@@ -271,15 +315,15 @@ try {
     $ws = $wb.Worksheets.Item($SheetName)
     Write-Host "sheet ok"
     Invoke-ComNoOut { $ws.Activate() }
-    $ws.Range("C2").Value2 = $Month
-    $ws.Range("E3").Value2 = $Region
+    Set-ComCellNumber $ws "C2" ([double]$Month)
+    Set-ComCellText $ws "E3" ([string]$Region)
     try { $null = $app.CalculateFullRebuild() } catch {
         try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
     }
 
     foreach ($city in $cityList) {
         Write-Host "export city=$city"
-        $ws.Range("C3").Value2 = $city
+        Set-ComCellText $ws "C3" ([string]$city)
         try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
         Start-Sleep -Milliseconds 600
         $safe = ($city -replace '[\\/:*?"<>|]', '_')

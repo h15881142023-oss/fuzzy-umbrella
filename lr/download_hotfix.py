@@ -172,6 +172,12 @@ def main() -> int:
     if "Invoke-ComNoOut" not in wtext or "Workbooks.Open($xlsx)" not in wtext:
         print("ERROR: export_lr_kanban_wps.ps1 missing COM cast fix. Abort.", file=sys.stderr)
         return 2
+    if "Set-ComCellText" not in wtext:
+        print("ERROR: export_lr_kanban_wps.ps1 missing Set-ComCellText (WPS Value2 is numeric). Abort.", file=sys.stderr)
+        return 2
+    if 'Range("E3").Value2' in wtext or ".Value2 = $Region" in wtext:
+        print("ERROR: export_lr_kanban_wps.ps1 still writes text via Value2. Abort.", file=sys.stderr)
+        return 2
     if "CopyPicture(" in wtext and "| Out-Null" in wtext.split("function Export-RangePng")[-1].split("if (-not (Test-Path")[0]:
         print("ERROR: export_lr_kanban_wps.ps1 still pipes CopyPicture to Out-Null. Abort.", file=sys.stderr)
         return 2
@@ -184,6 +190,7 @@ def main() -> int:
     print("OK kanban_image.py has export_kanban_pngs")
     print("OK run_daily.py lazy-imports kanban for fill-only")
     print("OK export_lr_kanban_wps.ps1 has COM cast fix")
+    print("OK export_lr_kanban_wps.ps1 writes text via Value not Value2")
     return 0
 
 
