@@ -7,6 +7,7 @@ $names = @(
     "ChuanzangLrDailyLocal",
     "ChuanzangLrDatasourceLocal",
     "ChuanzangLrProfitFillLocal",
+    "ChuanzangLrProfitFillOnce",
     "ChuanzangKpiTodoMonLocal",
     "ChuanzangKpiTodoThuLocal"
 )

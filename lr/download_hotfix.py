@@ -42,6 +42,7 @@ FILES = [
     "scripts/run_visit_check_local.ps1",
     "scripts/run_kpi_todo_local.ps1",
     "scripts/install_local_automations_windows.ps1",
+    "scripts/install_lr_profit_fill_once.ps1",
 ]
 
 # 已删除任务：拉 hotfix 时顺带清掉本机残留
