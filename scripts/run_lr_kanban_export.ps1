@@ -54,18 +54,59 @@ $exportPs1 = Join-Path $PSScriptRoot "export_lr_kanban_wps.ps1"
 $psExe = Get-WpsMatchedPowerShell
 Write-Step ("export powershell=" + $psExe)
 
+function Show-NewLog {
+    param([string]$Path, [ref]$Pos)
+    if (-not (Test-Path -LiteralPath $Path)) { return }
+    try {
+        $fs = [IO.File]::Open($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)
+        try {
+            $null = $fs.Seek($Pos.Value, [IO.SeekOrigin]::Begin)
+            $sr = New-Object IO.StreamReader($fs, [Text.Encoding]::UTF8, $true, 1024, $true)
+            $chunk = $sr.ReadToEnd()
+            $Pos.Value = $fs.Position
+            if ($chunk) {
+                foreach ($line in ($chunk -split "`r?`n")) {
+                    if ($line -ne "") {
+                        Write-Host $line
+                        Add-Content -LiteralPath $logPath -Value $line -Encoding UTF8
+                    }
+                }
+            }
+        } finally { $fs.Close() }
+    } catch {}
+}
+
 function Invoke-WpsCityExport {
-    param([string]$CityCfg, [int]$Attempt)
-    $prevEap = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    $output = & $psExe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -ConfigJson $CityCfg 2>&1
-    $code = $LASTEXITCODE
-    $ErrorActionPreference = $prevEap
-    if ($output) {
-        $output | ForEach-Object { "$_" } | Tee-Object -FilePath $logPath -Append | ForEach-Object { Write-Host $_ }
+    param([string]$CityCfg, [int]$TimeoutSec = 180)
+    $stamp = Get-Date -Format "HHmmssfff"
+    $outFile = Join-Path $outAbs ("_wps_stdout_{0}.log" -f $stamp)
+    $errFile = Join-Path $outAbs ("_wps_stderr_{0}.log" -f $stamp)
+    $argList = @(
+        "-NoProfile", "-STA", "-ExecutionPolicy", "Bypass",
+        "-File", $exportPs1,
+        "-ConfigJson", $CityCfg
+    )
+    Write-Host ("wps child start timeout={0}s" -f $TimeoutSec)
+    $p = Start-Process -FilePath $psExe -ArgumentList $argList -PassThru -WindowStyle Minimized `
+        -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+    $posOut = 0
+    $posErr = 0
+    $sw = [Diagnostics.Stopwatch]::StartNew()
+    while (-not $p.HasExited) {
+        Show-NewLog -Path $outFile -Pos ([ref]$posOut)
+        Show-NewLog -Path $errFile -Pos ([ref]$posErr)
+        if ($sw.Elapsed.TotalSeconds -gt $TimeoutSec) {
+            try { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue } catch {}
+            Write-Host ("wps child timeout {0}s killed pid={1}" -f $TimeoutSec, $p.Id)
+            return 124
+        }
+        Start-Sleep -Milliseconds 400
     }
-    if ($null -eq $code) { $code = 0 }
-    return $code
+    Start-Sleep -Milliseconds 300
+    Show-NewLog -Path $outFile -Pos ([ref]$posOut)
+    Show-NewLog -Path $errFile -Pos ([ref]$posErr)
+    if ($null -eq $p.ExitCode) { return 0 }
+    return $p.ExitCode
 }
 
 for ($idx = 0; $idx -lt $cityCount; $idx++) {

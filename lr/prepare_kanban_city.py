@@ -71,7 +71,8 @@ def main() -> int:
     city_cfg["cities"] = [city]
     city_cfg["expectedCount"] = 1
     city_cfg["skipCellWrites"] = True
-    city_cfg["skipRegister"] = bool(args.skip_register)
+    # Never kill WPS /regserver up front; Get-OfficeApp retries if COM create fails.
+    city_cfg["skipRegister"] = True
     out_dir = Path(cfg["outDir"])
     out_dir.mkdir(parents=True, exist_ok=True)
     city_cfg_path = out_dir / "_export_kanban_city.json"

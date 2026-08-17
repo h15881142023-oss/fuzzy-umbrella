@@ -15,6 +15,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+try { [Console]::Out.AutoFlush = $true } catch {}
 $script:pngPrefix = "kanban"
 $script:skipCellWrites = $false
 $script:skipRegister = $false
@@ -115,8 +116,13 @@ function Ensure-WpsRegistered {
         Start-Sleep -Seconds 1
     } catch {}
     try {
-        $p = Start-Process -FilePath $et -ArgumentList "/regserver" -Wait -PassThru -WindowStyle Hidden
-        Write-Host ("regserver exit=" + $p.ExitCode)
+        $p = Start-Process -FilePath $et -ArgumentList "/regserver" -PassThru -WindowStyle Hidden
+        if (-not $p.WaitForExit(20000)) {
+            try { $p.Kill() } catch {}
+            Write-Host "regserver timeout 20s"
+        } else {
+            Write-Host ("regserver exit=" + $p.ExitCode)
+        }
     } catch {
         Write-Host ("regserver error: " + $_.Exception.Message)
     }
@@ -147,15 +153,7 @@ function Get-OfficeApp {
         "Excel.Application", "Excel.Application.12", "Excel.Application.11",
         "et.Application", "et.Application.9"
     )
-    try {
-        Get-ChildItem Registry::HKEY_CLASSES_ROOT -ErrorAction SilentlyContinue |
-            Where-Object {
-                $_.PSChildName -like "Ket.Application*" -or
-                $_.PSChildName -like "KET.Application*" -or
-                $_.PSChildName -like "et.Application*" -or
-                $_.PSChildName -like "Excel.Application*"
-            } | ForEach-Object { $progIds += $_.PSChildName }
-    } catch {}
+    # Do not enumerate HKCR (slow; looks hung). Fixed ProgIDs are enough.
     $progIds = $progIds | Select-Object -Unique
 
     for ($attempt = 1; $attempt -le 4; $attempt++) {
@@ -313,6 +311,7 @@ if (-not $script:skipRegister) {
 } else {
     Write-Host "skip regserver"
 }
+Write-Host "create COM"
 $office = Get-OfficeApp
 $app = $office.App
 try { $app.Visible = $true } catch {}
@@ -331,9 +330,11 @@ try {
     } else {
         Write-Host "skip COM cell writes"
     }
-    try { $null = $app.CalculateFullRebuild() } catch {
-        try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
+    Write-Host "calculate"
+    try { $null = $app.CalculateFull() } catch {
+        try { $null = $wb.Application.Calculate() } catch {}
     }
+    Write-Host "calculate done"
 
     foreach ($city in $cityList) {
         Write-Host "export city_len=$($city.Length)"
@@ -346,6 +347,7 @@ try {
         }
         $safe = ($city -replace '[\\/:*?"<>|]', '_')
         $png = Join-Path $outAbs ("{0}_{1}_{2}.png" -f $script:pngPrefix, $safe, $Month)
+        Write-Host "copy picture"
         Export-RangePng -Worksheet $ws -Address $RangeAddress -PngPath $png
         Write-Host "exported=$png"
     }
