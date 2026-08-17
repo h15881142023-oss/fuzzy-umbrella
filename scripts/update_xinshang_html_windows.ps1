@@ -6,7 +6,7 @@
 
 param(
   # Prefer short commit SHA. Branch names with "/" may 403 on jsDelivr.
-  [string]$Ref = "b276487"
+  [string]$Ref = "12c91d4"
 )
 
 $ErrorActionPreference = "Stop"
