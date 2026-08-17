@@ -18,6 +18,7 @@ FILES = [
     "lr/xlsx_sanitize.py",
     "lr/inspect_workbook_days.py",
     "lr/write_kanban_export_cfg.py",
+    "lr/prepare_kanban_city.py",
     "lr/verify_kanban_pngs.py",
     "lr/kanban_image.py",
     "lr/export_kanban_com.py",
@@ -125,6 +126,7 @@ def main() -> int:
         "scripts/run_visit_check_local.ps1",
         "scripts/run_kpi_todo_local.ps1",
         "lr/fill_template.py",
+        "lr/prepare_kanban_city.py",
         "config.py",
     ]
     missing = []
@@ -172,14 +174,29 @@ def main() -> int:
     if "Invoke-ComNoOut" not in wtext or "Workbooks.Open($xlsx)" not in wtext:
         print("ERROR: export_lr_kanban_wps.ps1 missing COM cast fix. Abort.", file=sys.stderr)
         return 2
-    if "Set-ComCellText" not in wtext:
-        print("ERROR: export_lr_kanban_wps.ps1 missing Set-ComCellText (WPS Value2 is numeric). Abort.", file=sys.stderr)
+    if "skipCellWrites" not in wtext or "skip COM cell writes" not in wtext:
+        print("ERROR: export_lr_kanban_wps.ps1 must skip COM cell writes. Abort.", file=sys.stderr)
         return 2
     if 'Range("E3").Value2' in wtext or ".Value2 = $Region" in wtext:
         print("ERROR: export_lr_kanban_wps.ps1 still writes text via Value2. Abort.", file=sys.stderr)
         return 2
     if "CopyPicture(" in wtext and "| Out-Null" in wtext.split("function Export-RangePng")[-1].split("if (-not (Test-Path")[0]:
         print("ERROR: export_lr_kanban_wps.ps1 still pipes CopyPicture to Out-Null. Abort.", file=sys.stderr)
+        return 2
+
+    prep = ROOT / ("lr\\prepare_kanban_city.py" if win else "lr/prepare_kanban_city.py")
+    if not prep.exists():
+        print("ERROR: missing lr/prepare_kanban_city.py. Abort.", file=sys.stderr)
+        return 2
+    ptext = prep.read_text(encoding="utf-8", errors="replace")
+    if 'ws["C3"]' not in ptext or "skipCellWrites" not in ptext:
+        print("ERROR: prepare_kanban_city.py missing openpyxl C3 / skipCellWrites. Abort.", file=sys.stderr)
+        return 2
+
+    exp = ROOT / ("scripts\\run_lr_kanban_export.ps1" if win else "scripts/run_lr_kanban_export.ps1")
+    etext = exp.read_text(encoding="utf-8", errors="replace")
+    if "prepare_kanban_city.py" not in etext:
+        print("ERROR: run_lr_kanban_export.ps1 must call prepare_kanban_city.py. Abort.", file=sys.stderr)
         return 2
 
     print(f"done {ok} files from {BASE} (skipped={skipped})")
@@ -190,7 +207,7 @@ def main() -> int:
     print("OK kanban_image.py has export_kanban_pngs")
     print("OK run_daily.py lazy-imports kanban for fill-only")
     print("OK export_lr_kanban_wps.ps1 has COM cast fix")
-    print("OK export_lr_kanban_wps.ps1 writes text via Value not Value2")
+    print("OK kanban filters via openpyxl; WPS screenshot only")
     return 0
 
 

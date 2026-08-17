@@ -1,4 +1,6 @@
 # Export kanban sheet PNGs via WPS/Excel COM (Windows).
+# CONTRACT: do not write C2/C3/E3 through COM. openpyxl sets those filters
+# (prepare_kanban_city.py). This script only Open / Calculate / CopyPicture.
 # Must run in STA apartment for clipboard (use: powershell -STA -File ...)
 param(
     [string]$ConfigJson = "",
@@ -14,6 +16,8 @@ param(
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $script:pngPrefix = "kanban"
+$script:skipCellWrites = $false
+$script:skipRegister = $false
 
 if ($ConfigJson -and (Test-Path $ConfigJson)) {
     $cfg = Get-Content -LiteralPath $ConfigJson -Encoding UTF8 -Raw | ConvertFrom-Json
@@ -25,6 +29,8 @@ if ($ConfigJson -and (Test-Path $ConfigJson)) {
     if ($cfg.sheet) { $SheetName = [string]$cfg.sheet }
     if ($cfg.range) { $RangeAddress = [string]$cfg.range }
     if ($cfg.pngPrefix) { $script:pngPrefix = [string]$cfg.pngPrefix } else { $script:pngPrefix = "kanban" }
+    if ($null -ne $cfg.skipCellWrites) { $script:skipCellWrites = [bool]$cfg.skipCellWrites }
+    if ($null -ne $cfg.skipRegister) { $script:skipRegister = [bool]$cfg.skipRegister }
 }
 
 if (-not $XlsxPath -or -not $OutDir -or $Month -le 0) {
@@ -300,9 +306,13 @@ $xlsx = (Resolve-Path -LiteralPath $XlsxPath).Path
 New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
 $outAbs = (Resolve-Path -LiteralPath $OutDir).Path
 $cityList = @($Cities.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
-Write-Host "xlsx=$xlsx out=$outAbs month=$Month cities=$($cityList -join '|')"
+Write-Host "xlsx=$xlsx out=$outAbs month=$Month cities_n=$($cityList.Count) skipCellWrites=$($script:skipCellWrites) skipRegister=$($script:skipRegister)"
 
-$null = Ensure-WpsRegistered
+if (-not $script:skipRegister) {
+    $null = Ensure-WpsRegistered
+} else {
+    Write-Host "skip regserver"
+}
 $office = Get-OfficeApp
 $app = $office.App
 try { $app.Visible = $true } catch {}
@@ -315,24 +325,36 @@ try {
     $ws = $wb.Worksheets.Item($SheetName)
     Write-Host "sheet ok"
     Invoke-ComNoOut { $ws.Activate() }
-    Set-ComCellNumber $ws "C2" ([double]$Month)
-    Set-ComCellText $ws "E3" ([string]$Region)
+    if (-not $script:skipCellWrites) {
+        Set-ComCellNumber $ws "C2" ([double]$Month)
+        Set-ComCellText $ws "E3" ([string]$Region)
+    } else {
+        Write-Host "skip COM cell writes"
+    }
     try { $null = $app.CalculateFullRebuild() } catch {
         try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
     }
 
     foreach ($city in $cityList) {
-        Write-Host "export city=$city"
-        Set-ComCellText $ws "C3" ([string]$city)
-        try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
-        Start-Sleep -Milliseconds 600
+        Write-Host "export city_len=$($city.Length)"
+        if (-not $script:skipCellWrites) {
+            Set-ComCellText $ws "C3" ([string]$city)
+            try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
+            Start-Sleep -Milliseconds 600
+        } else {
+            Start-Sleep -Milliseconds 400
+        }
         $safe = ($city -replace '[\\/:*?"<>|]', '_')
         $png = Join-Path $outAbs ("{0}_{1}_{2}.png" -f $script:pngPrefix, $safe, $Month)
         Export-RangePng -Worksheet $ws -Address $RangeAddress -PngPath $png
         Write-Host "exported=$png"
     }
-    $null = $wb.Save()
-    $null = $wb.Close($true)
+    if ($script:skipCellWrites) {
+        $null = $wb.Close($false)
+    } else {
+        $null = $wb.Save()
+        $null = $wb.Close($true)
+    }
     Write-Host "ok count=$($cityList.Count) prog=$($office.ProgId)"
 } finally {
     try { $null = $app.Quit() } catch {}
