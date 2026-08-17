@@ -5,7 +5,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 12c91d4
 
 param(
-  [string]$Ref = "12c91d4"
+  [string]$Ref = "0332fa0"
 )
 
 $ErrorActionPreference = "Stop"
