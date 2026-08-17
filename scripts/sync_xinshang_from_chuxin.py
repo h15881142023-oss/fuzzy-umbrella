@@ -21,6 +21,8 @@ REGION = "川藏一区"
 CITIES = ["彭州市", "仁寿县", "合江县", "南溪", "叙永"]
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "data" / "xinshang"
+MODULE_ORDER = ["外卖", "团购", "履约", "零售", "商业增值", "用户体验", "组织", "综合治理"]
+POWERBI_ONLINE_JSON = CACHE / "powerbi_online_merchants.json"
 HTMLS = [
     ROOT / "static" / "dashboards" / "cz1-xinshang-pingjia.html",
     ROOT / "docs" / "xinshang" / "index.html",
@@ -210,6 +212,41 @@ def band_delta(old, new):
     return "持平"
 
 
+DEFAULT_POWERBI_ONLINE = {
+    "仁寿县": 1341,
+    "彭州市": 843,
+    "合江县": 579,
+    "南溪": 524,
+    "叙永": 429,
+}
+
+
+def load_powerbi_online() -> dict:
+    out = {}
+    if POWERBI_ONLINE_JSON.exists():
+        try:
+            data = json.loads(POWERBI_ONLINE_JSON.read_text(encoding="utf-8"))
+            cities = data.get("cities") or {}
+            for name, val in cities.items():
+                if val is not None:
+                    out[name] = int(val) if isinstance(val, (int, float)) else val
+        except (OSError, json.JSONDecodeError):
+            out = {}
+    if not out:
+        out = dict(DEFAULT_POWERBI_ONLINE)
+    return out
+
+
+def fmt_online_count(val) -> str:
+    if val is None:
+        return "—"
+    try:
+        n = int(val)
+        return f"{n:,}"
+    except (TypeError, ValueError):
+        return show(val)
+
+
 def fmt_pp(v):
     if blank(v):
         return "—"
@@ -268,11 +305,12 @@ def pick_latest_board(cols, rows):
     return out
 
 
-def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, waimai: dict | None, tuango: dict | None):
+def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, waimai: dict | None, tuango: dict | None, online_map: dict | None = None):
     prev = prev or {}
     board = board or {}
     waimai = waimai or {}
     tuango = tuango or {}
+    online_map = online_map or {}
 
     dst["level"] = show(summary.get("城市等级"), dst.get("level") or "—")
     city_type = show(summary.get("城市类型") or board.get("城市类型"), dst.get("type") or "")
@@ -322,6 +360,7 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
         bands[cn] = show(val, "—")
         mod_warn_delta[cn] = band_delta(prev.get(sk), val)
     dst["bands"] = bands
+    dst["bandsDelta"] = {k: v for k, v in mod_warn_delta.items() if v and v != "持平"}
 
     def wd(mod):
         return mod_warn_delta.get(mod)
@@ -331,6 +370,9 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
     wm_order_band = summary.get("市场开发率（订单）-外卖")
     wm_gtv_val = summary.get("市场开发率（实付）指标值-外卖")
     wm_gtv_band = summary.get("市场开发率（实付）-外卖")
+
+    online_val = online_map.get(dst["name"]) or online_map.get(dst.get("account"))
+    online_shown = fmt_online_count(online_val) if online_val is not None else None
 
     details = {
         "外卖": {
@@ -353,7 +395,7 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
                 wd("外卖"),
             ),
             "月交易商家数": metric(waimai.get("交易商家数"), value_delta=None),
-            "月在线商家数": metric(waimai.get("公海商家数"), value_delta=None),
+            "月在线商家数": metric(online_shown or waimai.get("公海商家数"), value_delta=None),
             "月动销率": metric(waimai.get("餐饮渗透率"), value_delta=fmt_pp(waimai.get("餐饮渗透率期环比"))),
         },
         "零售": {
@@ -531,6 +573,7 @@ def main():
     board = pick_latest_board(tables["cityboard"]["cols"], tables["cityboard"]["rows"])
     waimai = rows_to_city_map(tables["waimai"]["cols"], tables["waimai"]["rows"])
     tuango = rows_to_city_map(tables["tuango"]["cols"], tables["tuango"]["rows"])
+    online_map = load_powerbi_online()
 
     missing = [c for c in CITIES if c not in summary]
     if missing:
@@ -551,6 +594,13 @@ def main():
     data["meta"]["richObsCount"] = None
     data["meta"]["richCz1Count"] = len(CITIES)
     data["tests"] = tests
+    data["modules"] = MODULE_ORDER
+    pbi_meta = {}
+    if POWERBI_ONLINE_JSON.exists():
+        try:
+            pbi_meta = json.loads(POWERBI_ONLINE_JSON.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pbi_meta = {}
     data["source"] = {
         "adminUrl": ADMIN_PAGE,
         "dashboard": "新商考核",
@@ -559,6 +609,11 @@ def main():
         "periodDate": day,
         "prevDate": prev_day,
         "tests": COLLECTION,
+        "powerbiOnline": {
+            "metric": pbi_meta.get("metric") or "在线商家数",
+            "date": pbi_meta.get("date"),
+            "path": str(POWERBI_ONLINE_JSON.relative_to(ROOT)),
+        },
     }
 
     by_name = {c["name"]: c for c in (data.get("cities") or [])}
@@ -566,7 +621,7 @@ def main():
     for name in CITIES:
         city = by_name.get(name) or {"name": name}
         city["name"] = name
-        apply_city(city, summary[name], prev.get(name), board.get(name), waimai.get(name), tuango.get(name))
+        apply_city(city, summary[name], prev.get(name), board.get(name), waimai.get(name), tuango.get(name), online_map)
         new_cities.append(city)
     data["cities"] = new_cities
 

@@ -139,6 +139,17 @@
     .kpi .l { color:var(--muted); font-size:.8rem; }
     .kpi .v { font-size:1.45rem; font-weight:800; color:var(--brand-deep); margin-top:4px; }
     .kpi.warn .v { color:#8f1d14; }
+    .test-fold {
+      margin-top: 10px; border: 1px dashed #cfe3dc; border-radius: 10px;
+      padding: 10px 12px 4px; background: #fbfdfc;
+    }
+    .test-fold > summary {
+      cursor: pointer; font-weight: 800; color: var(--brand-deep);
+      list-style: none; margin-bottom: 8px;
+    }
+    .test-fold > summary::-webkit-details-marker { display: none; }
+    .test-fold > summary::before { content: "▸ "; color: var(--muted); }
+    .test-fold[open] > summary::before { content: "▾ "; }
     @media (max-width:1100px) {
       .module-row { grid-template-columns:1fr; }
       .single-top { grid-template-columns:1fr; }
@@ -154,7 +165,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>川藏一区</h1>
-      <p>新商能力评价详表看板 · 多城对比 / 单城档案。只选 1 城进入单城视角；带预警指标旁用 ↑ / ↓ / — 表示较上期变化。</p>
+      <p>新商能力评价详表看板 · 多城对比 / 单城档案。只选 1 城进入单城视角；带预警指标旁 ↑ / ↓ 表示预警区间较上期变化（无变化不展示）。</p>
       <div class="meta">
         <div class="chip">考核周期 <strong id="period">—</strong></div>
         <div class="chip">数据日期 <strong id="date">—</strong></div>
@@ -197,17 +208,6 @@
         <div class="scroll"><table id="档案Table"></table></div>
       </section>
 
-      <section class="section">
-        <h2>测评成绩（初心实时）</h2>
-        <p class="desc">能力主数据来自初心「新商考核 / 模块数据汇总表」。本块为测评成绩（集合「新商评测试结果」），&lt;90 分标为需关注。</p>
-        <div class="kpis" id="testKpis"></div>
-        <div class="scroll"><table id="testCityTable"></table></div>
-        <p class="desc" style="margin-top:12px">关注名单（&lt;90）</p>
-        <div class="scroll"><table id="testWatchTable"></table></div>
-        <p class="desc" style="margin-top:12px">五城全员（去重最新）</p>
-        <div class="scroll"><table id="testPeopleTable"></table></div>
-      </section>
-
       <div id="moduleSections"></div>
 
       <section class="section">
@@ -228,8 +228,8 @@
     "period": "2026年8月",
     "dataDate": "2026-08-13",
     "prevPeriod": "2026-08-10",
-    "scrapedAt": "2026-08-17T07:27:50.691298+00:00",
-    "testSyncAt": "2026-08-17T07:27:50.691298+00:00",
+    "scrapedAt": "2026-08-17T08:51:36.073990+00:00",
+    "testSyncAt": "2026-08-17T08:51:36.073990+00:00",
     "obsTitle": "新商考核 / 模块数据汇总表",
     "obsUpdatedAt": "2026-08-13",
     "richObsCount": null,
@@ -240,9 +240,9 @@
     "团购",
     "履约",
     "零售",
-    "组织",
     "商业增值",
     "用户体验",
+    "组织",
     "综合治理"
   ],
   "tuangoDetailCities": [
@@ -474,7 +474,7 @@
             "value": "758"
           },
           "月在线商家数": {
-            "value": "1,867"
+            "value": "843"
           },
           "月动销率": {
             "value": "40.60%",
@@ -599,7 +599,8 @@
           }
         }
       },
-      "dataDate": "2026-08-13"
+      "dataDate": "2026-08-13",
+      "bandsDelta": {}
     },
     {
       "name": "仁寿县",
@@ -666,7 +667,7 @@
             "value": "1,052"
           },
           "月在线商家数": {
-            "value": "4,620"
+            "value": "1,341"
           },
           "月动销率": {
             "value": "22.77%",
@@ -796,7 +797,10 @@
           }
         }
       },
-      "dataDate": "2026-08-13"
+      "dataDate": "2026-08-13",
+      "bandsDelta": {
+        "外卖": "上升"
+      }
     },
     {
       "name": "合江县",
@@ -863,7 +867,7 @@
             "value": "473"
           },
           "月在线商家数": {
-            "value": "1,533"
+            "value": "579"
           },
           "月动销率": {
             "value": "30.85%",
@@ -988,7 +992,10 @@
           }
         }
       },
-      "dataDate": "2026-08-13"
+      "dataDate": "2026-08-13",
+      "bandsDelta": {
+        "履约": "上升"
+      }
     },
     {
       "name": "南溪",
@@ -1055,7 +1062,7 @@
             "value": "391"
           },
           "月在线商家数": {
-            "value": "1,399"
+            "value": "524"
           },
           "月动销率": {
             "value": "27.95%",
@@ -1185,7 +1192,8 @@
           }
         }
       },
-      "dataDate": "2026-08-13"
+      "dataDate": "2026-08-13",
+      "bandsDelta": {}
     },
     {
       "name": "叙永",
@@ -1252,7 +1260,7 @@
             "value": "321"
           },
           "月在线商家数": {
-            "value": "1,169"
+            "value": "429"
           },
           "月动销率": {
             "value": "27.46%",
@@ -1377,7 +1385,8 @@
           }
         }
       },
-      "dataDate": "2026-08-13"
+      "dataDate": "2026-08-13",
+      "bandsDelta": {}
     }
   ],
   "tests": {
@@ -1903,7 +1912,12 @@
     "metabase": "http://47.112.178.78:3000/public/dashboard/5d509c91-583b-4229-89ee-51721035ae71",
     "periodDate": "2026-08-13",
     "prevDate": "2026-08-10",
-    "tests": "t_t6e991yzf4c"
+    "tests": "t_t6e991yzf4c",
+    "powerbiOnline": {
+      "metric": "在线商家数",
+      "date": "2026-08-16",
+      "path": "data/xinshang/powerbi_online_merchants.json"
+    }
   }
 };
 
@@ -1994,17 +2008,20 @@
       if (["flat", "持平", "—", "-", "0", "→"].includes(s)) return "flat";
       return null;
     }
-    function deltaIcon(d, {forceNa = false} = {}) {
+    function deltaIcon(d) {
       const n = normalizeDelta(d);
       if (n === "up") return `<span class="delta up" title="较上期上升">↑</span>`;
       if (n === "down") return `<span class="delta down" title="较上期下降">↓</span>`;
-      if (n === "flat") return `<span class="delta flat" title="较上期持平">—</span>`;
-      if (forceNa) return `<span class="delta na" title="暂无上期对比">—</span>`;
       return "";
     }
     function warnWithDelta(band, delta) {
       if (!hasRealWarn(band)) return badge(band == null || band === "" ? "—" : band);
-      return `<span class="warn-cell">${badge(band)}${deltaIcon(delta, {forceNa: true})}</span>`;
+      return `<span class="warn-cell">${badge(band)}${deltaIcon(delta)}</span>`;
+    }
+    function metricWarnDelta(city, mod, metricObj) {
+      if (metricObj && metricObj.delta) return metricObj.delta;
+      const bd = city.bandsDelta && city.bandsDelta[mod];
+      return bd || null;
     }
     function cellValue(v) {
       if (v == null || v === "") return "—";
@@ -2102,7 +2119,7 @@
         ["[0%-10%]", "b0"], ["(10%-30%]", "b1"], ["(30%-50%]", "b2"],
         ["(50%-70%]", "b3"], ["(70%-90%]", "b4"], ["(90%-100%]", "b5"],
         ["暂不预警/不预警", "bna"],
-        ["↑上升", ""], ["↓下降", ""], ["—持平/暂无对比", ""]
+        ["↑上升", ""], ["↓下降", ""]
       ].map(([t, c]) => c
         ? `<span class="badge ${c}">${t}</span>`
         : `<span class="chip" style="background:#eef2f4;color:#35545c;border:1px solid #d7e0e4">${t}</span>`
@@ -2118,7 +2135,7 @@
         <thead><tr>
           <th>城市</th><th>等级</th><th>城市类型</th>
           <th>风险(滚动)</th><th>风险(当月)</th>
-          <th>加权预警</th><th>大盘预警</th><th>预警环比</th>
+          <th>加权预警</th><th>大盘预警</th>
           <th>落后模块（≤30%区间）</th>
         </tr></thead>
         <tbody>${rows.map(c => {
@@ -2131,7 +2148,6 @@
             <td>${badge(c.riskMonth)}</td>
             <td>${badge(c.warnWeighted)}</td>
             <td>${warnWithDelta(c.warnMarket, c.warnDelta)}</td>
-            <td>${deltaIcon(c.warnDelta, {forceNa: true})}</td>
             <td class="wrap-cell">${weak.length ? weak.map(w => badge(w + " " + c.bands[w])).join(" ") : "—"}</td>
           </tr>`;
         }).join("")}</tbody>`;
@@ -2144,7 +2160,7 @@
         <tbody>${rows.map(c => `
           <tr>
             <td class="city">${c.name}</td>
-            ${DATA.modules.map(m => `<td>${badge(c.bands[m])}</td>`).join("")}
+            ${DATA.modules.map(m => `<td>${warnWithDelta(c.bands[m], (c.bandsDelta || {})[m])}</td>`).join("")}
           </tr>`).join("")}</tbody>`;
     }
 
@@ -2195,7 +2211,7 @@
           if (item.kind === "group") {
             const main = getMetric(c, mod, item.name) || {};
             let html = `<td>${cellValue(main)}</td>`;
-            if (item.warn) html += `<td>${warnWithDelta(main.band, main.delta)}</td>`;
+            if (item.warn) html += `<td>${warnWithDelta(main.band, metricWarnDelta(c, mod, main))}</td>`;
             for (const child of (item.children || [])) {
               const cm = getMetric(c, mod, child) || {};
               html += `<td>${cellValue(cm)}</td>`;
@@ -2204,7 +2220,7 @@
           }
           const m = getMetric(c, mod, item.name) || {};
           if (!item.warn) return `<td>${cellValue(m)}</td>`;
-          return `<td>${cellValue(m)}</td><td>${warnWithDelta(m.band, m.delta)}</td>`;
+          return `<td>${cellValue(m)}</td><td>${warnWithDelta(m.band, metricWarnDelta(c, mod, m))}</td>`;
         }).join("");
         return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
       }).join("") || `<tr><td colspan="2">无匹配城市</td></tr>`;
@@ -2213,10 +2229,23 @@
 
     function moduleDesc(mod) {
       if (mod === "团购") return "仅仁寿、南溪（且受上方城市筛选约束）；「优质商家渗透率」为父指标，子列不加预警。";
-      if (mod === "外卖") return "「餐饮商家渗透率」为父指标，子列不加预警；带预警指标旁显示↑↓—。";
+      if (mod === "外卖") return "「餐饮商家渗透率」为父指标，子列不加预警；月在线商家数来自 Power BI 业务风向看板。";
       if (mod === "综合治理") return "综合治理只展示指标值，不展示预警区间列。";
       if (mod === "履约" || mod === "用户体验") return "与相邻模块并排展示；受上方城市筛选统一控制。";
-      return "城市横排对比；带预警的指标旁显示较上期↑↓—。";
+      return "城市横排对比；带预警指标旁 ↑ / ↓ 表示预警区间较上期变化。";
+    }
+
+    function buildTestsSection() {
+      return `<details class="test-fold">
+        <summary>新商评测试（点击展开考试明细）</summary>
+        <p class="desc">集合「新商评测试结果」· 区域=川藏一区；&lt;90 分标为需关注。同一人保留最新一条用于统计。</p>
+        <div class="kpis" id="testKpis"></div>
+        <div class="scroll"><table id="testCityTable"></table></div>
+        <p class="desc" style="margin-top:12px">关注名单（&lt;90）</p>
+        <div class="scroll"><table id="testWatchTable"></table></div>
+        <p class="desc" style="margin-top:12px">五城全员（去重最新）</p>
+        <div class="scroll"><table id="testPeopleTable"></table></div>
+      </details>`;
     }
 
     function renderModules() {
@@ -2252,9 +2281,11 @@
           <h2>${titles[mod]}</h2>
           <p class="desc">${moduleDesc(mod)}</p>
           ${buildModuleTable(mod)}
+          ${mod === "组织" ? buildTestsSection() : ""}
         </section>`);
       }
       document.getElementById("moduleSections").innerHTML = parts.join("");
+      renderTests();
     }
 
     function renderMom() {
@@ -2273,9 +2304,7 @@
       const n = normalizeDelta(d);
       if (n === "up") return `<span class="warn-cell"><span class="delta up">↑</span></span>`;
       if (n === "down") return `<span class="warn-cell"><span class="delta down">↓</span></span>`;
-      if (n === "flat") return `<span class="warn-cell"><span class="delta flat">—</span></span>`;
-      // 两期数据未齐：占位
-      if (d == null || d === "") return "—";
+      if (d == null || d === "" || n === "flat") return "—";
       return String(d);
     }
 
@@ -2290,7 +2319,7 @@
             value: cellValue(main),
             valueDelta: main.valueDelta != null ? main.valueDelta : main.mom,
             warnHtml: item.warn ? badge(main.band == null || main.band === "" ? "—" : main.band) : "—",
-            warnDelta: item.warn ? (main.delta != null ? main.delta : main.warnDelta) : null,
+            warnDelta: item.warn ? metricWarnDelta(city, mod, main) : null,
             showWarnDelta: !!item.warn,
             isChild: false
           });
@@ -2314,7 +2343,7 @@
           value: cellValue(m),
           valueDelta: m.valueDelta != null ? m.valueDelta : m.mom,
           warnHtml: item.warn ? badge(m.band == null || m.band === "" ? "—" : m.band) : "—",
-          warnDelta: item.warn ? (m.delta != null ? m.delta : m.warnDelta) : null,
+          warnDelta: item.warn ? metricWarnDelta(city, mod, m) : null,
           showWarnDelta: !!item.warn,
           isChild: false
         });
@@ -2380,7 +2409,6 @@
             <div class="k">风险(当月)</div><div class="v">${badge(city.riskMonth)}</div>
             <div class="k">加权预警</div><div class="v">${badge(city.warnWeighted)}</div>
             <div class="k">大盘预警</div><div class="v">${warnWithDelta(city.warnMarket, city.warnDelta)}</div>
-            <div class="k">预警环比</div><div class="v">${city.warnDelta || "—"} ${deltaIcon(city.warnDelta, {forceNa: true})}</div>
             ${(() => {
               const roster = testPeopleLatest(city.name);
               const scores = roster.map(p => Number(p.score)).filter(v => !Number.isNaN(v));
@@ -2460,7 +2488,6 @@
       renderOverview();
       renderMatrix();
       renderArchive();
-      renderTests();
       renderModules();
       renderMom();
     }
