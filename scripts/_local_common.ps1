@@ -86,6 +86,64 @@ function Resolve-LrFilledXlsx {
     return $null
 }
 
+function Get-PeBits {
+    param([string]$ExePath)
+    try {
+        $fs = [IO.File]::OpenRead($ExePath)
+        try {
+            $br = New-Object IO.BinaryReader $fs
+            if ($br.ReadUInt16() -ne 0x5A4D) { return $null }
+            $fs.Seek(0x3C, [IO.SeekOrigin]::Begin) | Out-Null
+            $pe = $br.ReadUInt32()
+            $fs.Seek($pe, [IO.SeekOrigin]::Begin) | Out-Null
+            if ($br.ReadUInt32() -ne 0x4550) { return $null }
+            $machine = $br.ReadUInt16()
+            if ($machine -eq 0x14C) { return 32 }
+            if ($machine -eq 0x8664) { return 64 }
+            return $null
+        } finally { $fs.Close() }
+    } catch { return $null }
+}
+
+function Find-WpsEtExe {
+    $patterns = @(
+        "$env:LOCALAPPDATA\Kingsoft\WPS Office\*\office6\et.exe",
+        "$env:ProgramFiles\Kingsoft\WPS Office\*\office6\et.exe",
+        "${env:ProgramFiles(x86)}\Kingsoft\WPS Office\*\office6\et.exe"
+    )
+    foreach ($p in $patterns) {
+        $hit = Get-Item $p -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
+}
+
+function Get-WpsMatchedPowerShell {
+    <#
+    .SYNOPSIS
+      WPS et.exe is usually 32-bit. 64-bit powershell.exe cannot create its COM class (CLASSNOTREG).
+    #>
+    $sys32 = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
+    $wow64 = Join-Path $env:SystemRoot "SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
+    $et = Find-WpsEtExe
+    if ($et) {
+        $bits = Get-PeBits -ExePath $et
+        if ($bits -eq 32 -and (Test-Path -LiteralPath $wow64)) {
+            return $wow64
+        }
+    }
+    return $sys32
+}
+
+function Notify-LrWecomText {
+    param([string]$Root, [string]$Message)
+    $py = Join-Path $Root ".venv\Scripts\python.exe"
+    if (-not (Test-Path -LiteralPath $py)) { return }
+    $env:PYTHONIOENCODING = "utf-8"
+    $env:PYTHONUTF8 = "1"
+    & $py "lr\wecom_push.py" "--text" $Message | Out-Null
+}
+
 function Invoke-PythonLogged {
     <#
     .SYNOPSIS

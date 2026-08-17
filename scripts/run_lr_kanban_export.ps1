@@ -42,13 +42,15 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Step ("Kanban export STA: xlsx={0} date={1}" -f $xlsxAbs, $TargetDate)
 $exportPs1 = Join-Path $PSScriptRoot "export_lr_kanban_wps.ps1"
+$psExe = Get-WpsMatchedPowerShell
+Write-Step ("export powershell=" + $psExe)
 
 $ok = $false
 $lastErr = $null
 for ($i = 1; $i -le 3; $i++) {
     try {
         Write-Step ("export attempt {0}/3" -f $i)
-        & powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -ConfigJson $cfgPath 2>&1 |
+        & $psExe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -ConfigJson $cfgPath 2>&1 |
             Tee-Object -FilePath $logPath -Append | Out-Null
         $code = $LASTEXITCODE
         if ($null -eq $code) { $code = 0 }

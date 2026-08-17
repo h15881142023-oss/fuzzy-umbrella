@@ -61,6 +61,16 @@ def push_image(webhook: str, png: Path) -> dict:
     return resp
 
 
+def push_text(webhook: str, content: str) -> dict:
+    text = (content or "").strip()
+    if not text:
+        raise ValueError("empty text")
+    resp = post_json(webhook, {"msgtype": "text", "text": {"content": text[:2048]}})
+    if resp.get("errcode", 0) != 0:
+        raise RuntimeError(f"文字推送失败: {resp}")
+    return resp
+
+
 def push_file(webhook: str, path: Path) -> dict:
     key = webhook.rsplit("key=", 1)[-1]
     file_id = upload_media(key, path, "file")
@@ -97,3 +107,27 @@ def push_lr_report(
     img_resps = [push_image(webhook, p) for p in images]
     file_resp = push_file(webhook, xlsx)
     return {"images": img_resps, "file": file_resp, "image_count": len(images)}
+
+
+def main() -> int:
+    import argparse
+    import os
+    import sys
+
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from config import LR_WECOM_WEBHOOK  # noqa: E402
+
+    parser = argparse.ArgumentParser(description="WeCom helpers")
+    parser.add_argument("--text", help="send a text message to LR_WECOM_WEBHOOK")
+    parser.add_argument("--webhook", default=os.environ.get("LR_WECOM_WEBHOOK", LR_WECOM_WEBHOOK))
+    args = parser.parse_args()
+    if args.text:
+        resp = push_text(args.webhook, args.text)
+        print(json.dumps({"ok": True, "wecom": resp}, ensure_ascii=False))
+        return 0
+    print("need --text", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

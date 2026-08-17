@@ -48,6 +48,50 @@ function Find-EtExe {
     return $null
 }
 
+function Get-PeBitsLocal {
+    param([string]$ExePath)
+    try {
+        $fs = [IO.File]::OpenRead($ExePath)
+        try {
+            $br = New-Object IO.BinaryReader $fs
+            if ($br.ReadUInt16() -ne 0x5A4D) { return $null }
+            $fs.Seek(0x3C, [IO.SeekOrigin]::Begin) | Out-Null
+            $pe = $br.ReadUInt32()
+            $fs.Seek($pe, [IO.SeekOrigin]::Begin) | Out-Null
+            if ($br.ReadUInt32() -ne 0x4550) { return $null }
+            $machine = $br.ReadUInt16()
+            if ($machine -eq 0x14C) { return 32 }
+            if ($machine -eq 0x8664) { return 64 }
+            return $null
+        } finally { $fs.Close() }
+    } catch { return $null }
+}
+
+# 32-bit WPS cannot be created from 64-bit PowerShell (CLASSNOTREG / empty CLSID).
+if (-not $env:LR_WPS_COM_RELAUNCHED) {
+    $etBitsProbe = Find-EtExe
+    $need32 = $false
+    if ($etBitsProbe) {
+        $pb = Get-PeBitsLocal -ExePath $etBitsProbe
+        Write-Host ("et=$etBitsProbe et_bits=$pb ps_bits=" + ([IntPtr]::Size * 8))
+        if ($pb -eq 32) { $need32 = $true }
+    } else {
+        Write-Host ("et=missing ps_bits=" + ([IntPtr]::Size * 8))
+    }
+    if ($need32 -and [IntPtr]::Size -eq 8) {
+        $wow = Join-Path $env:SystemRoot "SysWOW64\WindowsPowerShell\v1.0\powershell.exe"
+        if (Test-Path -LiteralPath $wow) {
+            Write-Host "relaunch 32-bit powershell for WPS COM"
+            $env:LR_WPS_COM_RELAUNCHED = "1"
+            $arg = "-NoProfile -STA -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+            if ($ConfigJson) { $arg += " -ConfigJson `"$ConfigJson`"" }
+            elseif ($XlsxPath) { $arg += " -XlsxPath `"$XlsxPath`" -OutDir `"$OutDir`" -Month $Month -Region `"$Region`" -Cities `"$Cities`" -SheetName `"$SheetName`" -RangeAddress `"$RangeAddress`"" }
+            cmd.exe /c "`"$wow`" $arg"
+            exit $LASTEXITCODE
+        }
+    }
+}
+
 function Ensure-WpsRegistered {
     $et = Find-EtExe
     if (-not $et) {
