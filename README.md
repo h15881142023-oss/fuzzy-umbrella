@@ -102,24 +102,34 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 
 用 CDN 覆盖本机 HTML（**请用提交号，不要用带 `/` 的分支名**，否则 jsDelivr 可能 Forbidden）：
 
-```powershell
-cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+本机若仍是旧 `.ps1`（含 `Generic.List[string]`），PowerShell 5.1 会在第 30 行报意外的 `)`。请**不要跑本机旧脚本**，改用下面任一方式。
 
-# 直接更新看板（提交号可按我最新通知替换）
-powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref b276487
-```
-
-若本机脚本损坏/不存在，先下载再跑（同样用提交号）：
+**推荐：直接粘贴覆盖 HTML（不依赖本机 .ps1）**
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-$ref = "b276487"
-$u = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$ref/scripts/update_xinshang_html_windows.ps1"
-Invoke-WebRequest $u -OutFile ".\scripts\update_xinshang_html_windows.ps1" -UseBasicParsing
-powershell -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref $ref
+$ref = "0e446d1"
+$rel = "static/dashboards/cz1-xinshang-pingjia.html"
+$out1 = ".\static\dashboards\cz1-xinshang-pingjia.html"
+$out2 = ".\docs\xinshang\index.html"
+New-Item -ItemType Directory -Force -Path ".\static\dashboards",".\docs\xinshang" | Out-Null
+$urls = @(
+  ("https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $ref + "/" + $rel),
+  ("https://gcore.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $ref + "/" + $rel),
+  ("https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $ref + "/" + $rel)
+)
+$ok = $false
+foreach ($u in $urls) {
+  Write-Host ("try " + $u)
+  try {
+    Invoke-WebRequest $u -OutFile $out1 -UseBasicParsing -TimeoutSec 60
+    if ((Get-Item $out1).Length -gt 5000) { Copy-Item $out1 $out2 -Force; $ok = $true; break }
+  } catch { Write-Host $_.Exception.Message }
+}
+if ($ok) { Write-Host "OK" } else { Write-Host "FAILED" }
 ```
 
-或双击：`scripts\update_xinshang_html_windows.cmd`
+或双击：`scripts\update_xinshang_html_windows.cmd`（用 curl，不经过旧 .ps1）
 
 更新后打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 并强制刷新。
 

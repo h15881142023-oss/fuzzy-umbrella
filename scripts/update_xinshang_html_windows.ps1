@@ -1,8 +1,10 @@
 # Update xinshang dashboard HTML via CDN (no git required).
-# Compatible with Windows PowerShell 5.1 (do NOT use Generic.List[string]).
+# Windows PowerShell 5.1 compatible:
+#   - do NOT use Generic.List[string]
+#   - do NOT use -f format with {0} inside @( )
 # Usage:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1
-#   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 12c91d4
+#   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\update_xinshang_html_windows.ps1 -Ref 0e446d1
 
 param(
   [string]$Ref = "0e446d1"
@@ -22,13 +24,12 @@ $stamp = Get-Date -Format "yyyyMMddHHmmss"
 $tmp = Join-Path $env:TEMP ("cz1-xinshang-" + $stamp + ".html")
 
 # jsDelivr needs commit SHA. Branch names containing "/" often return Forbidden.
-$urls = @(
-  ("https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{0}/{1}?t={2}" -f $Ref, $relPath, $stamp),
-  ("https://gcore.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{0}/{1}?t={2}" -f $Ref, $relPath, $stamp),
-  ("https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{0}/{1}?t={2}" -f $Ref, $relPath, $stamp),
-  ("https://raw.gitmirror.com/h15881142023-oss/fuzzy-umbrella/{0}/{1}?t={2}" -f $Ref, $relPath, $stamp),
-  ("https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{0}/{1}?t={2}" -f $Ref, $relPath, $stamp)
-)
+$u1 = "https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $relPath + "?t=" + $stamp
+$u2 = "https://gcore.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $relPath + "?t=" + $stamp
+$u3 = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $relPath + "?t=" + $stamp
+$u4 = "https://raw.gitmirror.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $relPath + "?t=" + $stamp
+$u5 = "https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $relPath + "?t=" + $stamp
+$urls = @($u1, $u2, $u3, $u4, $u5)
 
 $ok = $false
 $used = $null

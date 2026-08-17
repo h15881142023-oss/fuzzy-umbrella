@@ -5,7 +5,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap_xinshang_html_windows.ps1
 
 param(
-  [string]$Ref = "12c91d4"
+  [string]$Ref = "0e446d1"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,7 +14,7 @@ Set-Location $Root
 New-Item -ItemType Directory -Force -Path (Join-Path $Root "scripts") | Out-Null
 
 $stamp = Get-Date -Format "yyyyMMddHHmmss"
-$ps1Url = ("https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{0}/scripts/update_xinshang_html_windows.ps1?t={1}" -f $Ref, $stamp)
+$ps1Url = "https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/scripts/update_xinshang_html_windows.ps1?t=" + $stamp
 $ps1Out = Join-Path $Root "scripts\update_xinshang_html_windows.ps1"
 
 Write-Host ("==> download updater: " + $ps1Url)
