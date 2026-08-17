@@ -50,9 +50,16 @@ $lastErr = $null
 for ($i = 1; $i -le 3; $i++) {
     try {
         Write-Step ("export attempt {0}/3" -f $i)
-        & $psExe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -ConfigJson $cfgPath 2>&1 |
-            Tee-Object -FilePath $logPath -Append | Out-Null
+        # Child stderr "Specified cast is not valid" must NOT become a terminating
+        # ErrorRecord here ($ErrorActionPreference=Stop + 2>&1).
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $output = & $psExe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -ConfigJson $cfgPath 2>&1
         $code = $LASTEXITCODE
+        $ErrorActionPreference = $prevEap
+        if ($output) {
+            $output | ForEach-Object { "$_" } | Tee-Object -FilePath $logPath -Append | ForEach-Object { Write-Host $_ }
+        }
         if ($null -eq $code) { $code = 0 }
         if ($code -eq 0) {
             $ok = $true

@@ -88,11 +88,16 @@ def fetch_first(sha: str, rel: str) -> bytes | None:
 
 def main() -> int:
     global SHA, BASE
-    if len(sys.argv) > 1 and sys.argv[1].strip():
-        SHA = sys.argv[1].strip()
-        if len(SHA) > 7 and not SHA.startswith("cursor/"):
-            SHA = SHA[:7]
-        BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
+    if len(sys.argv) < 2 or not sys.argv[1].strip():
+        print("ERROR: pass commit SHA, e.g. python lr/download_hotfix.py abc1234", file=sys.stderr)
+        return 2
+    SHA = sys.argv[1].strip()
+    if SHA.upper() == "HEAD":
+        print("ERROR: refuse SHA=HEAD (would pull stale main). Pass a branch short SHA.", file=sys.stderr)
+        return 2
+    if len(SHA) > 7 and not SHA.startswith("cursor/"):
+        SHA = SHA[:7]
+    BASE = f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}"
 
     ok = 0
     skipped = 0
@@ -162,6 +167,15 @@ def main() -> int:
         print("ERROR: run_daily.py still imports kanban_image at top-level. Abort.", file=sys.stderr)
         return 2
 
+    wps = ROOT / ("scripts\\export_lr_kanban_wps.ps1" if win else "scripts/export_lr_kanban_wps.ps1")
+    wtext = wps.read_text(encoding="utf-8", errors="replace")
+    if "Invoke-ComNoOut" not in wtext or "Workbooks.Open($xlsx)" not in wtext:
+        print("ERROR: export_lr_kanban_wps.ps1 missing COM cast fix. Abort.", file=sys.stderr)
+        return 2
+    if "CopyPicture(" in wtext and "| Out-Null" in wtext.split("function Export-RangePng")[-1].split("if (-not (Test-Path")[0]:
+        print("ERROR: export_lr_kanban_wps.ps1 still pipes CopyPicture to Out-Null. Abort.", file=sys.stderr)
+        return 2
+
     print(f"done {ok} files from {BASE} (skipped={skipped})")
     print("OK all required local runners present")
     print("OK fill_template.py has cumulative fill")
@@ -169,6 +183,7 @@ def main() -> int:
     print("OK config.py has ADMIN_PASSWORD + chuxin LR URL")
     print("OK kanban_image.py has export_kanban_pngs")
     print("OK run_daily.py lazy-imports kanban for fill-only")
+    print("OK export_lr_kanban_wps.ps1 has COM cast fix")
     return 0
 
 

@@ -155,7 +155,7 @@ function Get-OfficeApp {
     for ($attempt = 1; $attempt -le 4; $attempt++) {
         if ($attempt -gt 1) {
             Write-Host ("COM create retry {0}/4 after regserver..." -f $attempt)
-            Ensure-WpsRegistered | Out-Null
+            $null = Ensure-WpsRegistered
             Start-Sleep -Seconds (2 * $attempt)
         }
         foreach ($progId in $progIds) {
@@ -197,6 +197,11 @@ function Clear-ClipboardSafe {
     }
 }
 
+function Invoke-ComNoOut {
+    param([scriptblock]$Action)
+    try { $null = & $Action } catch {}
+}
+
 function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
     if (Test-Path -LiteralPath $PngPath) { Remove-Item -LiteralPath $PngPath -Force }
 
@@ -206,11 +211,11 @@ function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
     $app = $Worksheet.Application
     try { $app.Visible = $true } catch {}
     try { $app.WindowState = 1 } catch {}
-    try { $Worksheet.Activate() | Out-Null } catch {}
-    try { $app.ActiveWindow.Activate() | Out-Null } catch {}
+    Invoke-ComNoOut { $Worksheet.Activate() }
+    Invoke-ComNoOut { $app.ActiveWindow.Activate() }
 
     $range = $Worksheet.Range($Address)
-    try { $range.Select() | Out-Null } catch {}
+    Invoke-ComNoOut { $range.Select() }
 
     $pairs = @(
         @(1, 2),
@@ -224,7 +229,8 @@ function Export-RangePng($Worksheet, [string]$Address, [string]$PngPath) {
         try {
             Clear-ClipboardSafe
             try { $app.CutCopyMode = $false } catch {}
-            $range.CopyPicture($fmt[0], $fmt[1]) | Out-Null
+            # Do NOT pipe COM HRESULT to Out-Null (32-bit PS: Specified cast is not valid)
+            $null = $range.CopyPicture([int]$fmt[0], [int]$fmt[1])
             Start-Sleep -Milliseconds (450 + $try * 100)
             if (-not [System.Windows.Forms.Clipboard]::ContainsImage()) {
                 throw "Clipboard has no image after CopyPicture (try $try fmt=$($fmt -join ','))"
@@ -252,37 +258,41 @@ $outAbs = (Resolve-Path -LiteralPath $OutDir).Path
 $cityList = @($Cities.Split(",") | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 Write-Host "xlsx=$xlsx out=$outAbs month=$Month cities=$($cityList -join '|')"
 
-Ensure-WpsRegistered
+$null = Ensure-WpsRegistered
 $office = Get-OfficeApp
 $app = $office.App
 try { $app.Visible = $true } catch {}
 try { $app.DisplayAlerts = $false } catch {}
 
 try {
-    $wb = $app.Workbooks.Open($xlsx, 0, $false)
+    Write-Host "open workbook"
+    $wb = $app.Workbooks.Open($xlsx)
+    Write-Host "workbook opened"
     $ws = $wb.Worksheets.Item($SheetName)
-    $ws.Activate() | Out-Null
+    Write-Host "sheet ok"
+    Invoke-ComNoOut { $ws.Activate() }
     $ws.Range("C2").Value2 = $Month
     $ws.Range("E3").Value2 = $Region
-    try { $app.CalculateFullRebuild() } catch {
-        try { $app.CalculateFull() } catch { try { $wb.Application.Calculate() } catch {} }
+    try { $null = $app.CalculateFullRebuild() } catch {
+        try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
     }
 
     foreach ($city in $cityList) {
+        Write-Host "export city=$city"
         $ws.Range("C3").Value2 = $city
-        try { $app.CalculateFull() } catch { try { $wb.Application.Calculate() } catch {} }
+        try { $null = $app.CalculateFull() } catch { try { $null = $wb.Application.Calculate() } catch {} }
         Start-Sleep -Milliseconds 600
         $safe = ($city -replace '[\\/:*?"<>|]', '_')
         $png = Join-Path $outAbs ("{0}_{1}_{2}.png" -f $script:pngPrefix, $safe, $Month)
         Export-RangePng -Worksheet $ws -Address $RangeAddress -PngPath $png
         Write-Host "exported=$png"
     }
-    $wb.Save()
-    $wb.Close($true)
+    $null = $wb.Save()
+    $null = $wb.Close($true)
     Write-Host "ok count=$($cityList.Count) prog=$($office.ProgId)"
 } finally {
-    try { $app.Quit() } catch {}
-    try { [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) | Out-Null } catch {}
+    try { $null = $app.Quit() } catch {}
+    try { $null = [System.Runtime.InteropServices.Marshal]::ReleaseComObject($app) } catch {}
     [GC]::Collect()
     [GC]::WaitForPendingFinalizers()
 }

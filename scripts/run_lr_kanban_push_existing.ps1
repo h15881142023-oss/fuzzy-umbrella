@@ -27,15 +27,18 @@ if (-not $Xlsx) {
 Write-Step "LR kanban export+push xlsx=$Xlsx target=$TargetDate"
 Write-LogLine $Log "start kanban-push-existing xlsx=$Xlsx target=$TargetDate"
 try {
-    $py = Ensure-Venv -Root $Root
+    $null = Ensure-Venv -Root $Root
 } catch {
     Write-Step "venv fail: $_"
     Write-LogLine $Log "venv fail: $_"
     exit 1
 }
+$py = [string](Join-Path $Root ".venv\Scripts\python.exe")
 
 $exportPs1 = Join-Path $PSScriptRoot "run_lr_kanban_export.ps1"
-& powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -Xlsx $Xlsx -TargetDate $TargetDate
+$psExe = Get-WpsMatchedPowerShell
+Write-Step ("kanban powershell=" + $psExe)
+& $psExe -NoProfile -STA -ExecutionPolicy Bypass -File $exportPs1 -Xlsx $Xlsx -TargetDate $TargetDate
 $code = $LASTEXITCODE
 if ($code -ne 0) {
     Write-LogLine $Log "exit=$code (kanban export fail)"

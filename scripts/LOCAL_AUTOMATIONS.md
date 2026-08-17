@@ -46,29 +46,15 @@ powershell -ExecutionPolicy Bypass -File scripts\uninstall_local_automations_win
 # 利润填写推送（填表+五城图+Excel）
 powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -TargetDate 2026-07-22
 
-# 表已填好但 COM 出图失败（无效的类字符串）时：只导出看板并推送
-# 先同步 hotfix（本机没有 sync 脚本时用下面一键下载；把 REPLACE_SHA 换成最新 short sha）
-$sha = "ec5576c"
-$base = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha"
-@(
-  "lr/export_kanban_com.py",
-  "lr/kanban_image.py",
-  "lr/run_daily.py",
-  "scripts/export_lr_kanban_wps.ps1",
-  "scripts/run_lr_kanban_export.ps1",
-  "scripts/run_lr_profit_fill_local.ps1",
-  "scripts/run_lr_kanban_push_existing.ps1",
-  "scripts/run_lr_profit_fill_backfill.ps1",
-  "scripts/_local_common.ps1",
-  "scripts/diagnose_wps_com.ps1"
-) | ForEach-Object {
-  $out = $_ -replace "/", "\"
-  New-Item -ItemType Directory -Force -Path (Split-Path $out) | Out-Null
-  Invoke-WebRequest "$base/$_" -OutFile $out -UseBasicParsing
-  Write-Host "OK $out"
-}
-powershell -ExecutionPolicy Bypass -File scripts\diagnose_wps_com.ps1
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-07-24
+# 探测 32 位 PowerShell（必须 Bypass，否则 Restricted 策略会加载失败）
+powershell -ExecutionPolicy Bypass -NoProfile -Command ". .\scripts\_local_common.ps1; Get-WpsMatchedPowerShell"
+
+# 表已填好但看板导出失败时：只导出+推送，不要再 scrape
+# 先同步 hotfix（把 SHA 换成最新 short sha）
+$sha = "REPLACE_SHA"
+.\.venv\Scripts\python.exe -c "import urllib.request; urllib.request.urlretrieve('https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha/lr/download_hotfix.py','lr/download_hotfix.py'); print('ok')"
+.\.venv\Scripts\python.exe lr\download_hotfix.py $sha
+powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-08-16
 
 # 补齐利润填写推送：默认 2026-07-22 .. 2026-07-25（含），单日失败继续下一天
 # 看板导出在 PowerShell -STA 线程（剪贴板），勿用管理员窗口
@@ -110,7 +96,6 @@ Get-Content logs\store_morning_monitor_local.log -Tail 50 -Encoding UTF8
 ### 查看是否装上
 
 ```powershell
-schtasks /Query /TN ChuanzangLrDatasourceLocal
 schtasks /Query /TN ChuanzangLrProfitFillLocal
 schtasks /Query /TN ChuanzangStoreMorningLocal
 schtasks /Query /TN ChuanzangVisitCheckLocal
@@ -123,12 +108,10 @@ schtasks /Query /TN ChuanzangVisitCheckLocal
 | 任务 | 环境变量 | 默认 key |
 |---|---|---|
 | 利润填写推送 | `LR_WECOM_WEBHOOK` | `103699eb-...` |
-| 利润数据源推送 | `LR_DATASOURCE_WECOM_WEBHOOK` | `c44fb1bf-...` |
 | Todo 周报 | `WECOM_WEBHOOK` | `103699eb-...` |
 
 ## 日志
 
-- `logs/lr_datasource_local.log` — 利润数据源推送
 - `logs/lr_profit_fill_local.log` — 利润填写推送
 - `logs/kpi_todo_local.log`
 - `logs/visit_check_local.log`
