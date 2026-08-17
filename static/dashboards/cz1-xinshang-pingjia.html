@@ -134,9 +134,15 @@
       background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.22);
       border-radius:999px; padding:2px 8px; vertical-align:middle;
     }
+    .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:12px; }
+    .kpi { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; }
+    .kpi .l { color:var(--muted); font-size:.8rem; }
+    .kpi .v { font-size:1.45rem; font-weight:800; color:var(--brand-deep); margin-top:4px; }
+    .kpi.warn .v { color:#8f1d14; }
     @media (max-width:1100px) {
       .module-row { grid-template-columns:1fr; }
       .single-top { grid-template-columns:1fr; }
+      .kpis { grid-template-columns:1fr 1fr; }
     }
     @media print {
       body { background:#fff; padding:0; }
@@ -152,6 +158,7 @@
       <div class="meta">
         <div class="chip">考核周期 <strong id="period">—</strong></div>
         <div class="chip">数据日期 <strong id="date">—</strong></div>
+        <div class="chip">测评同步 <strong id="testSync">—</strong></div>
         <div class="chip">展示城市 <strong id="cityCount">—</strong></div>
         <div class="chip">口径：预警区间（如 [0%-10%]），不展示得分</div>
       </div>
@@ -190,6 +197,17 @@
         <div class="scroll"><table id="档案Table"></table></div>
       </section>
 
+      <section class="section">
+        <h2>测评成绩（初心实时）</h2>
+        <p class="desc">集合「新商评测试结果」· 区域=川藏一区；&lt;90 分标为需关注。同一人保留最新一条用于统计。</p>
+        <div class="kpis" id="testKpis"></div>
+        <div class="scroll"><table id="testCityTable"></table></div>
+        <p class="desc" style="margin-top:12px">关注名单（&lt;90）</p>
+        <div class="scroll"><table id="testWatchTable"></table></div>
+        <p class="desc" style="margin-top:12px">五城全员（去重最新）</p>
+        <div class="scroll"><table id="testPeopleTable"></table></div>
+      </section>
+
       <div id="moduleSections"></div>
 
       <section class="section">
@@ -201,7 +219,7 @@
 
     <div id="singleView" class="hidden"></div>
 
-    <p class="footer">数据由川藏一区负责人统一更新 · 详表版 · 源表：新商考核体系 1.1（2026年7月）</p>
+    <p class="footer">能力指标同步自初心「新商评观测」（2026-07-27）；测评成绩实时拉取集合「新商评测试结果」· 川藏一区</p>
   </div>
 
   <script>
@@ -209,7 +227,13 @@
   "meta": {
     "period": "2026年7月",
     "dataDate": "2026-07-27",
-    "prevPeriod": null
+    "prevPeriod": null,
+    "scrapedAt": "2026-08-17T06:55:38.405475+00:00",
+    "testSyncAt": "2026-08-17T06:55:38.405475+00:00",
+    "obsTitle": "新商评观测",
+    "obsUpdatedAt": "2026-08-07T11:00:05.000Z",
+    "richObsCount": 8,
+    "richCz1Count": 0
   },
   "modules": [
     "外卖",
@@ -538,7 +562,8 @@
         },
         "综合治理": {
           "月外卖虚假业绩占比": {
-            "value": "0.084%"
+            "value": "0.084%",
+            "band": "暂不预警"
           },
           "月异常骑手率": {
             "value": "0.025%"
@@ -700,7 +725,8 @@
         },
         "综合治理": {
           "月外卖虚假业绩占比": {
-            "value": "0.116%"
+            "value": "0.116%",
+            "band": "暂不预警"
           },
           "月团购虚假业绩占比": {
             "value": "0%"
@@ -864,7 +890,8 @@
         },
         "综合治理": {
           "月外卖虚假业绩占比": {
-            "value": "0.088%"
+            "value": "0.088%",
+            "band": "暂不预警"
           },
           "月异常骑手率": {
             "value": "0.019%"
@@ -1026,7 +1053,8 @@
         },
         "综合治理": {
           "月外卖虚假业绩占比": {
-            "value": "0.122%"
+            "value": "0.122%",
+            "band": "暂不预警"
           },
           "月团购虚假业绩占比": {
             "value": "0%"
@@ -1193,7 +1221,8 @@
         },
         "综合治理": {
           "月外卖虚假业绩占比": {
-            "value": "0.063%"
+            "value": "0.063%",
+            "band": "暂不预警"
           },
           "月异常骑手率": {
             "value": "0.030%"
@@ -1204,10 +1233,599 @@
         }
       }
     }
-  ]
+  ],
+  "tests": {
+    "cityStats": [
+      {
+        "city": "彭州市",
+        "records": 11,
+        "people": 11,
+        "avg": 96.55,
+        "min": 89.0,
+        "max": 98.0,
+        "below90": 1,
+        "latestAt": "2026-08-08T04:33:53.892Z"
+      },
+      {
+        "city": "仁寿县",
+        "records": 14,
+        "people": 14,
+        "avg": 97.14,
+        "min": 95.0,
+        "max": 98.0,
+        "below90": 0,
+        "latestAt": "2026-08-07T08:56:35.598Z"
+      },
+      {
+        "city": "合江县",
+        "records": 12,
+        "people": 12,
+        "avg": 97.0,
+        "min": 95.0,
+        "max": 98.0,
+        "below90": 0,
+        "latestAt": "2026-08-08T01:07:14.835Z"
+      },
+      {
+        "city": "南溪",
+        "records": 14,
+        "people": 14,
+        "avg": 97.36,
+        "min": 96.0,
+        "max": 98.0,
+        "below90": 0,
+        "latestAt": "2026-08-07T07:44:03.678Z"
+      },
+      {
+        "city": "叙永",
+        "records": 12,
+        "people": 11,
+        "avg": 97.55,
+        "min": 96.0,
+        "max": 98.0,
+        "below90": 0,
+        "latestAt": "2026-08-08T05:45:06.935Z"
+      },
+      {
+        "city": "邛崃市",
+        "records": 1,
+        "people": 1,
+        "avg": 88.0,
+        "min": 88.0,
+        "max": 88.0,
+        "below90": 1,
+        "latestAt": "2026-08-07T03:20:58.176Z"
+      }
+    ],
+    "people": [
+      {
+        "city": "叙永",
+        "name": "徐先琼",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-08T05:45:06.935Z"
+      },
+      {
+        "city": "叙永",
+        "name": "陈长清",
+        "score": 96,
+        "note": "无",
+        "updatedAt": "2026-08-08T05:45:00.937Z"
+      },
+      {
+        "city": "叙永",
+        "name": "陈长清",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-08T05:44:49.475Z"
+      },
+      {
+        "city": "叙永",
+        "name": "王妮",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-08T05:43:57.824Z"
+      },
+      {
+        "city": "叙永",
+        "name": "周斌",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-08T05:42:36.848Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "江敏",
+        "score": 89,
+        "note": null,
+        "updatedAt": "2026-08-08T04:33:53.892Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "陈兴",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-08T02:40:32.125Z"
+      },
+      {
+        "city": "叙永",
+        "name": "李秋",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-08T02:34:12.604Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "曹桂红",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-08T02:33:33.668Z"
+      },
+      {
+        "city": "合江县",
+        "name": "刘敏",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-08T01:07:14.835Z"
+      },
+      {
+        "city": "合江县",
+        "name": "徐晓容",
+        "score": 95,
+        "note": null,
+        "updatedAt": "2026-08-07T09:52:45.386Z"
+      },
+      {
+        "city": "合江县",
+        "name": "宋剑",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-07T09:47:41.767Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "罗凯",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T08:56:35.598Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "钟莉",
+        "score": 97,
+        "note": null,
+        "updatedAt": "2026-08-07T08:55:56.084Z"
+      },
+      {
+        "city": "合江县",
+        "name": "任秋梅",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T08:20:59.881Z"
+      },
+      {
+        "city": "合江县",
+        "name": "袁付冰",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T08:13:24.355Z"
+      },
+      {
+        "city": "南溪",
+        "name": "王焰平",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T07:44:03.678Z"
+      },
+      {
+        "city": "南溪",
+        "name": "文仕芳",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-07T07:25:59.951Z"
+      },
+      {
+        "city": "合江县",
+        "name": "张秦",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T07:24:53.576Z"
+      },
+      {
+        "city": "南溪",
+        "name": "高品松",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T07:24:45.625Z"
+      },
+      {
+        "city": "南溪",
+        "name": "曾介",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-07T07:23:53.880Z"
+      },
+      {
+        "city": "南溪",
+        "name": "周星龙",
+        "score": 96,
+        "note": "",
+        "updatedAt": "2026-08-07T07:23:31.301Z"
+      },
+      {
+        "city": "邛崃市",
+        "name": "牟小龙",
+        "score": 88,
+        "note": null,
+        "updatedAt": "2026-08-07T03:20:58.176Z"
+      },
+      {
+        "city": "南溪",
+        "name": "陈学刚",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-07T03:06:28.735Z"
+      },
+      {
+        "city": "合江县",
+        "name": "何庆",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-07T01:38:51.507Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "毛天成",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-07T01:34:15.846Z"
+      },
+      {
+        "city": "合江县",
+        "name": "戴成龙",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-07T01:21:49.253Z"
+      },
+      {
+        "city": "叙永",
+        "name": "罗星恒",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T13:49:18.892Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "徐枭",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-06T13:43:40.252Z"
+      },
+      {
+        "city": "南溪",
+        "name": "安群",
+        "score": 97,
+        "note": null,
+        "updatedAt": "2026-08-06T12:23:00.729Z"
+      },
+      {
+        "city": "南溪",
+        "name": "虞春燕",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T10:58:06.815Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "陈星汝",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T10:37:17.853Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "张颂谦",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T10:36:48.602Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "陈鑫",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T09:19:05.718Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "何梦洁",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-06T07:10:40.237Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "胡智刚",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-06T06:59:15.675Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "陈权",
+        "score": 97,
+        "note": null,
+        "updatedAt": "2026-08-06T03:22:28.777Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "宋雪",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-06T02:58:48.877Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "唐宇",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T02:53:40.432Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "牟晓静",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-06T02:36:11.498Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "万明杰",
+        "score": 95,
+        "note": null,
+        "updatedAt": "2026-08-06T02:30:22.795Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "贺磊",
+        "score": 97,
+        "note": null,
+        "updatedAt": "2026-08-06T01:57:22.057Z"
+      },
+      {
+        "city": "叙永",
+        "name": "胡莎莉",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-05T08:25:34.668Z"
+      },
+      {
+        "city": "合江县",
+        "name": "赵小平",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-05T07:19:48.441Z"
+      },
+      {
+        "city": "合江县",
+        "name": "杨志强",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-05T07:18:00.410Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "刘彬",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T15:39:53.905Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "徐旭",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T15:37:21.184Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "乔显海",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T15:34:16.393Z"
+      },
+      {
+        "city": "南溪",
+        "name": "刘燚炜",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T15:31:13.012Z"
+      },
+      {
+        "city": "合江县",
+        "name": "赵伟",
+        "score": 95,
+        "note": null,
+        "updatedAt": "2026-08-04T15:26:09.227Z"
+      },
+      {
+        "city": "彭州市",
+        "name": "陈政兵",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T15:21:01.061Z"
+      },
+      {
+        "city": "叙永",
+        "name": "余琳",
+        "score": 98,
+        "note": "运营中心",
+        "updatedAt": "2026-08-04T09:58:34.102Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "姜林宏",
+        "score": 95,
+        "note": null,
+        "updatedAt": "2026-08-04T09:50:53.537Z"
+      },
+      {
+        "city": "合江县",
+        "name": "林秋惠",
+        "score": 98,
+        "note": "运营中心",
+        "updatedAt": "2026-08-04T09:46:27.472Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "段新月",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T09:21:28.150Z"
+      },
+      {
+        "city": "叙永",
+        "name": "余敏",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T08:58:15.088Z"
+      },
+      {
+        "city": "叙永",
+        "name": "胡莎丽",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T08:44:33.456Z"
+      },
+      {
+        "city": "叙永",
+        "name": "牟强",
+        "score": 97,
+        "note": "数据监测账号",
+        "updatedAt": "2026-08-04T08:20:32.692Z"
+      },
+      {
+        "city": "南溪",
+        "name": "黄一晟",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T07:35:14.184Z"
+      },
+      {
+        "city": "南溪",
+        "name": "谢钦云",
+        "score": 96,
+        "note": null,
+        "updatedAt": "2026-08-04T07:32:55.563Z"
+      },
+      {
+        "city": "南溪",
+        "name": "郭彬",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T07:22:53.093Z"
+      },
+      {
+        "city": "仁寿县",
+        "name": "刘奇",
+        "score": 98,
+        "note": "运营中心",
+        "updatedAt": "2026-08-04T06:50:48.808Z"
+      },
+      {
+        "city": "南溪",
+        "name": "郑丽萍",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T06:48:33.892Z"
+      },
+      {
+        "city": "南溪",
+        "name": "王志刚",
+        "score": 98,
+        "note": null,
+        "updatedAt": "2026-08-04T06:46:36.237Z"
+      }
+    ],
+    "totalRecords": 64,
+    "totalPeople": 62
+  },
+  "source": {
+    "adminUrl": "http://www.chuxin.city/v/admin/b7v8t424ohb",
+    "tests": "t_t6e991yzf4c",
+    "observation": {
+      "title": "新商评观测",
+      "fileUpdatedAt": "2026-08-07T11:00:05.000Z",
+      "fileUrl": "/storage/uploads/index(1)-e80xk8.shtml"
+    },
+    "capabilityCabin": {
+      "title": "新商能力评价",
+      "fileUpdatedAt": "2026-08-07T11:02:15.000Z",
+      "fileUrl": "/storage/uploads/%E6%96%B0%E5%95%86%E8%AF%84%E8%A7%82%E6%B5%8B%E8%88%B1-%E7%A6%8F%E5%BB%BA%E9%BB%94%E6%B8%9D%E5%B7%9D%E8%97%8F-7w04ip.shtml",
+      "allCount": 8
+    }
+  }
 };
 
     const NO_WARN = new Set(["—", "不预警", "暂不预警", "无预警", "不考核", "", null, undefined]);
+    const CITIES_SET = new Set(["彭州市", "仁寿县", "合江县", "南溪", "叙永"]);
+
+    function fmtDt(s) {
+      if (!s) return "—";
+      return String(s).replace("T", " ").slice(0, 19);
+    }
+    function testPeopleLatest(cityFilter) {
+      const people = ((DATA.tests || {}).people) || [];
+      const latest = {};
+      const sorted = [...people].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+      for (const p of sorted) {
+        if (cityFilter && p.city !== cityFilter) continue;
+        const key = (p.city || "") + "|" + (p.name || "");
+        if (!latest[key]) latest[key] = p;
+      }
+      return Object.values(latest);
+    }
+    function renderTests() {
+      const tests = DATA.tests || {};
+      const kpis = document.getElementById("testKpis");
+      if (!kpis) return;
+      const statsAll = (tests.cityStats || []).filter(s => CITIES_SET.has(s.city));
+      const peopleN = statsAll.reduce((a, s) => a + (s.people || 0), 0);
+      const avgs = statsAll.map(s => s.avg).filter(v => v != null);
+      const avg = avgs.length ? (avgs.reduce((a, b) => a + b, 0) / avgs.length).toFixed(2) : "—";
+      const below = statsAll.reduce((a, s) => a + (s.below90 || 0), 0);
+      kpis.innerHTML = `
+        <div class="kpi"><div class="l">五城人数</div><div class="v">${peopleN}</div></div>
+        <div class="kpi"><div class="l">五城均分</div><div class="v">${avg}</div></div>
+        <div class="kpi ${below ? "warn" : ""}"><div class="l">低于90分</div><div class="v">${below}</div></div>
+        <div class="kpi"><div class="l">原始记录</div><div class="v">${tests.totalRecords || 0}</div></div>`;
+      const active = new Set(activeCities().map(c => c.name));
+      document.getElementById("testCityTable").innerHTML = `
+        <thead><tr><th>城市</th><th>人数</th><th>记录</th><th>均分</th><th>最低</th><th>最高</th><th>&lt;90</th><th>最近更新</th></tr></thead>
+        <tbody>${(tests.cityStats || []).filter(s => active.has(s.city)).map(s => `
+          <tr>
+            <td class="city">${s.city}</td><td>${s.people}</td><td>${s.records}</td>
+            <td>${s.avg == null ? "—" : s.avg}</td><td>${s.min == null ? "—" : s.min}</td><td>${s.max == null ? "—" : s.max}</td>
+            <td>${s.below90 ? badge(s.below90 + "人") : "0"}</td>
+            <td>${fmtDt(s.latestAt)}</td>
+          </tr>`).join("")}</tbody>`;
+      const watch = testPeopleLatest().filter(p => active.has(p.city) && p.score != null && Number(p.score) < 90);
+      document.getElementById("testWatchTable").innerHTML = `
+        <thead><tr><th>城市</th><th>姓名</th><th>分数</th><th>备注</th><th>更新时间</th></tr></thead>
+        <tbody>${watch.map(p => `<tr><td class="city">${p.city}</td><td>${p.name || "—"}</td><td>${p.score}</td><td>${p.note || "—"}</td><td>${fmtDt(p.updatedAt)}</td></tr>`).join("") || `<tr><td colspan="5">本期无 &lt;90 分人员</td></tr>`}</tbody>`;
+      const roster = testPeopleLatest().filter(p => active.has(p.city)).sort((a, b) => {
+        const al = a.score != null && Number(a.score) < 90 ? 0 : 1;
+        const bl = b.score != null && Number(b.score) < 90 ? 0 : 1;
+        return al - bl || String(a.city).localeCompare(String(b.city), "zh") || Number(b.score || 0) - Number(a.score || 0);
+      });
+      document.getElementById("testPeopleTable").innerHTML = `
+        <thead><tr><th>城市</th><th>姓名</th><th>分数</th><th>关注</th><th>备注</th><th>更新时间</th></tr></thead>
+        <tbody>${roster.map(p => `<tr>
+          <td class="city">${p.city}</td><td>${p.name || "—"}</td><td>${p.score == null ? "—" : p.score}</td>
+          <td>${p.score != null && Number(p.score) < 90 ? badge("需关注") : "—"}</td>
+          <td>${p.note || "—"}</td><td>${fmtDt(p.updatedAt)}</td>
+        </tr>`).join("")}</tbody>`;
+    }
 
     function bandClass(band) {
       if (NO_WARN.has(band) || band == null) return "bna";
@@ -1623,6 +2241,15 @@
             <div class="k">加权预警</div><div class="v">${badge(city.warnWeighted)}</div>
             <div class="k">大盘预警</div><div class="v">${warnWithDelta(city.warnMarket, city.warnDelta)}</div>
             <div class="k">预警环比</div><div class="v">${city.warnDelta || "—"} ${deltaIcon(city.warnDelta, {forceNa: true})}</div>
+            ${(() => {
+              const roster = testPeopleLatest(city.name);
+              const scores = roster.map(p => Number(p.score)).filter(v => !Number.isNaN(v));
+              const avg = scores.length ? (scores.reduce((a,b)=>a+b,0)/scores.length).toFixed(2) : "—";
+              const low = roster.filter(p => p.score != null && Number(p.score) < 90);
+              const lowTxt = low.length ? low.map(p => `${p.name}（${p.score}）`).join("、") : "无";
+              return `<div class="k">测评人数 / 均分</div><div class="v">${roster.length} / ${avg}</div>
+                      <div class="k">测评需关注</div><div class="v">${lowTxt}</div>`;
+            })()}
           </div>
           <p class="desc" style="margin-top:12px;margin-bottom:6px">本城焦点</p>
           <ul class="focus-list">${focusItems.map(x => `<li>${x}</li>`).join("")}</ul>
@@ -1693,12 +2320,14 @@
       renderOverview();
       renderMatrix();
       renderArchive();
+      renderTests();
       renderModules();
       renderMom();
     }
 
     document.getElementById("period").textContent = DATA.meta.period;
     document.getElementById("date").textContent = DATA.meta.dataDate;
+    document.getElementById("testSync").textContent = fmtDt(DATA.meta.testSyncAt || DATA.meta.scrapedAt);
     renderCityFilter();
     rerenderAll();
   </script>
