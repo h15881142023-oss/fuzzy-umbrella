@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import pandas as pd
@@ -43,16 +43,22 @@ def clean_df(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def to_rows(df: pd.DataFrame) -> list[dict]:
+    def normalize_cell(v):
+        if pd.isna(v):
+            return None
+        if isinstance(v, pd.Timestamp):
+            return v.isoformat()
+        if isinstance(v, (datetime, date)):
+            return v.isoformat()
+        if isinstance(v, float):
+            return round(v, 6)
+        return v
+
     out: list[dict] = []
     for rec in df.to_dict(orient="records"):
         row = {}
         for k, v in rec.items():
-            if pd.isna(v):
-                row[k] = None
-            elif isinstance(v, float):
-                row[k] = round(v, 6)
-            else:
-                row[k] = v
+            row[k] = normalize_cell(v)
         out.append(row)
     return out
 
