@@ -31,6 +31,15 @@ CITY_KEYS = [
 ]
 
 
+TARGET_CITIES = ["彭州市", "仁寿县", "合江县", "南溪", "叙永"]
+TARGET_REGION = "川藏一区"
+FIELD_ALIAS = {
+    "最大值": "同分群最大值",
+    "中位值": "同分群中位值",
+    "最小值": "同分群最小值",
+}
+
+
 def pick_excel_path(explicit: str | None) -> Path:
     if explicit:
         p = Path(explicit)
@@ -123,6 +132,165 @@ def unique_headers(names: list[str]) -> list[str]:
         else:
             out.append(f"{name}_{seen[name]}")
     return out
+
+
+def pick_peer_sheet_name(xlsx: Path) -> str:
+    xl = pd.ExcelFile(xlsx)
+    cands = [n for n in xl.sheet_names if str(n).strip() == SHEET_NAME]
+    if not cands:
+        raise RuntimeError("Excel 中没有名为「同分群数值对比」的子表")
+    best, best_n = cands[0], -1
+    for n in cands:
+        df = pd.read_excel(xlsx, sheet_name=n, header=None, dtype=object)
+        if len(df) > best_n:
+            best, best_n = n, len(df)
+    return best
+
+
+def normalize_cell(v):
+    if isinstance(v, (pd.Timestamp, datetime, date)) or (hasattr(pd, "isna") and pd.isna(v)):
+        s = cell_str(v)
+        return s or None
+    if isinstance(v, float):
+        if pd.isna(v):
+            return None
+        return round(float(v), 6)
+    if isinstance(v, int) and not isinstance(v, bool):
+        return v
+    s = cell_str(v)
+    return s if s != "" else None
+
+
+def parse_official_peer(xlsx: Path) -> dict | None:
+    """解析考核体系里真正的「同分群数值对比」宽表（三层表头：模块 / 指标 / 字段）。"""
+    sheet = pick_peer_sheet_name(xlsx)
+    raw = pd.read_excel(xlsx, sheet_name=sheet, header=None, dtype=object)
+    raw = raw.dropna(axis=0, how="all")
+    if raw.empty:
+        return None
+    n_cols = raw.shape[1]
+    n_rows = len(raw)
+
+    field_row = None
+    for r in range(min(12, n_rows)):
+        vals = [cell_str(raw.iat[r, c]) for c in range(min(n_cols, 8))]
+        if "城市" in vals and "区域" in vals:
+            field_row = r
+            break
+    if field_row is None or field_row < 1:
+        return None
+
+    metric_row = field_row - 1
+    module_row = field_row - 2 if field_row >= 2 else field_row - 1
+    modules = []
+    metrics = []
+    fields = []
+    last_m = last_t = ""
+    for c in range(n_cols):
+        m = cell_str(raw.iat[module_row, c]) if module_row >= 0 else ""
+        t = cell_str(raw.iat[metric_row, c])
+        f = cell_str(raw.iat[field_row, c])
+        if m:
+            last_m = m
+        if t:
+            last_t = t
+        modules.append(last_m)
+        metrics.append(last_t)
+        fields.append(FIELD_ALIAS.get(f, f))
+
+    city_c = next((c for c in range(n_cols) if fields[c] == "城市"), 2)
+    region_c = next((c for c in range(n_cols) if fields[c] == "区域"), 1)
+    level_c = next((c for c in range(n_cols) if fields[c] == "城市等级"), 3)
+
+    specs = []
+    metric_ids = []
+    for c in range(n_cols):
+        field = fields[c]
+        if field in {"辅助列", "区域", "城市", "城市等级", ""}:
+            continue
+        module = modules[c] or "其他"
+        metric = metrics[c] or field
+        mid = f"{module}-{metric}"
+        if mid not in metric_ids:
+            metric_ids.append(mid)
+        specs.append({"idx": c, "module": module, "metric": metric, "field": field, "id": mid})
+
+    metrics_meta = []
+    for mid in metric_ids:
+        hit = [s for s in specs if s["id"] == mid]
+        metrics_meta.append(
+            {
+                "id": mid,
+                "module": hit[0]["module"],
+                "name": hit[0]["metric"],
+                "fields": [s["field"] for s in hit],
+            }
+        )
+
+    period = None
+    for r in range(min(field_row, 6)):
+        for c in range(min(6, n_cols)):
+            if "本期日期" in cell_str(raw.iat[r, c]):
+                period = cell_str(raw.iat[r, c + 1])[:10] if c + 1 < n_cols else None
+
+    rows = []
+    for r in range(field_row + 1, n_rows):
+        city = canon_city(raw.iat[r, city_c])
+        region = cell_str(raw.iat[r, region_c])
+        if not city or city not in TARGET_CITIES:
+            continue
+        if region and TARGET_REGION not in region:
+            continue
+        values = {}
+        for s in specs:
+            values.setdefault(s["id"], {})[s["field"]] = normalize_cell(raw.iat[r, s["idx"]])
+        rows.append(
+            {
+                "城市": city,
+                "区域": region or TARGET_REGION,
+                "城市等级": cell_str(raw.iat[r, level_c]),
+                "values": values,
+            }
+        )
+    order = {c: i for i, c in enumerate(TARGET_CITIES)}
+    rows.sort(key=lambda x: order.get(x["城市"], 99))
+    if not rows:
+        return None
+
+    # 扁平表：城市 + 各指标本期值，给旧渲染兜底
+    flat_headers = ["城市", "区域", "城市等级"]
+    for m in metrics_meta:
+        for fld in ("本期值", "同分群最大值", "同分群中位值", "同分群最小值", "分群", "预警区间"):
+            if fld in m["fields"]:
+                flat_headers.append(f"{m['name']}-{fld}")
+    flat_rows = []
+    for rec in rows:
+        row = {"城市": rec["城市"], "区域": rec["区域"], "城市等级": rec["城市等级"]}
+        for m in metrics_meta:
+            block = rec["values"].get(m["id"]) or {}
+            for fld in ("本期值", "同分群最大值", "同分群中位值", "同分群最小值", "分群", "预警区间"):
+                if fld in m["fields"]:
+                    row[f"{m['name']}-{fld}"] = block.get(fld)
+        flat_rows.append(row)
+
+    return {
+        "sheet": sheet,
+        "layout": "official",
+        "periodDate": period,
+        "cityField": "城市",
+        "metrics": metrics_meta,
+        "cities": [r["城市"] for r in rows],
+        "records": rows,
+        "headers": flat_headers,
+        "rows": flat_rows,
+        "meta": {
+            "layout": "official",
+            "cities": [r["城市"] for r in rows],
+            "sheet": sheet,
+            "periodDate": period,
+            "headerRows": [module_row, metric_row, field_row],
+        },
+    }
 
 
 def load_peer_sheet(xlsx: Path) -> tuple[pd.DataFrame, dict]:
@@ -400,16 +568,23 @@ def main() -> int:
     args = ap.parse_args()
 
     xlsx = pick_excel_path(args.xlsx)
-    df, meta = load_peer_sheet(xlsx)
-    payload = {
-        "sheet": SHEET_NAME,
-        "sourceFile": str(xlsx),
-        "updatedAt": datetime.now(timezone.utc).isoformat(),
-        "cityField": "城市",
-        "headers": list(df.columns),
-        "rows": to_rows(df),
-        "meta": meta,
-    }
+    official = parse_official_peer(xlsx)
+    if official:
+        payload = official
+        payload["sourceFile"] = Path(xlsx).name
+        payload["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        meta = payload.get("meta") or {}
+    else:
+        df, meta = load_peer_sheet(xlsx)
+        payload = {
+            "sheet": SHEET_NAME,
+            "sourceFile": str(xlsx),
+            "updatedAt": datetime.now(timezone.utc).isoformat(),
+            "cityField": "城市",
+            "headers": list(df.columns),
+            "rows": to_rows(df),
+            "meta": meta,
+        }
 
     html = HTMLS[0].read_text(encoding="utf-8")
     start, end, data = extract_data_json(html)
@@ -428,8 +603,8 @@ def main() -> int:
                 "cities": meta.get("cities"),
                 "layout": meta.get("layout"),
                 "headers": payload["headers"][:12],
-                "headerRows": meta.get("headerRows"),
-                "preview": meta.get("preview"),
+                "periodDate": meta.get("periodDate") or payload.get("periodDate"),
+                "metrics": len(payload.get("metrics") or []),
             },
             ensure_ascii=False,
         )
