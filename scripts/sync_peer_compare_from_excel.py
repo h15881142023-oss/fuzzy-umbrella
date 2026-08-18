@@ -235,11 +235,10 @@ def parse_official_peer(xlsx: Path) -> dict | None:
 
     rows = []
     for r in range(field_row + 1, n_rows):
-        city = canon_city(raw.iat[r, city_c])
+        raw_city = cell_str(raw.iat[r, city_c])
+        city = canon_city(raw.iat[r, city_c]) or raw_city
         region = cell_str(raw.iat[r, region_c])
-        if not city or city not in TARGET_CITIES:
-            continue
-        if region and TARGET_REGION not in region:
+        if not city:
             continue
         values = {}
         for s in specs:
@@ -247,15 +246,23 @@ def parse_official_peer(xlsx: Path) -> dict | None:
         rows.append(
             {
                 "城市": city,
-                "区域": region or TARGET_REGION,
+                "区域": region,
                 "城市等级": cell_str(raw.iat[r, level_c]),
+                "mine": city in TARGET_CITIES,
                 "values": values,
             }
         )
-    order = {c: i for i, c in enumerate(TARGET_CITIES)}
-    rows.sort(key=lambda x: order.get(x["城市"], 99))
+    rows.sort(key=lambda x: (0 if x["mine"] else 1, x.get("区域") or "", x["城市"]))
     if not rows:
         return None
+
+    mine_cities = [c for c in TARGET_CITIES if any(r["城市"] == c for r in rows)]
+    all_cities = []
+    seen_cities = set()
+    for r in rows:
+        if r["城市"] not in seen_cities:
+            seen_cities.add(r["城市"])
+            all_cities.append(r["城市"])
 
     # 扁平表：城市 + 各指标本期值，给旧渲染兜底
     flat_headers = ["城市", "区域", "城市等级"]
@@ -279,13 +286,16 @@ def parse_official_peer(xlsx: Path) -> dict | None:
         "periodDate": period,
         "cityField": "城市",
         "metrics": metrics_meta,
-        "cities": [r["城市"] for r in rows],
+        "mineCities": mine_cities,
+        "cities": mine_cities,
+        "allCities": all_cities,
         "records": rows,
         "headers": flat_headers,
         "rows": flat_rows,
         "meta": {
             "layout": "official",
-            "cities": [r["城市"] for r in rows],
+            "cities": mine_cities,
+            "allCityCount": len(all_cities),
             "sheet": sheet,
             "periodDate": period,
             "headerRows": [module_row, metric_row, field_row],
