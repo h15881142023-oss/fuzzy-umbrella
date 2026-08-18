@@ -22,19 +22,13 @@ HTMLS = [
     ROOT / "static" / "dashboards" / "cz1-xinshang-pingjia.html",
     ROOT / "docs" / "xinshang" / "index.html",
 ]
-CITY_CANON = {
-    "彭州市": "彭州市",
-    "彭州": "彭州市",
-    "仁寿县": "仁寿县",
-    "仁寿": "仁寿县",
-    "合江县": "合江县",
-    "合江": "合江县",
-    "南溪": "南溪",
-    "南溪区": "南溪",
-    "南溪县": "南溪",
-    "叙永": "叙永",
-    "叙永县": "叙永",
-}
+CITY_KEYS = [
+    ("彭州市", ("彭州市", "彭州")),
+    ("仁寿县", ("仁寿县", "仁寿")),
+    ("合江县", ("合江县", "合江")),
+    ("南溪", ("南溪区", "南溪县", "南溪")),
+    ("叙永", ("叙永县", "叙永")),
+]
 
 
 def pick_excel_path(explicit: str | None) -> Path:
@@ -71,13 +65,39 @@ def cell_str(v) -> str:
 
 
 def canon_city(v) -> str | None:
-    s = cell_str(v)
+    s = cell_str(v).replace(" ", "").replace("\n", "").replace("\r", "")
     if not s:
         return None
-    if s in CITY_CANON:
-        return CITY_CANON[s]
-    s2 = s.replace(" ", "")
-    return CITY_CANON.get(s2)
+    hits = []
+    for canon, keys in CITY_KEYS:
+        for k in keys:
+            if k in s:
+                hits.append((len(k), canon))
+                break
+    if not hits:
+        return None
+    hits.sort(reverse=True)
+    return hits[0][1]
+
+
+def is_numbery(v) -> bool:
+    s = cell_str(v).replace(",", "").replace("%", "")
+    if not s:
+        return False
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+
+
+def preview_raw(raw: pd.DataFrame, n_rows: int = 10, n_cols: int = 12) -> list[list[str]]:
+    out = []
+    rr = min(n_rows, len(raw))
+    cc = min(n_cols, raw.shape[1])
+    for r in range(rr):
+        out.append([cell_str(raw.iat[r, c])[:40] for c in range(cc)])
+    return out
 
 
 def ffill(vals: list[str]) -> list[str]:
@@ -112,19 +132,147 @@ def load_peer_sheet(xlsx: Path) -> tuple[pd.DataFrame, dict]:
     if raw.empty:
         raise RuntimeError("子表「同分群数值对比」是空的")
 
+    meta = {
+        "headerRows": [],
+        "cityCol": None,
+        "cities": [],
+        "layout": "row",
+        "preview": preview_raw(raw),
+        "shape": [int(raw.shape[0]), int(raw.shape[1])],
+    }
+    n_cols = raw.shape[1]
+    n_rows = len(raw)
+
+    def row_vals(r: int) -> list[str]:
+        return [cell_str(raw.iat[r, c]) for c in range(n_cols)]
+
+    def row_cities(r: int) -> list[tuple[int, str]]:
+        out = []
+        for c in range(n_cols):
+            city = canon_city(raw.iat[r, c])
+            if city:
+                out.append((c, city))
+        return out
+
+    def col_cities(c: int) -> list[tuple[int, str]]:
+        out = []
+        for r in range(n_rows):
+            city = canon_city(raw.iat[r, c])
+            if city:
+                out.append((r, city))
+        return out
+
+    def nonempty_count(r: int) -> int:
+        return sum(1 for x in row_vals(r) if x)
+
+    start = 0
+    while start < n_rows and nonempty_count(start) <= 2 and not row_cities(start) and not any(is_numbery(raw.iat[start, c]) for c in range(n_cols)):
+        start += 1
+
+    best_row = max(range(start, n_rows), key=lambda r: len(row_cities(r)), default=start)
+    best_col = max(range(n_cols), key=lambda c: len(col_cities(c)), default=0)
+    row_hits = row_cities(best_row)
+    col_hits = col_cities(best_col)
+
+    # 城市在列上（一行里出现多个城市）→ 转成「城市为行、指标为列」
+    if len(row_hits) >= 2 and len(row_hits) >= len(col_hits):
+        meta["layout"] = "columns"
+        meta["headerRows"] = [best_row]
+        city_by_col = {c: name for c, name in row_hits}
+        metric_cols = [c for c in range(n_cols) if c not in city_by_col]
+        metric_col = metric_cols[0] if metric_cols else 0
+        wide: dict[str, dict] = {name: {"城市": name} for name in dict.fromkeys(city_by_col.values())}
+        for r in range(best_row + 1, n_rows):
+            metric = cell_str(raw.iat[r, metric_col])
+            if not metric or canon_city(metric):
+                extra = [c for c in metric_cols if c != metric_col and cell_str(raw.iat[r, c]) and not is_numbery(raw.iat[r, c])]
+                if extra and not metric:
+                    metric = cell_str(raw.iat[r, extra[0]])
+            if not metric or canon_city(metric):
+                continue
+            for c, city in city_by_col.items():
+                val = raw.iat[r, c]
+                if cell_str(val) == "" and c != metric_col:
+                    continue
+                wide[city][metric] = val
+        df = pd.DataFrame(list(wide.values()))
+        order = ["彭州市", "仁寿县", "合江县", "南溪", "叙永"]
+        meta["cities"] = [c for c in order if c in set(df["城市"].tolist())]
+        meta["cityCol"] = "城市"
+        keep = ["城市"] + [c for c in df.columns if c != "城市"]
+        return df[keep], meta
+
     city_hits: list[tuple[int, int]] = []
-    for r in range(len(raw)):
-        for c in range(raw.shape[1]):
+    for r in range(start, n_rows):
+        for c in range(n_cols):
             if canon_city(raw.iat[r, c]):
                 city_hits.append((r, c))
 
-    meta = {"headerRows": [], "cityCol": None, "cities": []}
     if not city_hits:
-        df = raw.copy()
+        header_i = start
+        df = raw.iloc[header_i:].copy()
         df.columns = unique_headers([cell_str(x) for x in df.iloc[0].tolist()])
         df = df.iloc[1:].reset_index(drop=True)
-        meta["headerRows"] = [0]
+        meta["headerRows"] = [header_i]
+        meta["layout"] = "unknown"
         return df, meta
+
+    first_data = min(r for r, _ in city_hits)
+    pre = [i for i in range(start, first_data) if nonempty_count(i)]
+    header_rows = pre[-2:] if len(pre) >= 2 else (pre[-1:] if pre else [max(start, first_data - 1)])
+    meta["headerRows"] = header_rows
+    meta["layout"] = "row"
+
+    if len(header_rows) == 1:
+        names = ffill([cell_str(raw.iat[header_rows[0], c]) for c in range(n_cols)])
+    else:
+        top = ffill([cell_str(raw.iat[header_rows[0], c]) for c in range(n_cols)])
+        bot = [cell_str(raw.iat[header_rows[1], c]) for c in range(n_cols)]
+        names = []
+        for t, b in zip(top, bot):
+            if t and b and t != b:
+                names.append(f"{t}-{b}")
+            else:
+                names.append(b or t)
+        names = ffill(names)
+    headers = unique_headers(names)
+
+    df = raw.iloc[first_data:].copy()
+    df.columns = headers
+    df = df.reset_index(drop=True)
+
+    city_col_idx = Counter(c for _, c in city_hits if _ >= first_data).most_common(1)[0][0]
+    city_col_name = headers[city_col_idx]
+    named = next((h for h in headers if "城市" in str(h)), None)
+    if named:
+        city_col_name = named
+    meta["cityCol"] = city_col_name
+
+    cities = []
+    canon_vals = []
+    for _, rec in df.iterrows():
+        city = canon_city(rec.get(city_col_name))
+        if not city:
+            for h in headers:
+                city = canon_city(rec.get(h))
+                if city:
+                    break
+        canon_vals.append(city)
+        if city:
+            cities.append(city)
+    if city_col_name == "城市":
+        df["城市"] = canon_vals
+    else:
+        df.insert(0, "城市", canon_vals)
+
+    order = ["彭州市", "仁寿县", "合江县", "南溪", "叙永"]
+    meta["cities"] = sorted(set(cities), key=lambda x: order.index(x) if x in order else 99)
+    keep = []
+    for c in df.columns:
+        if c == "城市" or any(cell_str(v) for v in df[c].tolist()):
+            keep.append(c)
+    df = df[keep]
+    return df, meta
 
     first_data = min(r for r, _ in city_hits)
     pre = [i for i in range(first_data) if any(cell_str(x) for x in raw.iloc[i].tolist())]
@@ -278,8 +426,10 @@ def main() -> int:
                 "xlsx": str(xlsx),
                 "rows": len(payload["rows"]),
                 "cities": meta.get("cities"),
+                "layout": meta.get("layout"),
                 "headers": payload["headers"][:12],
                 "headerRows": meta.get("headerRows"),
+                "preview": meta.get("preview"),
             },
             ensure_ascii=False,
         )

@@ -2507,14 +2507,23 @@
     }
     function canonPeerCity(v) {
       const s = String(v == null ? "" : v).replace(/\s+/g, "");
-      const map = {
-        "彭州市": "彭州市", "彭州": "彭州市",
-        "仁寿县": "仁寿县", "仁寿": "仁寿县",
-        "合江县": "合江县", "合江": "合江县",
-        "南溪": "南溪", "南溪区": "南溪", "南溪县": "南溪",
-        "叙永": "叙永", "叙永县": "叙永"
-      };
-      return map[s] || null;
+      const keys = [
+        ["彭州市", ["彭州市", "彭州"]],
+        ["仁寿县", ["仁寿县", "仁寿"]],
+        ["合江县", ["合江县", "合江"]],
+        ["南溪", ["南溪区", "南溪县", "南溪"]],
+        ["叙永", ["叙永县", "叙永"]]
+      ];
+      let best = null, bestLen = 0;
+      for (const [canon, arr] of keys) {
+        for (const k of arr) {
+          if (s.includes(k) && k.length > bestLen) {
+            best = canon;
+            bestLen = k.length;
+          }
+        }
+      }
+      return best;
     }
     function detectPeerCityField(headers, rows) {
       if (headers.includes("城市")) return "城市";
