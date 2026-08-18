@@ -2505,25 +2505,40 @@
       const rows = Array.isArray(p.rows) ? p.rows : [];
       return { ...p, headers, rows };
     }
+    function canonPeerCity(v) {
+      const s = String(v == null ? "" : v).replace(/\s+/g, "");
+      const map = {
+        "彭州市": "彭州市", "彭州": "彭州市",
+        "仁寿县": "仁寿县", "仁寿": "仁寿县",
+        "合江县": "合江县", "合江": "合江县",
+        "南溪": "南溪", "南溪区": "南溪", "南溪县": "南溪",
+        "叙永": "叙永", "叙永县": "叙永"
+      };
+      return map[s] || null;
+    }
     function detectPeerCityField(headers, rows) {
+      if (headers.includes("城市")) return "城市";
       const byName = headers.find(h => /城市/.test(String(h)));
       if (byName) return byName;
       if (!rows.length) return headers[0] || "";
       for (const h of headers) {
-        const ok = rows.some(r => CITIES_SET.has(String((r || {})[h] || "")));
+        const ok = rows.some(r => canonPeerCity((r || {})[h]));
         if (ok) return h;
       }
       return headers[0] || "";
     }
     function toNum(v) {
       if (v == null || v === "") return null;
-      const n = Number(String(v).replace(/,/g, "").replace(/%/g, ""));
+      const s = String(v).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(s) || /T\d{2}:/.test(s)) return null;
+      const n = Number(s.replace(/,/g, "").replace(/%/g, ""));
       return Number.isFinite(n) ? n : null;
     }
     function detectPeerNumericFields(headers, rows, cityField) {
       const out = [];
       for (const h of headers) {
-        if (h === cityField) continue;
+        if (h === cityField || h === "城市") continue;
+        if (/^Unnamed/i.test(String(h))) continue;
         let n = 0;
         for (const r of rows) {
           if (toNum((r || {})[h]) != null) n += 1;
@@ -2534,7 +2549,8 @@
       return out;
     }
     function peerCompareFilteredRows(rows, cityField) {
-      return rows.filter(r => CITIES_SET.has(String((r || {})[cityField] || "")));
+      const hit = rows.filter(r => canonPeerCity((r || {})[cityField]) || canonPeerCity((r || {}).城市));
+      return hit.length ? hit : rows;
     }
     function renderPeerCompare(cities) {
       const sec = document.getElementById("peerCompareSection");
@@ -2553,10 +2569,10 @@
         body.innerHTML = `<p class="desc">暂无「同分群数值对比」数据。请先运行独立同步脚本导入 Excel 子表。</p>`;
         return;
       }
-      const cityField = detectPeerCityField(headers, rows);
+      const cityField = p.cityField || detectPeerCityField(headers, rows);
       const cityRows = peerCompareFilteredRows(rows, cityField);
       const numericFields = detectPeerNumericFields(headers, cityRows, cityField);
-      const cityNames = cityRows.map(r => String(r[cityField] || "")).filter(Boolean);
+      const cityNames = cityRows.map(r => canonPeerCity(r[cityField]) || canonPeerCity(r.城市) || String(r[cityField] || "")).filter(Boolean);
       if (!peerCompareMetric || !numericFields.includes(peerCompareMetric)) peerCompareMetric = numericFields[0] || "";
       if (!peerCompareBaseCity || !cityNames.includes(peerCompareBaseCity)) {
         const activeOne = (cities || []).length === 1 ? cities[0].name : "";
