@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -643,6 +644,11 @@ def main():
     new_html = new_html.replace(
         "能力指标同步自初心「新商评观测」（2026-07-27）；测评成绩实时拉取集合「新商评测试结果」· 川藏一区",
         footer_new,
+    )
+    new_html = re.sub(
+        r"能力指标同步自初心「新商考核 / 模块数据汇总表」（\d{4}-\d{2}-\d{2}）；测评成绩另见集合「新商评测试结果」",
+        footer_new,
+        new_html,
     )
     for p in HTMLS:
         p.write_text(new_html, encoding="utf-8")
