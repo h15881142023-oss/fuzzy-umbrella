@@ -298,6 +298,89 @@ def fmt_num_delta(v, digits=4):
     return f"{sign}{text}"
 
 
+UNUSABLE_VALUES = NA_BANDS | {"不考核", "None", "nan"}
+
+
+def parse_numeric(v):
+    """返回 (数值, 是否百分数)。无法解析则 (None, False)。"""
+    if isinstance(v, bool) or v is None:
+        return None, False
+    if isinstance(v, (int, float)):
+        if isinstance(v, float) and (v != v):  # NaN
+            return None, False
+        return float(v), False
+    s = str(v).strip().replace(",", "").replace(" ", "")
+    if not s or s in UNUSABLE_VALUES:
+        return None, False
+    is_pct = s.endswith("%")
+    if is_pct:
+        s = s[:-1]
+    try:
+        return float(s), is_pct
+    except ValueError:
+        return None, False
+
+
+def mom_auto(cur, prev):
+    """用本期 vs 上期指标值计算环比：百分数用 pp，整数用个数，其余用数值差。"""
+    a, ap = parse_numeric(cur)
+    b, bp = parse_numeric(prev)
+    if a is None or b is None:
+        return None
+    if ap or bp:
+        return fmt_pp(a - b)
+    if abs(a - round(a)) < 1e-9 and abs(b - round(b)) < 1e-9:
+        return fmt_num_delta(a - b, digits=0)
+    return fmt_num_delta(a - b)
+
+
+def mom_pref(*officials, cur=None, prev=None):
+    """优先用数据源现成期环比列，没有则用本期/上期值相减。"""
+    for v in officials:
+        if blank(v) or show(v) in UNUSABLE_VALUES:
+            continue
+        s = show(v)
+        if s.endswith("%"):
+            return fmt_pp(s)
+        return fmt_num_delta(s)
+    return mom_auto(cur, prev)
+
+
+MOM_LAYOUT_NAMES = {
+    "市场开发率(订单量)",
+    "市场开发率(GTV)",
+    "餐饮商家渗透率",
+    "团购市场开发率",
+    "优质商家渗透率",
+    "推单完成率",
+    "压力天出勤率",
+    "超45分钟订单占比",
+    "日均零售 YOY",
+    "优质仓数达标情况",
+    "外卖BD满编率",
+    "团购BD满编率",
+    "外卖BD效能",
+    "团购BD效能",
+    "高效能BD流失率",
+    "关键岗位认证通过率(城)",
+    "外卖BD件均成本",
+    "外卖货币化率",
+    "团购货币化率",
+    "用户投诉商家问题万服排名",
+    "用户投诉履约问题万服排名",
+    "月外卖虚假业绩占比",
+    "月团购虚假业绩占比",
+    "月异常骑手率",
+}
+
+
+def enable_layout_mom(layouts: dict) -> None:
+    for items in (layouts or {}).values():
+        for item in items:
+            if item.get("name") in MOM_LAYOUT_NAMES:
+                item["mom"] = True
+
+
 def metric(value, band=None, value_delta=None, warn_delta=None):
     rec = {"value": show(value)}
     if band is not None and not blank(band):
@@ -324,11 +407,23 @@ def pick_latest_board(cols, rows):
     return out
 
 
-def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, waimai: dict | None, tuango: dict | None, online_map: dict | None = None):
+def apply_city(
+    dst: dict,
+    summary: dict,
+    prev: dict | None,
+    board: dict | None,
+    waimai: dict | None,
+    tuango: dict | None,
+    online_map: dict | None = None,
+    waimai_prev: dict | None = None,
+    tuango_prev: dict | None = None,
+):
     prev = prev or {}
     board = board or {}
     waimai = waimai or {}
     tuango = tuango or {}
+    waimai_prev = waimai_prev or {}
+    tuango_prev = tuango_prev or {}
     online_map = online_map or {}
 
     dst["level"] = show(summary.get("城市等级"), dst.get("level") or "—")
@@ -398,22 +493,37 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
             "市场开发率(订单量)": metric(
                 wm_order_val,
                 wm_order_band,
-                fmt_pp(board.get("期环比-市场开发率（订单）")),
+                mom_pref(
+                    board.get("期环比-市场开发率（订单）"),
+                    cur=wm_order_val,
+                    prev=prev.get("市场开发率（订单）指标值-外卖"),
+                ),
                 None if is_na_band(wm_order_band) else wd("外卖"),
             ),
             "市场开发率(GTV)": metric(
                 wm_gtv_val,
                 wm_gtv_band,
-                fmt_pp(board.get("期环比-市场开发率（实付）")),
+                mom_pref(
+                    board.get("期环比-市场开发率（实付）"),
+                    cur=wm_gtv_val,
+                    prev=prev.get("市场开发率（实付）指标值-外卖"),
+                ),
                 None if is_na_band(wm_gtv_band) else wd("外卖"),
             ),
             "餐饮商家渗透率": metric(
                 summary.get("餐饮商家渗透率指标值-外卖") or summary.get("餐饮商家渗透率"),
                 summary.get("餐饮商家渗透率-外卖"),
-                fmt_pp(board.get("期环比-餐饮商家渗透率")),
+                mom_pref(
+                    board.get("期环比-餐饮商家渗透率"),
+                    cur=summary.get("餐饮商家渗透率指标值-外卖") or summary.get("餐饮商家渗透率"),
+                    prev=prev.get("餐饮商家渗透率指标值-外卖") or prev.get("餐饮商家渗透率"),
+                ),
                 wd("外卖"),
             ),
-            "月交易商家数": metric(waimai.get("交易商家数"), value_delta=None),
+            "月交易商家数": metric(
+                waimai.get("交易商家数"),
+                value_delta=mom_pref(cur=waimai.get("交易商家数"), prev=waimai_prev.get("交易商家数")),
+            ),
             "月在线商家数": metric(online_shown or waimai.get("公海商家数"), value_delta=None),
             "月动销率": metric(calc_dongxiao(waimai.get("交易商家数"), online_val if online_val is not None else waimai.get("公海商家数"))),
         },
@@ -421,41 +531,91 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
             "日均零售 YOY": metric(
                 summary.get("YoY指标值-零售") or summary.get("日均零售YOY"),
                 summary.get("YoY-零售预警"),
-                fmt_pp(board.get("期环比-零售YoY")),
+                mom_pref(
+                    board.get("期环比-零售YoY"),
+                    cur=summary.get("YoY指标值-零售") or summary.get("日均零售YOY"),
+                    prev=prev.get("YoY指标值-零售") or prev.get("日均零售YOY"),
+                ),
                 wd("零售"),
             ),
-            "优质仓数达标情况": metric(summary.get("优质仓数达标情况")),
+            "优质仓数达标情况": metric(
+                summary.get("优质仓数达标情况"),
+                value_delta=mom_pref(cur=summary.get("优质仓数达标情况"), prev=prev.get("优质仓数达标情况")),
+            ),
         },
         "团购": {
             "团购市场开发率": metric(
                 "—" if not dst["hasTuango"] else (summary.get("市场开发率指标值-团购") or summary.get("团购市场开发率GAP")),
                 "不预警" if not dst["hasTuango"] else summary.get("市场开发率-团购"),
-                "—" if not dst["hasTuango"] else fmt_pp(board.get("期环比-团购市场开发率") or tuango.get("本月市场开发率期环比")),
+                None
+                if not dst["hasTuango"]
+                else mom_pref(
+                    board.get("期环比-团购市场开发率"),
+                    tuango.get("本月市场开发率期环比"),
+                    cur=summary.get("市场开发率指标值-团购"),
+                    prev=prev.get("市场开发率指标值-团购"),
+                ),
                 None if not dst["hasTuango"] else wd("团购"),
             ),
             "优质商家渗透率": metric(
                 "—" if not dst["hasTuango"] else (summary.get("优质商家渗透率指标值-团购") or summary.get("优质商家渗透率") or summary.get("4N_1动销率")),
                 "不预警" if not dst["hasTuango"] else summary.get("优质商家渗透率-团购"),
-                "—" if not dst["hasTuango"] else fmt_pp(board.get("期环比-团购优质商家渗透率") or tuango.get("优质商家渗透率期环比")),
+                None
+                if not dst["hasTuango"]
+                else mom_pref(
+                    board.get("期环比-团购优质商家渗透率"),
+                    tuango.get("优质商家渗透率期环比"),
+                    cur=summary.get("优质商家渗透率指标值-团购") or summary.get("优质商家渗透率"),
+                    prev=prev.get("优质商家渗透率指标值-团购") or prev.get("优质商家渗透率"),
+                ),
                 None if not dst["hasTuango"] else wd("团购"),
             ),
             "4n+1货架达标数": metric("—"),
-            "4n+1达标商家动销数": metric("—" if not dst["hasTuango"] else tuango.get("4N+1动销商家数")),
-            "整体商家数": metric("—" if not dst["hasTuango"] else tuango.get("整体商家数")),
-            "智能点餐占比": metric("—" if not dst["hasTuango"] else (tuango.get("智能点餐占比") or summary.get("智能点餐占比"))),
+            "4n+1达标商家动销数": metric(
+                "—" if not dst["hasTuango"] else tuango.get("4N+1动销商家数"),
+                value_delta=None
+                if not dst["hasTuango"]
+                else mom_pref(cur=tuango.get("4N+1动销商家数"), prev=tuango_prev.get("4N+1动销商家数")),
+            ),
+            "整体商家数": metric(
+                "—" if not dst["hasTuango"] else tuango.get("整体商家数"),
+                value_delta=None
+                if not dst["hasTuango"]
+                else mom_pref(cur=tuango.get("整体商家数"), prev=tuango_prev.get("整体商家数")),
+            ),
+            "智能点餐占比": metric(
+                "—" if not dst["hasTuango"] else (tuango.get("智能点餐占比") or summary.get("智能点餐占比")),
+                value_delta=None
+                if not dst["hasTuango"]
+                else mom_pref(
+                    cur=tuango.get("智能点餐占比") or summary.get("智能点餐占比"),
+                    prev=tuango_prev.get("智能点餐占比") or prev.get("智能点餐占比"),
+                ),
+            ),
         },
         "履约": {
             "推单完成率": metric(
                 summary.get("推单完成率指标值-履约") or summary.get("推单完成率"),
                 summary.get("推单完成率排名-履约"),
-                fmt_pp(board.get("期环比-推单完成率")),
+                mom_pref(
+                    board.get("期环比-推单完成率"),
+                    cur=summary.get("推单完成率指标值-履约") or summary.get("推单完成率"),
+                    prev=prev.get("推单完成率指标值-履约") or prev.get("推单完成率"),
+                ),
                 wd("履约"),
             ),
-            "压力天出勤率": metric(summary.get("压力天出勤率")),
+            "压力天出勤率": metric(
+                summary.get("压力天出勤率"),
+                value_delta=mom_pref(cur=summary.get("压力天出勤率"), prev=prev.get("压力天出勤率")),
+            ),
             "超45分钟订单占比": metric(
                 summary.get("超45分钟订单占比指标值-履约") or summary.get("超45分钟订单占比"),
                 summary.get("超45分钟订单占比-履约"),
-                fmt_pp(board.get("期环比-超45分钟订单占比")),
+                mom_pref(
+                    board.get("期环比-超45分钟订单占比"),
+                    cur=summary.get("超45分钟订单占比指标值-履约") or summary.get("超45分钟订单占比"),
+                    prev=prev.get("超45分钟订单占比指标值-履约") or prev.get("超45分钟订单占比"),
+                ),
                 wd("履约"),
             ),
         },
@@ -463,44 +623,94 @@ def apply_city(dst: dict, summary: dict, prev: dict | None, board: dict | None, 
             "用户投诉商家问题万服排名": metric(
                 summary.get("用户商家万服分群排名") or summary.get("用户体验_用户投诉商家问题万服差值"),
                 summary.get("用户体验_用户投诉商家问题万服差值排名"),
-                fmt_num_delta(board.get("期环比-用户投诉商家问题万服")),
+                mom_pref(
+                    board.get("期环比-用户投诉商家问题万服"),
+                    cur=summary.get("用户商家万服分群排名") or summary.get("用户体验_用户投诉商家问题万服差值"),
+                    prev=prev.get("用户商家万服分群排名") or prev.get("用户体验_用户投诉商家问题万服差值"),
+                ),
                 wd("用户体验"),
             ),
             "用户投诉履约问题万服排名": metric(
                 summary.get("用户履约万服分群排名") or summary.get("用户体验_用户投诉履约问题万服差值"),
                 summary.get("用户体验_用户投诉履约问题万服差值排名"),
-                fmt_num_delta(board.get("期环比-用户投诉履约问题万服")),
+                mom_pref(
+                    board.get("期环比-用户投诉履约问题万服"),
+                    cur=summary.get("用户履约万服分群排名") or summary.get("用户体验_用户投诉履约问题万服差值"),
+                    prev=prev.get("用户履约万服分群排名") or prev.get("用户体验_用户投诉履约问题万服差值"),
+                ),
                 wd("用户体验"),
             ),
         },
         "组织": {
-            "外卖BD满编率": metric(summary.get("外卖BD满编率")),
-            "团购BD满编率": metric(summary.get("团购BD满编率")),
-            "外卖BD效能": metric(summary.get("外卖BD效能(件)")),
-            "团购BD效能": metric(summary.get("团购BD效能（件）")),
-            "高效能BD流失率": metric(summary.get("高效能人员流失率")),
-            "关键岗位认证通过率(城)": metric(summary.get("关键岗位认证通过率(得分)")),
+            "外卖BD满编率": metric(
+                summary.get("外卖BD满编率"),
+                value_delta=mom_pref(cur=summary.get("外卖BD满编率"), prev=prev.get("外卖BD满编率")),
+            ),
+            "团购BD满编率": metric(
+                summary.get("团购BD满编率"),
+                value_delta=mom_pref(cur=summary.get("团购BD满编率"), prev=prev.get("团购BD满编率")),
+            ),
+            "外卖BD效能": metric(
+                summary.get("外卖BD效能(件)"),
+                value_delta=mom_pref(cur=summary.get("外卖BD效能(件)"), prev=prev.get("外卖BD效能(件)")),
+            ),
+            "团购BD效能": metric(
+                summary.get("团购BD效能（件）"),
+                value_delta=mom_pref(cur=summary.get("团购BD效能（件）"), prev=prev.get("团购BD效能（件）")),
+            ),
+            "高效能BD流失率": metric(
+                summary.get("高效能人员流失率"),
+                value_delta=mom_pref(cur=summary.get("高效能人员流失率"), prev=prev.get("高效能人员流失率")),
+            ),
+            "关键岗位认证通过率(城)": metric(
+                summary.get("关键岗位认证通过率(得分)"),
+                value_delta=mom_pref(cur=summary.get("关键岗位认证通过率(得分)"), prev=prev.get("关键岗位认证通过率(得分)")),
+            ),
             "关键岗位认证通过率(商)": metric("—"),
-            "外卖BD件均成本": metric(summary.get("BD件均做工成本")),
+            "外卖BD件均成本": metric(
+                summary.get("BD件均做工成本"),
+                value_delta=mom_pref(cur=summary.get("BD件均做工成本"), prev=prev.get("BD件均做工成本")),
+            ),
         },
         "商业增值": {
             "外卖货币化率": metric(
                 summary.get("外卖货币化率指标值-商业增值") or summary.get("外卖货币化率"),
                 summary.get("商业增值_外卖货币化率排名"),
-                fmt_pp(board.get("期环比-货币化率")),
+                mom_pref(
+                    board.get("期环比-货币化率"),
+                    cur=summary.get("外卖货币化率指标值-商业增值") or summary.get("外卖货币化率"),
+                    prev=prev.get("外卖货币化率指标值-商业增值") or prev.get("外卖货币化率"),
+                ),
                 wd("商业增值"),
             ),
             "团购货币化率": metric(
                 "—" if not dst["hasTuango"] else (summary.get("团购货币化率指标值-商业增值") or summary.get("团购货币化率")),
                 "不预警" if not dst["hasTuango"] else summary.get("商业增值_团购货币化率排名"),
-                None,
+                None
+                if not dst["hasTuango"]
+                else mom_pref(
+                    cur=summary.get("团购货币化率指标值-商业增值") or summary.get("团购货币化率"),
+                    prev=prev.get("团购货币化率指标值-商业增值") or prev.get("团购货币化率"),
+                ),
                 None if not dst["hasTuango"] else wd("商业增值"),
             ),
         },
         "综合治理": {
-            "月外卖虚假业绩占比": metric(summary.get("月外卖虚假业绩占比"), summary.get("综合治理能力预警")),
-            "月团购虚假业绩占比": metric("—" if not dst["hasTuango"] else summary.get("月团购虚假业绩占比")),
-            "月异常骑手率": metric(summary.get("月异常骑手率")),
+            "月外卖虚假业绩占比": metric(
+                summary.get("月外卖虚假业绩占比"),
+                summary.get("综合治理能力预警"),
+                mom_pref(cur=summary.get("月外卖虚假业绩占比"), prev=prev.get("月外卖虚假业绩占比")),
+            ),
+            "月团购虚假业绩占比": metric(
+                "—" if not dst["hasTuango"] else summary.get("月团购虚假业绩占比"),
+                value_delta=None
+                if not dst["hasTuango"]
+                else mom_pref(cur=summary.get("月团购虚假业绩占比"), prev=prev.get("月团购虚假业绩占比")),
+            ),
+            "月异常骑手率": metric(
+                summary.get("月异常骑手率"),
+                value_delta=mom_pref(cur=summary.get("月异常骑手率"), prev=prev.get("月异常骑手率")),
+            ),
             "安全事件扣分情况": metric("—"),
         },
     }
@@ -558,10 +768,10 @@ def fetch_metabase():
         cols, rows = query_card(spec, iso)
         tables[name] = {"cols": cols, "rows": rows}
         dump[name] = {"cols": cols, "n": len(rows)}
-        if name == "summary" and prev_day:
+        if prev_day and name in {"summary", "waimai", "tuango"}:
             pcols, prows = query_card(spec, prev_day + "T00:00:00+08:00")
-            tables["summary_prev"] = {"cols": pcols, "rows": prows}
-            dump["summary_prev"] = {"cols": pcols, "n": len(prows), "date": prev_day}
+            tables[f"{name}_prev"] = {"cols": pcols, "rows": prows}
+            dump[f"{name}_prev"] = {"cols": pcols, "n": len(prows), "date": prev_day}
     (CACHE / "metabase_latest.json").write_text(json.dumps({"meta": dump, "tables": tables}, ensure_ascii=False), encoding="utf-8")
     return day, prev_day, tables
 
@@ -580,6 +790,12 @@ def main():
     board = pick_latest_board(tables["cityboard"]["cols"], tables["cityboard"]["rows"])
     waimai = rows_to_city_map(tables["waimai"]["cols"], tables["waimai"]["rows"])
     tuango = rows_to_city_map(tables["tuango"]["cols"], tables["tuango"]["rows"])
+    waimai_prev = rows_to_city_map(
+        tables.get("waimai_prev", {}).get("cols") or [], tables.get("waimai_prev", {}).get("rows") or []
+    )
+    tuango_prev = rows_to_city_map(
+        tables.get("tuango_prev", {}).get("cols") or [], tables.get("tuango_prev", {}).get("rows") or []
+    )
     online_map = load_powerbi_online()
 
     missing = [c for c in CITIES if c not in summary]
@@ -628,9 +844,20 @@ def main():
     for name in CITIES:
         city = by_name.get(name) or {"name": name}
         city["name"] = name
-        apply_city(city, summary[name], prev.get(name), board.get(name), waimai.get(name), tuango.get(name), online_map)
+        apply_city(
+            city,
+            summary[name],
+            prev.get(name),
+            board.get(name),
+            waimai.get(name),
+            tuango.get(name),
+            online_map,
+            waimai_prev.get(name),
+            tuango_prev.get(name),
+        )
         new_cities.append(city)
     data["cities"] = new_cities
+    enable_layout_mom(data.get("layouts") or {})
 
     new_json = json.dumps(data, ensure_ascii=False, indent=2)
     new_html = html[:start] + new_json + html[end:]
