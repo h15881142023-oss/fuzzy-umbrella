@@ -1,0 +1,27 @@
+{
+  "name": "川藏一区Todo周报（本机）",
+  "description": "本机 launchd：周一/周四 14:00 抓取 KPI 待办，标红推送企微。请停用旧 Cloud Automation。",
+  "workflow": {
+    "triggers": [
+      {
+        "cron": {
+          "cron": "0 14 * * 1,4"
+        }
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      {
+        "text": "本任务已迁移到本机 launchd，不要在云端执行。\n\n请确认：\n1. 本机已安装：bash scripts/install_kpi_todo_launchd.sh\n2. 旧 Cloud Automation「川藏一区Todo周报」已停用\n3. 手动试跑：bash scripts/run_kpi_todo_local.sh\n\n若仍由 Agent 执行，必须在本机工作区跑：\nbash scripts/run_kpi_todo_local.sh\n禁止云端 VM 抓取。"
+      }
+    ],
+    "gitConfig": {
+      "repo": "h15881142023-oss/fuzzy-umbrella",
+      "branch": "main"
+    },
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": false
+  }
+}

@@ -1,6 +1,9 @@
-# Cursor Cloud Agent — 拜访检核日更
+# 拜访检核日更 — 已迁移本机
 
-每天在 **Cloud** 环境执行（Excel 只落云端工作区，禁止下载到用户本机 Downloads）。
+> **推荐**：本机 launchd，见 `scripts/LOCAL_AUTOMATIONS.md` 与 `scripts/run_visit_check_local.sh`。  
+> 请停用 Cursor Cloud Automation「拜访检核日更（Cloud）」。
+
+以下步骤保留作排查参考。Excel 落仓库 `data/visit_exports/`。
 
 ## 目标
 1. 登录业务后台并导出昨天「川藏一区」拜访数据

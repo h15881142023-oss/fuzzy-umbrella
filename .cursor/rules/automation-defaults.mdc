@@ -1,0 +1,42 @@
+---
+description: 川藏一区自动化任务默认凭证、部署环境与企微推送规则
+alwaysApply: true
+---
+
+# 自动化默认规则
+
+## 业务后台登录
+
+- 默认账号：`qiaoxianhai`
+- 默认密码：`123`
+- 登录页：`http://47.112.178.78:13000/signin`
+- **用户提供的网址若未单独说明账号密码**：视为不需要登录，或一律使用上述默认账号密码；**禁止再向用户索要账号密码**。
+
+## 企业微信推送
+
+- 默认 Webhook（Todo 周报等）：`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb`
+- **利润填写推送**（23:30，填表+五城图）：`LR_WECOM_WEBHOOK` = `key=103699eb-8cd7-4af8-9fbe-46f01d315abb`
+- **利润数据源推送**（23:15，仅原始 Excel）：`LR_DATASOURCE_WECOM_WEBHOOK` = `key=c44fb1bf-ec7d-4c14-a397-7c9db0ac5a4f`
+- 上述两个 LR 任务**禁止合并**为同一脚本/同一调度。
+- 推送到企微的定时自动任务，**默认在本机执行**（Windows 用任务计划程序，Mac 用 launchd；见 `scripts/LOCAL_AUTOMATIONS.md`）。
+- **禁止再向用户询问部署环境**。
+
+## 执行约束（本机）
+
+- 禁止中途 AskQuestion / 需求对齐；缺信息用默认值继续。
+- 文件落在仓库工作区（`data/`、`lr/output/`、`kpi_todo/output/`），不要散落到无关目录。
+- 失败或无数据时也必须推送企微文字说明（各任务 `--notify-only` 或等价方式）。
+
+## 任务别名
+
+- **KPI 待办进度** = 「川藏一区Todo周报」= 用户口中的「自配检核」待办表（后台页 `itgnwhaar7u`）
+- **LR 日报** = 「LR日报日更」+「日利润数据源推送」（同一本机流水线）
+- **拜访检核日更** = Cloud 同名任务的本机版
+- **自配门店早间监控** = 默认复用代补早间抓取，可用 `CZ_STORE_MORNING_CMD` 覆盖
+
+## 相关文档
+
+- 本机总览：`scripts/LOCAL_AUTOMATIONS.md`
+- KPI 待办进度：`scripts/KPI_TODO_CLOUD_AGENT.md`
+- 拜访检核日更：`scripts/VISIT_CHECK_CLOUD_AGENT.md`
+- LR 日报：`scripts/LR_DAILY_CLOUD_AGENT.md`

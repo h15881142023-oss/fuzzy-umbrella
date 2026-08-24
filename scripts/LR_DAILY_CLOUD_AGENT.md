@@ -1,14 +1,18 @@
-# Cursor Cloud Agent — LR 日报（23:30）
+# LR 日报（23:30）— 已迁移本机
 
-每天在 **Cloud** 环境执行。数据量小，**直接从网页表格抓取**，不点导出。
+> **推荐**：本机 launchd，见 `scripts/LOCAL_AUTOMATIONS.md` 与 `scripts/run_lr_daily_local.sh`。  
+> 请停用 Cursor Cloud Automation「LR日报日更」「日利润数据源推送」。
+
+以下步骤保留作排查参考。数据量小，**直接从网页表格抓取**，不点导出。
 
 ## 目标
 
 1. 登录业务后台，打开「LR日利润表数据」
 2. 筛选：区域=`川藏一区`，日期=`昨天`
 3. 抓取表格 headers + rows → JSON
-4. 写入模板 `数据源(日)`（五城按列匹配）
-5. 生成「看板-单城」截图 + 填好 Excel，推送企业微信
+4. 写入模板 `数据源(日)`（五城按列匹配；只写录入列，保留公式）
+5. Windows 用 WPS/Excel 重算，切换五城导出「看板-单城」PNG
+6. 企微只推 5 张图 + Excel（无 markdown 文案）
 
 ## 步骤
 
@@ -20,7 +24,7 @@
 
 ### 1. 打开看板并筛选
 
-1. 打开 `http://47.112.178.78:13000/admin/g303bjgeytq`
+1. 打开 `http://www.chuxin.city/v/admin/g303bjgeytq`
 2. 区域填 `川藏一区`；城市留空（抓五城）
 3. 日期选 `昨天`（或等价「昨日」选项）
 4. 等待表格刷新（约 30–60 秒）
@@ -68,7 +72,7 @@ python lr/run_daily.py --scrape-json data/lr_scrape/latest.json
 ```
 ADMIN_USER=你的用户名或邮箱
 ADMIN_PASSWORD=你的后台密码
-WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb
+LR_WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb
 LR_TEMPLATE_PATH=lr/templates/LR日报总表模版5.4版(川藏一区).xlsx
 ```
 
