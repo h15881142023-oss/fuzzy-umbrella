@@ -134,23 +134,6 @@ python scrapers/scrape_meituan_cdp.py
 
 `scrapers/*.py` 已接入 CDP；若页面结构特殊，请用 `discover_meituan_apis.py` 补齐 `meituan_endpoints.json`。
 
-## 利润填写推送
-
-| 任务 | 时间 | 脚本 | 做什么 |
-|---|---|---|---|
-| **利润填写推送** | 每天 23:30 | `scripts/run_lr_profit_fill_local.ps1` | 抓取 → 写入模板 → WPS 五城看板图 → 企微 5 图 + Excel |
-
-> 原「利润数据源推送」（23:15）已删除停用。
-
-后台表：[LR日利润表](http://www.chuxin.city/v/admin/g303bjgeytq)
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -TargetDate 2026-07-22
-```
-
-- 本机总览：`scripts/LOCAL_AUTOMATIONS.md`
-- 说明：`scripts/LR_DAILY_CLOUD_AGENT.md`
-
 ## KPI / Todo 周报
 
 每周一、周四 **14:00** 本机抓取 [KPI 待办页](http://47.112.178.78:13000/admin/itgnwhaar7u) → 标红图片 → 企微。

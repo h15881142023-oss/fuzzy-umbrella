@@ -20,12 +20,11 @@ $files = @(
     "lr/kanban_image.py",
     "lr/run_daily.py",
     "lr/write_kanban_export_cfg.py",
+    "lr/prepare_kanban_city.py",
     "lr/verify_kanban_pngs.py",
     "scripts/export_lr_kanban_wps.ps1",
     "scripts/run_lr_kanban_export.ps1",
-    "scripts/run_lr_profit_fill_local.ps1",
     "scripts/run_lr_kanban_push_existing.ps1",
-    "scripts/run_lr_profit_fill_backfill.ps1",
     "scripts/_local_common.ps1",
     "scripts/diagnose_wps_com.ps1",
     "requirements.txt"
@@ -68,4 +67,4 @@ if (Test-Path $py) {
 Write-Host ""
 Write-Host "Hotfix files synced to commit $short."
 Write-Host "Next:"
-Write-Host "  .\.venv\Scripts\python.exe lr\run_daily.py --scrape-json data\lr_scrape\latest.json --target-date 2026-07-22"
+Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-08-16"

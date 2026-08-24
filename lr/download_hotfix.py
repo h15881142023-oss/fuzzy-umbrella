@@ -32,23 +32,24 @@ FILES = [
     "scripts/export_lr_kanban_wps.ps1",
     "scripts/run_lr_kanban_export.ps1",
     "scripts/run_lr_kanban_push_existing.ps1",
-    "scripts/run_lr_profit_fill_local.ps1",
-    "scripts/run_lr_profit_fill_backfill.ps1",
     "scripts/install_lr_new_template.ps1",
-    "scripts/run_aug_tuangou_once.ps1",
     "scripts/uninstall_lr_datasource_task.ps1",
     "scripts/run_store_morning_monitor_local.ps1",
     "scripts/start_chrome_powerbi.ps1",
     "scripts/run_visit_check_local.ps1",
     "scripts/run_kpi_todo_local.ps1",
     "scripts/install_local_automations_windows.ps1",
-    "scripts/install_lr_profit_fill_once.ps1",
 ]
 
 # 已删除任务：拉 hotfix 时顺带清掉本机残留
 OBSOLETE = [
     "scripts/run_lr_datasource_local.ps1",
     "lr/run_datasource_push.py",
+    "scripts/run_lr_profit_fill_local.ps1",
+    "scripts/run_lr_profit_fill_backfill.ps1",
+    "scripts/install_lr_profit_fill_once.ps1",
+    "scripts/run_lr_daily_local.ps1",
+    "scripts/run_aug_tuangou_once.ps1",
 ]
 
 
@@ -122,7 +123,6 @@ def main() -> int:
             print(f"REMOVED obsolete {p}")
 
     required = [
-        "scripts/run_lr_profit_fill_local.ps1",
         "scripts/run_store_morning_monitor_local.ps1",
         "scripts/run_visit_check_local.ps1",
         "scripts/run_kpi_todo_local.ps1",

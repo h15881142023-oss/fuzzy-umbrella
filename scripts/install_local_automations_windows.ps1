@@ -111,10 +111,6 @@ Register-CzTask -Name "ChuanzangStoreMorningLocal" `
     -ScriptRel "scripts\run_store_morning_monitor_local.ps1" `
     -Schedule DAILY -StartTime "08:30"
 
-Register-CzTask -Name "ChuanzangLrProfitFillLocal" `
-    -ScriptRel "scripts\run_lr_profit_fill_local.ps1" `
-    -Schedule DAILY -StartTime "23:30"
-
 Register-CzTask -Name "ChuanzangKpiTodoMonLocal" `
     -ScriptRel "scripts\run_kpi_todo_local.ps1" `
     -Schedule WEEKLY -DayOfWeek Monday -StartTime "14:00"
@@ -125,8 +121,6 @@ Register-CzTask -Name "ChuanzangKpiTodoThuLocal" `
 
 Write-Host ""
 Write-Host "All Windows scheduled tasks installed."
-Write-Host "LR:"
-Write-Host "  ChuanzangLrProfitFillLocal  23:30  profit-fill (datasource task removed)"
 Write-Host "Verify:"
 Write-Host "  Get-ScheduledTask -TaskName ChuanzangLr*"
 Write-Host "Docs: scripts\LOCAL_AUTOMATIONS.md"

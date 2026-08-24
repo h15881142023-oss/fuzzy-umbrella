@@ -10,7 +10,6 @@
 | Automations / 业务名 | Windows 脚本 | 时间 | 说明 |
 |---|---|---|---|
 | 川藏一区Todo周报 | `scripts/run_kpi_todo_local.ps1` | 周一/周四 14:00 | |
-| **利润填写推送**（原 LR日报日更） | `scripts/run_lr_profit_fill_local.ps1` | 每天 **23:30** | 填 `数据源(日)` + 团购利润 → WPS 五城看板 → 企微 5 图 + Excel |
 | 拜访检核日更 | `scripts/run_visit_check_local.ps1` | 每天 09:00 | |
 | 自配门店早间监控 | `scripts/run_store_morning_monitor_local.ps1` | 每天 08:30 | |
 
@@ -21,7 +20,7 @@
 ### 前置
 
 1. 已安装 [Python 3](https://www.python.org/downloads/)，安装时勾选 **Add python.exe to PATH**
-2. 本机已有本仓库代码；利润填写推送需安装 **WPS**
+2. 本机已有本仓库代码
 
 ### 安装定时任务
 
@@ -43,25 +42,6 @@ powershell -ExecutionPolicy Bypass -File scripts\uninstall_local_automations_win
 ### 手动试跑
 
 ```powershell
-# 利润填写推送（填表+五城图+Excel）
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_local.ps1 -TargetDate 2026-07-22
-
-# 探测 32 位 PowerShell（必须 Bypass，否则 Restricted 策略会加载失败）
-powershell -ExecutionPolicy Bypass -NoProfile -Command ". .\scripts\_local_common.ps1; Get-WpsMatchedPowerShell"
-
-# 表已填好但看板导出失败时：只导出+推送，不要再 scrape
-# 先同步 hotfix（把 SHA 换成最新 short sha）
-$sha = "REPLACE_SHA"
-.\.venv\Scripts\python.exe -c "import urllib.request; urllib.request.urlretrieve('https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@$sha/lr/download_hotfix.py','lr/download_hotfix.py'); print('ok')"
-.\.venv\Scripts\python.exe lr\download_hotfix.py $sha
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_kanban_push_existing.ps1 -TargetDate 2026-08-16
-
-# 补齐利润填写推送：默认 2026-07-22 .. 2026-07-25（含），单日失败继续下一天
-# 看板导出在 PowerShell -STA 线程（剪贴板），勿用管理员窗口
-powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1
-# 或指定区间：
-# powershell -ExecutionPolicy Bypass -File scripts\run_lr_profit_fill_backfill.ps1 -FromDate 2026-07-20 -ToDate 2026-07-25
-
 powershell -ExecutionPolicy Bypass -File scripts\run_kpi_todo_local.ps1
 powershell -ExecutionPolicy Bypass -File scripts\run_visit_check_local.ps1
 
@@ -96,7 +76,6 @@ Get-Content logs\store_morning_monitor_local.log -Tail 50 -Encoding UTF8
 ### 查看是否装上
 
 ```powershell
-schtasks /Query /TN ChuanzangLrProfitFillLocal
 schtasks /Query /TN ChuanzangStoreMorningLocal
 schtasks /Query /TN ChuanzangVisitCheckLocal
 ```
@@ -107,12 +86,10 @@ schtasks /Query /TN ChuanzangVisitCheckLocal
 
 | 任务 | 环境变量 | 默认 key |
 |---|---|---|
-| 利润填写推送 | `LR_WECOM_WEBHOOK` | `103699eb-...` |
 | Todo 周报 | `WECOM_WEBHOOK` | `103699eb-...` |
 
 ## 日志
 
-- `logs/lr_profit_fill_local.log` — 利润填写推送
 - `logs/kpi_todo_local.log`
 - `logs/visit_check_local.log`
 - `logs/store_morning_monitor_local.log`
