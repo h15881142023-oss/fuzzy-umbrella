@@ -54972,7 +54972,7 @@
       }
       const chase = higherBetter ? (targetVal - baseVal) : (baseVal - targetVal);
       if (gapMode === "yoy_catchup") {
-        // 月累计 = 本城基期×(1+对比差值)×当月天数 − 本城日均×(当月天数−模块日+2)
+        // 月累计 = 本城基期×(1+对比差值)×当月天数 − 本城日均×(模块日+2)
         // 对比差值用目标本期−本城本期（与「对比目标城市差值」一致）
         const parts = peerMonthParts(moduleDate, (DATA.peerCompare || {}).periodDate);
         const basePeriod = toNum(baseBlock && baseBlock.gapDenom);
