@@ -180,7 +180,7 @@ cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1
 ```
 
-页面中该模块默认隐藏，点击顶部按钮「同分群数值对比（需密码）」并输入 `chuanyi006` 后可查看（本地记忆解锁状态）。本城只选五城，对比名单为同一分群下的全部城市。
+页面中该模块默认展开可查看，顶部按钮可收起/展开。本城只选五城，对比名单为同一分群下的全部城市。
 
 首次启用 GitHub Pages：
 

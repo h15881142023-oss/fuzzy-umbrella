@@ -44,4 +44,4 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 Write-Host ""
 Write-Host "[OK] 同分群数值对比模块已同步（Metabase 各模块页）"
 Write-Host "Open: https://1.chuanzangyiqu.top/evaluation/xinshang"
-Write-Host "Then click: 同分群数值对比（需密码） and input chuanyi006"
+Write-Host "Then open dashboard and use button: 同分群数值对比 (no password)"
