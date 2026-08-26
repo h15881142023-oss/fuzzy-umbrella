@@ -1,9 +1,12 @@
-# 独立同步「同分群数值对比」模块（不影响主看板常规同步）
+# 独立同步「同分群数值对比」模块（从初心新商考核各模块页拉取，不影响主看板常规同步）
 # 用法：
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1
-#   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1 -XlsxPath "D:\...\新商考核体系1.1(202607281658).xlsx"
+#   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1 -Date 2026-08-24
+#
+# 已停用 Excel 同步。旧参数 -XlsxPath 会被忽略。
 
 param(
+  [string]$Date = "",
   [string]$XlsxPath = ""
 )
 
@@ -27,19 +30,18 @@ if (-not $python) {
   exit 1
 }
 
-if ($XlsxPath -and -not (Test-Path $XlsxPath)) {
-  Write-Host ("[BAD] Excel not found: " + $XlsxPath)
-  exit 1
+if ($XlsxPath) {
+  Write-Host "[WARN] Excel 同步已停用，忽略 -XlsxPath。改从新商考核各模块页拉取。"
 }
 
-if ($XlsxPath) {
-  & $python "scripts\sync_peer_compare_from_excel.py" --xlsx $XlsxPath
+if ($Date) {
+  & $python "scripts\sync_peer_compare_from_chuxin.py" --date $Date
 } else {
-  & $python "scripts\sync_peer_compare_from_excel.py"
+  & $python "scripts\sync_peer_compare_from_chuxin.py"
 }
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""
-Write-Host "[OK] 同分群数值对比模块已同步"
+Write-Host "[OK] 同分群数值对比模块已同步（Metabase 各模块页）"
 Write-Host "Open: https://1.chuanzangyiqu.top/evaluation/xinshang"
 Write-Host "Then click: 同分群数值对比（需密码） and input chuanyi006"
