@@ -251,8 +251,8 @@
     "period": "2026年8月",
     "dataDate": "2026-08-24",
     "prevPeriod": "2026-08-20",
-    "scrapedAt": "2026-08-26T01:37:46.426282+00:00",
-    "testSyncAt": "2026-08-26T01:37:46.426282+00:00",
+    "scrapedAt": "2026-08-26T06:16:25.860898+00:00",
+    "testSyncAt": "2026-08-26T06:16:25.860898+00:00",
     "obsTitle": "新商考核 / 模块数据汇总表",
     "obsUpdatedAt": "2026-08-24",
     "richObsCount": null,
@@ -512,7 +512,8 @@
             "value": "843"
           },
           "月动销率": {
-            "value": "92.41%"
+            "value": "92.41%",
+            "valueDelta": "+0.6pp"
           }
         },
         "零售": {
@@ -705,7 +706,8 @@
             "value": "1,341"
           },
           "月动销率": {
-            "value": "83.30%"
+            "value": "83.30%",
+            "valueDelta": "+2.46pp"
           }
         },
         "零售": {
@@ -906,7 +908,8 @@
             "value": "579"
           },
           "月动销率": {
-            "value": "87.22%"
+            "value": "87.22%",
+            "valueDelta": "+1.38pp"
           }
         },
         "零售": {
@@ -1099,7 +1102,8 @@
             "value": "524"
           },
           "月动销率": {
-            "value": "77.10%"
+            "value": "77.10%",
+            "valueDelta": "+0.76pp"
           }
         },
         "零售": {
@@ -1303,7 +1307,8 @@
             "value": "429"
           },
           "月动销率": {
-            "value": "79.49%"
+            "value": "79.49%",
+            "valueDelta": "+1.63pp"
           }
         },
         "零售": {
@@ -33462,11 +33467,14 @@
     }
 
     function formatDeltaCell(d) {
-      const n = normalizeDelta(d);
+      if (d == null || d === "") return "—";
+      const s = String(d).trim();
+      if (["持平", "flat", "—", "-"].includes(s)) return "—";
+      const n = normalizeDelta(s);
       if (n === "up") return `<span class="warn-cell"><span class="delta up">↑</span></span>`;
       if (n === "down") return `<span class="warn-cell"><span class="delta down">↓</span></span>`;
-      if (d == null || d === "" || n === "flat") return "—";
-      return String(d);
+      // 数值 0 / 0pp 原样展示，不再当成「无环比」
+      return s;
     }
 
     function collectSingleModuleRows(city, mod) {
@@ -33487,7 +33495,7 @@
             rows.push({
               metric: child,
               value: displayMetricValue(city, mod, child, cm),
-              valueDelta: child === "月动销率" ? null : metricValueDelta(cm),
+              valueDelta: metricValueDelta(cm),
               warnHtml: "—",
               isChild: true
             });

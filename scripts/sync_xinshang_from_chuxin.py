@@ -350,6 +350,8 @@ MOM_LAYOUT_NAMES = {
     "市场开发率(订单量)",
     "市场开发率(GTV)",
     "餐饮商家渗透率",
+    "月交易商家数",
+    "月动销率",
     "团购市场开发率",
     "优质商家渗透率",
     "推单完成率",
@@ -524,8 +526,12 @@ def apply_city(
                 waimai.get("交易商家数"),
                 value_delta=mom_pref(cur=waimai.get("交易商家数"), prev=waimai_prev.get("交易商家数")),
             ),
-            "月在线商家数": metric(online_shown or waimai.get("公海商家数"), value_delta=None),
-            "月动销率": metric(calc_dongxiao(waimai.get("交易商家数"), online_val if online_val is not None else waimai.get("公海商家数"))),
+            "月在线商家数": metric(
+                online_shown or waimai.get("公海商家数"),
+                # Power BI 在线商家数通常只有当期快照；无上期时无法算环比
+                value_delta=None,
+            ),
+            "月动销率": metric("—"),  # placeholder, filled below
         },
         "零售": {
             "日均零售 YOY": metric(
@@ -714,6 +720,13 @@ def apply_city(
             "安全事件扣分情况": metric("—"),
         },
     }
+    # 月动销率 = 交易商家数 / 在线商家数；环比用上期交易商家数与同一在线分母（或上期公海）自算
+    cur_online = online_val if online_val is not None else waimai.get("公海商家数")
+    prev_online = online_val if online_val is not None else waimai_prev.get("公海商家数")
+    cur_dx = calc_dongxiao(waimai.get("交易商家数"), cur_online)
+    prev_dx = calc_dongxiao(waimai_prev.get("交易商家数"), prev_online)
+    details["外卖"]["月动销率"] = metric(cur_dx, value_delta=mom_pref(cur=cur_dx, prev=prev_dx))
+
     # 团购货币化率排名为 0 时视为不预警
     tg_mon = details["商业增值"]["团购货币化率"]
     if show(tg_mon.get("band")) in {"0", "0.0"}:
