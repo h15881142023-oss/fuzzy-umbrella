@@ -50,6 +50,9 @@ MODULE_CARDS = {
 }
 
 # 现有看板 18 个同分群指标：模块页字段优先，汇总表作分群/预警与兜底
+# gap_*: 追平缺口底数。月累计 = 率差 × 本城分母；剩余日均 = 月累计 / 剩余天数。
+# gap_mode=daily_first：先算日均（率差×分母），月累计 = 日均 × 剩余天数（零售 YoY）。
+# higher_better=False：追平按「压降」口径，月累计 = (本城−目标) × 分母。
 METRIC_SPECS = [
     {
         "id": "外卖模块-市场开发率（订单）",
@@ -62,6 +65,10 @@ METRIC_SPECS = [
         "cluster_key": "外卖能力分群",
         "warn_keys": ["市场开发率（订单）-外卖"],
         "module_warn": "外卖模块预警",
+        "gap_denom_keys": ["行业月累积订单量"],
+        "gap_numer_keys": ["订单量"],
+        "gap_unit": "单",
+        "higher_better": True,
     },
     {
         "id": "外卖模块-市场开发率（实付",
@@ -74,6 +81,10 @@ METRIC_SPECS = [
         "cluster_key": "外卖能力分群",
         "warn_keys": ["市场开发率（实付）-外卖"],
         "module_warn": "外卖模块预警",
+        "gap_denom_keys": ["行业月累积GMV"],
+        "gap_numer_keys": ["实付交易额"],
+        "gap_unit": "元",
+        "higher_better": True,
     },
     {
         "id": "外卖模块-餐饮商家渗透率",
@@ -86,6 +97,11 @@ METRIC_SPECS = [
         "cluster_key": "外卖能力分群",
         "warn_keys": ["餐饮商家渗透率-外卖"],
         "module_warn": "外卖模块预警",
+        "gap_denom_keys": ["公海商家数"],
+        "gap_numer_keys": ["交易商家数"],
+        "gap_unit": "家",
+        "higher_better": True,
+        "prefer_implied_denom": True,
     },
     {
         "id": "团购模块-市场开发率",
@@ -98,6 +114,10 @@ METRIC_SPECS = [
         "cluster_key": "团购能力分群",
         "warn_keys": ["市场开发率-团购"],
         "module_warn": "团购模块预警",
+        "gap_denom_keys": ["行业GTV(申诉修正后)"],
+        "gap_numer_keys": ["美团实付GTV"],
+        "gap_unit": "元",
+        "higher_better": True,
     },
     {
         "id": "团购模块-优质商家渗透率",
@@ -110,6 +130,11 @@ METRIC_SPECS = [
         "cluster_key": "团购能力分群",
         "warn_keys": ["优质商家渗透率-团购"],
         "module_warn": "团购模块预警",
+        "gap_denom_keys": ["整体商家数"],
+        "gap_numer_keys": ["4N+1动销商家数"],
+        "gap_unit": "家",
+        "higher_better": True,
+        "prefer_implied_denom": True,
     },
     {
         "id": "履约模块-推单完成率",
@@ -122,6 +147,10 @@ METRIC_SPECS = [
         "cluster_key": "履约能力分群",
         "warn_keys": ["推单完成率排名-履约"],
         "module_warn": "履约模块预警",
+        "gap_denom_keys": ["美配推订单完成率分母_不含散单"],
+        "gap_numer_keys": ["美配推订单完成率分子_不含散单"],
+        "gap_unit": "单",
+        "higher_better": True,
     },
     {
         "id": "履约模块-压力天出勤率",
@@ -135,6 +164,9 @@ METRIC_SPECS = [
         "warn_keys": ["压力天出勤率-履约"],
         "module_warn": "履约模块预警",
         "default_warn": "暂不预警",
+        "gap_unit": "pp",
+        "higher_better": True,
+        "gap_rate_only": True,
     },
     {
         "id": "履约模块-超45分钟且超时订单占比",
@@ -147,6 +179,10 @@ METRIC_SPECS = [
         "cluster_key": "履约能力分群",
         "warn_keys": ["超45分钟订单占比-履约"],
         "module_warn": "履约模块预警",
+        "gap_denom_keys": ["配送完成运单量"],
+        "gap_numer_keys": ["超45分钟订单数量"],
+        "gap_unit": "单",
+        "higher_better": False,
     },
     {
         "id": "零售模块-YoY",
@@ -159,6 +195,11 @@ METRIC_SPECS = [
         "cluster_key": "零售能力分群",
         "warn_keys": ["YoY-零售预警"],
         "module_warn": "零售模块预警",
+        "gap_denom_keys": ["非餐实付金额_基期"],
+        "gap_numer_keys": ["非餐实付金额_日均"],
+        "gap_unit": "元",
+        "higher_better": True,
+        "gap_mode": "daily_first",
     },
     {
         "id": "零售模块-优质仓数达标情况",
@@ -173,6 +214,9 @@ METRIC_SPECS = [
         "module_warn": "零售模块预警",
         "default_warn": "暂不预警",
         "no_peer_stats": True,
+        "gap_unit": "个",
+        "higher_better": True,
+        "gap_absolute": True,
     },
     {
         "id": "商业增值-综合货币化率",
@@ -186,6 +230,11 @@ METRIC_SPECS = [
         "cluster_alt": "商业增值分群",
         "warn_keys": ["综合货币化率（外卖货币化率_团购货币化率）-商业增值"],
         "module_warn": "商业增值模块预警",
+        "gap_denom_keys": ["实付交易额_GMV", "实付验证GTV"],
+        "gap_numer_keys": ["外卖广告现金实收金额", "团购广告现金收入"],
+        "gap_unit": "元",
+        "higher_better": True,
+        "gap_denom_sum": True,
     },
     {
         "id": "商业增值-外卖货币化率",
@@ -199,6 +248,10 @@ METRIC_SPECS = [
         "warn_keys": ["商业增值_外卖货币化率排名"],
         "module_warn": "商业增值模块预警",
         "rank_as_warn": True,
+        "gap_denom_keys": ["实付交易额_GMV"],
+        "gap_numer_keys": ["外卖广告现金实收金额"],
+        "gap_unit": "元",
+        "higher_better": True,
     },
     {
         "id": "商业增值-团购货币化率",
@@ -212,6 +265,10 @@ METRIC_SPECS = [
         "warn_keys": ["商业增值_团购货币化率排名"],
         "module_warn": "商业增值模块预警",
         "rank_as_warn": True,
+        "gap_denom_keys": ["实付验证GTV"],
+        "gap_numer_keys": ["团购广告现金收入"],
+        "gap_unit": "元",
+        "higher_better": True,
     },
     {
         "id": "用户体验-用户投诉商家问题万服",
@@ -225,6 +282,9 @@ METRIC_SPECS = [
         "warn_keys": ["用户体验_用户投诉商家问题万服差值排名"],
         "module_warn": "用户体验模块预警",
         "keep_raw_number": True,
+        "gap_unit": "",
+        "higher_better": False,
+        "gap_absolute": True,
     },
     {
         "id": "用户体验-用户投诉履约问题万服",
@@ -238,6 +298,9 @@ METRIC_SPECS = [
         "warn_keys": ["用户体验_用户投诉履约问题万服差值排名"],
         "module_warn": "用户体验模块预警",
         "keep_raw_number": True,
+        "gap_unit": "",
+        "higher_better": False,
+        "gap_absolute": True,
     },
     {
         "id": "综合治理-虚假业绩_外卖",
@@ -250,6 +313,10 @@ METRIC_SPECS = [
         "cluster_key": "综合治理分群",
         "warn_keys": ["综合治理能力预警"],
         "default_warn": "暂无预警",
+        "gap_denom_keys": ["月实付GTV"],
+        "gap_numer_keys": ["月外卖虚假交易额"],
+        "gap_unit": "元",
+        "higher_better": False,
     },
     {
         "id": "综合治理-虚假业绩_团购",
@@ -262,6 +329,10 @@ METRIC_SPECS = [
         "cluster_key": "综合治理分群",
         "warn_keys": ["综合治理能力预警"],
         "default_warn": "暂无预警",
+        "gap_denom_keys": ["实付验证GTV"],
+        "gap_numer_keys": ["团购异常实付GTV"],
+        "gap_unit": "元",
+        "higher_better": False,
     },
     {
         "id": "综合治理-虚假业绩_异常骑手数",
@@ -274,6 +345,10 @@ METRIC_SPECS = [
         "cluster_key": "综合治理分群",
         "warn_keys": ["综合治理能力预警"],
         "default_warn": "暂无预警",
+        "gap_denom_keys": ["有完成单骑手数"],
+        "gap_numer_keys": ["异常骑手人次"],
+        "gap_unit": "人",
+        "higher_better": False,
     },
 ]
 
@@ -480,44 +555,157 @@ def extract_data_json(html: str) -> tuple[int, int, dict]:
     return start, end, json.loads(html[start:end])
 
 
+def parse_count(v):
+    if blank(v):
+        return None
+    s = str(v).replace(",", "").replace("%", "").strip()
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
+def sum_counts(row: dict | None, keys: list[str]) -> float | None:
+    if not row:
+        return None
+    total = 0.0
+    hit = False
+    for k in keys:
+        n = parse_count(row.get(k))
+        if n is None:
+            continue
+        total += n
+        hit = True
+    return total if hit else None
+
+
+def pick_gap_denom(spec: dict, mrow: dict | None, rate) -> float | None:
+    """追平分母：优先模块绝对量；考核率与分子不一致时可用分子/率反推。"""
+    if spec.get("gap_rate_only") or spec.get("gap_absolute"):
+        return None
+    denom_keys = list(spec.get("gap_denom_keys") or [])
+    numer_keys = list(spec.get("gap_numer_keys") or [])
+    prefer_implied = bool(spec.get("prefer_implied_denom"))
+
+    def implied():
+        if not isinstance(rate, (int, float)) or abs(float(rate)) < 1e-12:
+            return None
+        numer = sum_counts(mrow, numer_keys) if numer_keys else None
+        if numer is None:
+            return None
+        return abs(float(numer) / float(rate))
+
+    if prefer_implied:
+        d = implied()
+        if d is not None and d > 0:
+            return d
+
+    if spec.get("gap_denom_sum"):
+        d = sum_counts(mrow, denom_keys)
+        if d is not None and d > 0:
+            return d
+    else:
+        for k in denom_keys:
+            d = parse_count((mrow or {}).get(k))
+            if d is not None and d > 0:
+                return d
+
+    d = implied()
+    if d is not None and d > 0:
+        return d
+    return None
+
+
+def module_row_date(mrow: dict | None) -> str:
+    if not mrow:
+        return ""
+    for k in ("最新数据日期", "数据日期", "日期"):
+        s = cell_str(mrow.get(k))
+        if len(s) >= 10 and s[4] == "-":
+            return s[:10]
+    return ""
+
+
+def prev_param_date(param_id: str, day: str) -> str | None:
+    url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/params/{param_id}/values"
+    vals = [str(v[0])[:10] for v in (http_json(url).get("values") or []) if v]
+    days = sorted({d for d in vals if len(d) >= 10 and d[4] == "-" and d[0].isdigit()})
+    older = [d for d in days if d < day]
+    return older[-1] if older else None
+
+
+def remaining_days(module_day: str) -> int | None:
+    """剩余日均天数 = 当月天数 − (模块最左日期日号 + 2)。例：8/24 → 31−26=5。"""
+    if not module_day or len(module_day) < 10:
+        return None
+    try:
+        y, m, d = int(module_day[:4]), int(module_day[5:7]), int(module_day[8:10])
+    except ValueError:
+        return None
+    if m == 12:
+        next_month = datetime(y + 1, 1, 1)
+    else:
+        next_month = datetime(y, m + 1, 1)
+    month_days = (next_month - datetime(y, m, 1)).days
+    return max(0, month_days - (d + 2))
+
+
 def fetch_all(day: str | None = None):
     CACHE.mkdir(parents=True, exist_ok=True)
     period = day or latest_param_date(SUMMARY_CARD["date_id"])
-    dump = {"periodDate": period, "fetchedAt": datetime.now(timezone.utc).isoformat(), "modules": {}}
+    prev = prev_param_date(SUMMARY_CARD["date_id"], period)
+    dump = {
+        "periodDate": period,
+        "prevDate": prev,
+        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+        "modules": {},
+    }
 
     scols, srows = query_card(SUMMARY_CARD, period)
     summary = rows_to_city_map(scols, srows)
     dump["summary"] = {"n": len(srows), "cities": len(summary)}
+
+    summary_prev = {}
+    if prev:
+        pcols, prows = query_card(SUMMARY_CARD, prev)
+        summary_prev = rows_to_city_map(pcols, prows)
+        dump["summary_prev"] = {"n": len(prows), "cities": len(summary_prev), "date": prev}
 
     modules = {}
     for name, spec in MODULE_CARDS.items():
         use_day = period
         cols, rows = query_card(spec, use_day)
         if not rows:
-            # 个别模块当日无数据时回退该模块最新日
             alt = latest_param_date(spec["date_id"])
             if alt != use_day:
                 use_day = alt
                 cols, rows = query_card(spec, use_day)
         modules[name] = rows_to_city_map(cols, rows)
-        dump["modules"][name] = {"tab": spec["tab"], "day": use_day, "n": len(rows), "cities": len(modules[name])}
+        dump["modules"][name] = {
+            "tab": spec["tab"],
+            "day": use_day,
+            "n": len(rows),
+            "cities": len(modules[name]),
+            "remainingDays": remaining_days(use_day),
+        }
 
     (CACHE / "peer_compare_metabase.json").write_text(
         json.dumps({"meta": dump}, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    return period, summary, modules, dump
+    return period, prev, summary, summary_prev, modules, dump
 
 
-def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict:
+def build_payload(period: str, prev: str | None, summary: dict, summary_prev: dict, modules: dict, dump: dict) -> dict:
     # 城市范围：以模块数据汇总表为准（约 117 城）
     if not summary:
         raise RuntimeError("模块数据汇总表没有城市数据")
     ordered = sorted(summary.keys(), key=lambda c: (0 if c in TARGET_CITIES else 1, cell_str((summary.get(c) or {}).get("区域")), c))
 
-    # 先填每城每指标的本期值/分群/预警
+    # 先填每城每指标的本期值/上期值/分群/预警/缺口分母
     raw_by_metric: dict[str, dict[str, dict]] = {m["id"]: {} for m in METRIC_SPECS}
     for city in ordered:
         srow = summary.get(city) or {}
+        sprow = summary_prev.get(city) or {}
         for spec in METRIC_SPECS:
             mrow = (modules.get(spec["src"]) or {}).get(city)
             val = pick_value(
@@ -527,18 +715,38 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
                 spec.get("summary_value") or "",
                 keep_raw=bool(spec.get("keep_raw_number")),
             )
+            prev_val = pick_value(
+                None,
+                [],
+                sprow,
+                spec.get("summary_value") or "",
+                keep_raw=bool(spec.get("keep_raw_number")),
+            )
+            if prev_val is None and mrow:
+                # 上期优先汇总表；没有则不硬凑模块上期（避免与考核口径不一致）
+                prev_val = None
             if val is None:
                 val = MISSING_VALUE
             cluster = pick_cluster(spec, srow)
             warn = pick_warn(spec, srow, mrow)
             region = cell_str(srow.get("区域") or (mrow or {}).get("区域") or (mrow or {}).get("配送区域"))
             level = cell_str(srow.get("城市等级") or (mrow or {}).get("城市等级") or (mrow or {}).get("等级"))
+            gap_denom = pick_gap_denom(spec, mrow, val if isinstance(val, (int, float)) else None)
+            mod_day = module_row_date(mrow) or ((dump.get("modules") or {}).get(spec["src"]) or {}).get("day") or period
             raw_by_metric[spec["id"]][city] = {
                 "本期值": val,
+                "上期值": prev_val if prev_val is not None else MISSING_VALUE,
                 "分群": cluster,
                 "预警区间": warn,
                 "区域": region,
                 "城市等级": level,
+                "gapDenom": gap_denom,
+                "gapUnit": spec.get("gap_unit") or "",
+                "higherBetter": bool(spec.get("higher_better", True)),
+                "gapMode": spec.get("gap_mode") or "month_first",
+                "gapAbsolute": bool(spec.get("gap_absolute")),
+                "gapRateOnly": bool(spec.get("gap_rate_only")),
+                "moduleDate": mod_day,
             }
 
     # 按分群计算最大/中位/最小
@@ -569,6 +777,14 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
             item = {
                 "预警区间": block.get("预警区间"),
                 "本期值": block.get("本期值"),
+                "上期值": block.get("上期值"),
+                "gapDenom": block.get("gapDenom"),
+                "gapUnit": block.get("gapUnit"),
+                "higherBetter": block.get("higherBetter"),
+                "gapMode": block.get("gapMode"),
+                "gapAbsolute": block.get("gapAbsolute"),
+                "gapRateOnly": block.get("gapRateOnly"),
+                "moduleDate": block.get("moduleDate"),
             }
             if "分群" in spec["fields"]:
                 item["分群"] = cl
@@ -599,30 +815,47 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
             seen.add(r["城市"])
             all_cities.append(r["城市"])
 
-    metrics_meta = [
-        {"id": m["id"], "module": m["module"], "name": m["name"], "fields": list(m["fields"])} for m in METRIC_SPECS
-    ]
+    metrics_meta = []
+    for m in METRIC_SPECS:
+        metrics_meta.append(
+            {
+                "id": m["id"],
+                "module": m["module"],
+                "name": m["name"],
+                "fields": list(m["fields"]),
+                "src": m.get("src"),
+                "gapUnit": m.get("gap_unit") or "",
+                "higherBetter": bool(m.get("higher_better", True)),
+                "gapMode": m.get("gap_mode") or "month_first",
+                "gapAbsolute": bool(m.get("gap_absolute")),
+                "gapRateOnly": bool(m.get("gap_rate_only")),
+            }
+        )
 
     # 扁平表兜底（兼容旧渲染）
     flat_headers = ["城市", "区域", "城市等级"]
     for m in metrics_meta:
-        for fld in ("本期值", "同分群最大值", "同分群中位值", "同分群最小值", "分群", "预警区间", "是否达标"):
-            if fld in m["fields"]:
+        for fld in ("本期值", "上期值", "同分群最大值", "同分群中位值", "同分群最小值", "分群", "预警区间", "是否达标"):
+            if fld == "上期值" or fld in m["fields"]:
                 flat_headers.append(f"{m['name']}-{fld}")
     flat_rows = []
     for rec in records:
         row = {"城市": rec["城市"], "区域": rec["区域"], "城市等级": rec["城市等级"]}
         for m in metrics_meta:
             block = rec["values"].get(m["id"]) or {}
-            for fld in ("本期值", "同分群最大值", "同分群中位值", "同分群最小值", "分群", "预警区间", "是否达标"):
-                if fld in m["fields"]:
+            for fld in ("本期值", "上期值", "同分群最大值", "同分群中位值", "同分群最小值", "分群", "预警区间", "是否达标"):
+                if fld == "上期值" or fld in m["fields"]:
                     row[f"{m['name']}-{fld}"] = block.get(fld)
         flat_rows.append(row)
+
+    module_dates = {k: (v or {}).get("day") for k, v in (dump.get("modules") or {}).items()}
+    remain_by_src = {k: (v or {}).get("remainingDays") for k, v in (dump.get("modules") or {}).items()}
 
     return {
         "sheet": "新商考核·各模块Tab",
         "layout": "official",
         "periodDate": period,
+        "prevDate": prev,
         "cityField": "城市",
         "metrics": metrics_meta,
         "mineCities": mine_cities,
@@ -637,12 +870,16 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
             "cities": mine_cities,
             "allCityCount": len(all_cities),
             "periodDate": period,
+            "prevDate": prev,
             "modules": dump.get("modules"),
+            "moduleDates": module_dates,
+            "remainingDaysBySrc": remain_by_src,
         },
         "note": (
             "数据来自初心「新商考核」：城市名单以模块数据汇总表为准（117城）；"
-            "本期值优先用汇总表考核指标值（与主看板一致），模块页仅补充汇总表没有的字段；"
-            "都没有则为「暂无数据」。同分群最大/中位/最小按分群自算。本城仅限川藏一区五城。"
+            "本期值优先用汇总表考核指标值（与主看板一致）；上期值取汇总表上一考核日；"
+            "追平缺口用各模块绝对量底数测算；剩余天数=当月天数−(模块日期+2)。"
+            "非五城城市/区域展示为「友商」。"
         ),
         "sourceFile": f"metabase:{MB_DASH_UUID}",
         "updatedAt": datetime.now(timezone.utc).isoformat(),
@@ -654,8 +891,8 @@ def main() -> int:
     ap.add_argument("--date", help="考核日期 YYYY-MM-DD（默认模块数据汇总表最新一日）")
     args = ap.parse_args()
 
-    period, summary, modules, dump = fetch_all(args.date)
-    payload = build_payload(period, summary, modules, dump)
+    period, prev, summary, summary_prev, modules, dump = fetch_all(args.date)
+    payload = build_payload(period, prev, summary, summary_prev, modules, dump)
     if not payload["records"]:
         raise RuntimeError("同分群对比未拉到任何城市数据")
 
@@ -666,15 +903,19 @@ def main() -> int:
     new_html = html[:start] + json.dumps(data, ensure_ascii=False, indent=2) + html[end:]
     new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出 Excel 里同一分群的全部城市，不只比五城。",
-        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。本期值优先用汇总表考核指标值；模块缺对应考核字段时再回模块页，再没有显示「暂无数据」。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市。非五城城市/区域显示为「友商」。对比目标城市差值=目标本期值−本城本期值；追平缺口按各模块绝对量测算，剩余天数=当月天数−(模块日期+2)。",
     )
     new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市，不只比五城。数据来自各模块页。",
-        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。本期值优先用汇总表考核指标值；模块缺对应考核字段时再回模块页，再没有显示「暂无数据」。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市。非五城城市/区域显示为「友商」。对比目标城市差值=目标本期值−本城本期值；追平缺口按各模块绝对量测算，剩余天数=当月天数−(模块日期+2)。",
     )
     new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。模块缺数回汇总表，再没有显示「暂无数据」。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市。非五城城市/区域显示为「友商」。对比目标城市差值=目标本期值−本城本期值；追平缺口按各模块绝对量测算，剩余天数=当月天数−(模块日期+2)。",
+    )
+    new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。本期值优先用汇总表考核指标值；模块缺对应考核字段时再回模块页，再没有显示「暂无数据」。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市。非五城城市/区域显示为「友商」。对比目标城市差值=目标本期值−本城本期值；追平缺口按各模块绝对量测算，剩余天数=当月天数−(模块日期+2)。",
     )
     new_html = new_html.replace(
         "暂无「同分群数值对比」数据。请先运行独立同步脚本导入 Excel 子表。",
@@ -697,13 +938,21 @@ def main() -> int:
             for r in payload["records"]
             if str(((r.get("values") or {}).get(mid) or {}).get("分群") or "") == cl
         )
-        sample[city] = {"cluster": cl, "peers": n}
+        block = (rec.get("values") or {}).get(mid) or {}
+        sample[city] = {
+            "cluster": cl,
+            "peers": n,
+            "gapDenom": block.get("gapDenom"),
+            "prev": block.get("上期值"),
+            "moduleDate": block.get("moduleDate"),
+        }
 
     print(
         json.dumps(
             {
                 "ok": True,
                 "periodDate": period,
+                "prevDate": prev,
                 "cities": len(payload["records"]),
                 "mineCities": payload["mineCities"],
                 "metrics": len(payload["metrics"]),
