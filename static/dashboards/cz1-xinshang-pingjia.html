@@ -54978,7 +54978,8 @@
         const basePeriod = toNum(baseBlock && baseBlock.gapDenom);
         const baseDaily = toNum(baseBlock && baseBlock.gapDaily);
         if (parts && basePeriod != null && baseDaily != null && vsTarget != null) {
-          const elapsedFactor = parts.monthDays - parts.d + 2;
+          // 已发生天数 = 模块日+2（25/26 按当日日均计）；剩余 = 当月天数-(模块日+2)
+          const elapsedFactor = parts.d + 2;
           monthGap = basePeriod * (1 + vsTarget) * parts.monthDays - baseDaily * elapsedFactor;
           dailyGap = (remain && remain > 0) ? (monthGap / remain) : null;
         }
