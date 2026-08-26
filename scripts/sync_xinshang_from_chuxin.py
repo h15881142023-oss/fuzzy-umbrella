@@ -528,8 +528,13 @@ def apply_city(
             ),
             "月在线商家数": metric(
                 online_shown or waimai.get("公海商家数"),
-                # Power BI 在线商家数通常只有当期快照；无上期时无法算环比
-                value_delta=None,
+                # Power BI 通常只有当期快照：有快照时与动销环比同口径（分母持平→环比 0）；
+                # 无快照时用公海上期自算。
+                value_delta=(
+                    mom_pref(cur=online_val, prev=online_val)
+                    if online_val is not None
+                    else mom_pref(cur=waimai.get("公海商家数"), prev=waimai_prev.get("公海商家数"))
+                ),
             ),
             "月动销率": metric("—"),  # placeholder, filled below
         },
