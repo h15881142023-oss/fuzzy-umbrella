@@ -171,16 +171,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_xinshang_bi_w
 
 该模块与主看板常规更新分开：  
 - 主看板：`scripts/sync_xinshang_from_chuxin.py`  
-- 同分群模块：`scripts/sync_peer_compare_from_excel.py`（只读 Excel 子表「同分群数值对比」）
+- 同分群模块：`scripts/sync_peer_compare_from_chuxin.py`（初心「新商考核」各模块 Tab + 汇总表分群；**已停用 Excel**）
 
 Windows：
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1 -XlsxPath "D:\我的文档\Documents\fuzzy-umbrella\新商考核体系1.1(202607281658).xlsx"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1
 ```
 
-页面中该模块默认隐藏，点击顶部按钮「同分群数值对比（需密码）」并输入 `chuanyi006` 后可查看（本地记忆解锁状态）。
+页面中该模块默认隐藏，点击顶部按钮「同分群数值对比（需密码）」并输入 `chuanyi006` 后可查看（本地记忆解锁状态）。本城只选五城，对比名单为同一分群下的全部城市。
 
 首次启用 GitHub Pages：
 
