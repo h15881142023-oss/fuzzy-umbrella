@@ -50,8 +50,11 @@ MODULE_CARDS = {
 }
 
 # 现有看板 18 个同分群指标：模块页字段优先，汇总表作分群/预警与兜底
-# gap_*: 追平缺口底数。月累计 = 率差 × 本城分母；剩余日均 = 月累计 / 剩余天数。
-# gap_mode=daily_first：先算日均（率差×分母），月累计 = 日均 × 剩余天数（零售 YoY）。
+# gap_*: 追平缺口底数。
+# gap_mode=month_first：月累计 = 追平率差 × 本城分母；剩余日均 = 月累计 / 剩余天数。
+# gap_mode=yoy_catchup（零售 YoY）：
+#   月累计 = 本城基期 × (1 + 对比差值) × 当月天数 − 本城日均 × (当月天数 − 模块日 + 2)
+#   剩余天数 = 当月天数 − (模块日 + 2)；剩余日均 = 月累计 / 剩余天数
 # higher_better=False：追平按「压降」口径，月累计 = (本城−目标) × 分母。
 METRIC_SPECS = [
     {
@@ -199,7 +202,7 @@ METRIC_SPECS = [
         "gap_numer_keys": ["非餐实付金额_日均"],
         "gap_unit": "元",
         "higher_better": True,
-        "gap_mode": "daily_first",
+        "gap_mode": "yoy_catchup",
     },
     {
         "id": "零售模块-优质仓数达标情况",
@@ -732,6 +735,11 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
             region = cell_str(srow.get("区域") or (mrow or {}).get("区域") or (mrow or {}).get("配送区域"))
             level = cell_str(srow.get("城市等级") or (mrow or {}).get("城市等级") or (mrow or {}).get("等级"))
             gap_denom = pick_gap_denom(spec, mrow, val if isinstance(val, (int, float)) else None)
+            gap_daily = sum_counts(mrow, list(spec.get("gap_numer_keys") or [])[:1]) if spec.get("gap_numer_keys") else None
+            # 零售 YoY：显式保留基期 + 日均，供 yoy_catchup 公式使用
+            if spec.get("gap_mode") == "yoy_catchup":
+                gap_denom = parse_count((mrow or {}).get("非餐实付金额_基期"))
+                gap_daily = parse_count((mrow or {}).get("非餐实付金额_日均"))
             mod_day = module_row_date(mrow) or ((dump.get("modules") or {}).get(spec["src"]) or {}).get("day") or period
             raw_by_metric[spec["id"]][city] = {
                 "本期值": val,
@@ -741,6 +749,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 "区域": region,
                 "城市等级": level,
                 "gapDenom": gap_denom,
+                "gapDaily": gap_daily,
                 "gapUnit": spec.get("gap_unit") or "",
                 "higherBetter": bool(spec.get("higher_better", True)),
                 "gapMode": spec.get("gap_mode") or "month_first",
@@ -779,6 +788,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 "本期值": block.get("本期值"),
                 "上期值": block.get("上期值"),
                 "gapDenom": block.get("gapDenom"),
+                "gapDaily": block.get("gapDaily"),
                 "gapUnit": block.get("gapUnit"),
                 "higherBetter": block.get("higherBetter"),
                 "gapMode": block.get("gapMode"),
