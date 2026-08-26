@@ -389,13 +389,13 @@ def parse_metric_value(v, keep_raw_number: bool = False):
 
 
 def pick_value(row: dict | None, keys: list[str], summary: dict | None, summary_key: str, keep_raw: bool):
-    """本期值：模块页优先，缺则回汇总表考核指标值；都没有返回 None（上层写成「暂无数据」）。"""
+    """本期值：优先汇总表考核指标值（与主看板一致）；模块页仅作补充；都没有返回 None。"""
+    if summary and summary_key and not blank(summary.get(summary_key)):
+        return parse_metric_value(summary.get(summary_key), keep_raw_number=keep_raw)
     if row:
         for k in keys:
             if k in row and not blank(row.get(k)):
                 return parse_metric_value(row.get(k), keep_raw_number=keep_raw)
-    if summary and summary_key and not blank(summary.get(summary_key)):
-        return parse_metric_value(summary.get(summary_key), keep_raw_number=keep_raw)
     return None
 
 
@@ -640,9 +640,9 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
             "modules": dump.get("modules"),
         },
         "note": (
-            "数据来自初心「新商考核」：城市名单以模块数据汇总表为准；"
-            "各指标优先取对应模块页，缺失回汇总表，再没有为「暂无数据」。"
-            "同分群最大/中位/最小按分群自算。本城仅限川藏一区五城。"
+            "数据来自初心「新商考核」：城市名单以模块数据汇总表为准（117城）；"
+            "本期值优先用汇总表考核指标值（与主看板一致），模块页仅补充汇总表没有的字段；"
+            "都没有则为「暂无数据」。同分群最大/中位/最小按分群自算。本城仅限川藏一区五城。"
         ),
         "sourceFile": f"metabase:{MB_DASH_UUID}",
         "updatedAt": datetime.now(timezone.utc).isoformat(),
@@ -666,11 +666,15 @@ def main() -> int:
     new_html = html[:start] + json.dumps(data, ensure_ascii=False, indent=2) + html[end:]
     new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出 Excel 里同一分群的全部城市，不只比五城。",
-        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。模块缺数回汇总表，再没有显示「暂无数据」。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。本期值优先用汇总表考核指标值；模块缺对应考核字段时再回模块页，再没有显示「暂无数据」。",
     )
     new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市，不只比五城。数据来自各模块页。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。本期值优先用汇总表考核指标值；模块缺对应考核字段时再回模块页，再没有显示「暂无数据」。",
+    )
+    new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。模块缺数回汇总表，再没有显示「暂无数据」。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。本期值优先用汇总表考核指标值；模块缺对应考核字段时再回模块页，再没有显示「暂无数据」。",
     )
     new_html = new_html.replace(
         "暂无「同分群数值对比」数据。请先运行独立同步脚本导入 Excel 子表。",
