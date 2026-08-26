@@ -191,12 +191,11 @@ METRIC_SPECS = [
         "id": "商业增值-外卖货币化率",
         "module": "商业增值",
         "name": "外卖货币化率",
-        "fields": ["预警区间", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
+        "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "biz",
         "value_keys": ["外卖货币化率"],
         "summary_value": "外卖货币化率指标值-商业增值",
         "cluster_key": "商业增值分群_外卖",
-        "cluster_alt": "商业增值分群",
         "warn_keys": ["商业增值_外卖货币化率排名"],
         "module_warn": "商业增值模块预警",
         "rank_as_warn": True,
@@ -205,12 +204,11 @@ METRIC_SPECS = [
         "id": "商业增值-团购货币化率",
         "module": "商业增值",
         "name": "团购货币化率",
-        "fields": ["预警区间", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
+        "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "biz",
         "value_keys": ["团购货币化率"],
         "summary_value": "团购货币化率指标值-商业增值",
         "cluster_key": "商业增值分群_团购",
-        "cluster_alt": "商业增值分群",
         "warn_keys": ["商业增值_团购货币化率排名"],
         "module_warn": "商业增值模块预警",
         "rank_as_warn": True,
@@ -391,14 +389,17 @@ def parse_metric_value(v, keep_raw_number: bool = False):
 
 
 def pick_value(row: dict | None, keys: list[str], summary: dict | None, summary_key: str, keep_raw: bool):
-    """本期值优先用汇总表考核指标值（与旧 Excel / 主看板口径一致），模块页作补充。"""
-    if summary and summary_key and not blank(summary.get(summary_key)):
-        return parse_metric_value(summary.get(summary_key), keep_raw_number=keep_raw)
+    """本期值：模块页优先，缺则回汇总表考核指标值；都没有返回 None（上层写成「暂无数据」）。"""
     if row:
         for k in keys:
             if k in row and not blank(row.get(k)):
                 return parse_metric_value(row.get(k), keep_raw_number=keep_raw)
+    if summary and summary_key and not blank(summary.get(summary_key)):
+        return parse_metric_value(summary.get(summary_key), keep_raw_number=keep_raw)
     return None
+
+
+MISSING_VALUE = "暂无数据"
 
 
 def pick_warn(spec: dict, summary: dict | None, module_row: dict | None):
@@ -431,8 +432,11 @@ def pick_cluster(spec: dict, summary: dict | None) -> str:
         if not k:
             continue
         v = cell_str(summary.get(k))
-        if v:
-            return v
+        if not v:
+            continue
+        if v in {"无", "无分群", "—", "-"}:
+            return "无分群"
+        return v
     return "无分群"
 
 
@@ -505,11 +509,10 @@ def fetch_all(day: str | None = None):
 
 
 def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict:
-    # 城市范围：各模块 Tab 出现的全国城 + 五城（不用汇总表全量 100+ 城冲淡分群）
-    city_names = set(TARGET_CITIES)
-    for m in modules.values():
-        city_names |= set(m.keys())
-    ordered = sorted(city_names, key=lambda c: (0 if c in TARGET_CITIES else 1, c))
+    # 城市范围：以模块数据汇总表为准（约 117 城）
+    if not summary:
+        raise RuntimeError("模块数据汇总表没有城市数据")
+    ordered = sorted(summary.keys(), key=lambda c: (0 if c in TARGET_CITIES else 1, cell_str((summary.get(c) or {}).get("区域")), c))
 
     # 先填每城每指标的本期值/分群/预警
     raw_by_metric: dict[str, dict[str, dict]] = {m["id"]: {} for m in METRIC_SPECS}
@@ -517,8 +520,6 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
         srow = summary.get(city) or {}
         for spec in METRIC_SPECS:
             mrow = (modules.get(spec["src"]) or {}).get(city)
-            if not srow and not mrow:
-                continue
             val = pick_value(
                 mrow,
                 spec["value_keys"],
@@ -526,13 +527,12 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
                 spec.get("summary_value") or "",
                 keep_raw=bool(spec.get("keep_raw_number")),
             )
-            cluster = pick_cluster(spec, srow) if srow else "无分群"
-            # 无汇总行时，分群无法判定，仍保留模块值便于后续人工核对
-            if not srow and mrow:
-                cluster = "无分群"
-            warn = pick_warn(spec, srow if srow else None, mrow)
-            region = cell_str((srow or mrow or {}).get("区域") or (mrow or {}).get("配送区域"))
-            level = cell_str((srow or mrow or {}).get("城市等级") or (mrow or {}).get("等级"))
+            if val is None:
+                val = MISSING_VALUE
+            cluster = pick_cluster(spec, srow)
+            warn = pick_warn(spec, srow, mrow)
+            region = cell_str(srow.get("区域") or (mrow or {}).get("区域") or (mrow or {}).get("配送区域"))
+            level = cell_str(srow.get("城市等级") or (mrow or {}).get("城市等级") or (mrow or {}).get("等级"))
             raw_by_metric[spec["id"]][city] = {
                 "本期值": val,
                 "分群": cluster,
@@ -558,9 +558,6 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
 
     records = []
     for city in ordered:
-        # 至少有一个指标才写入
-        if not any(city in raw_by_metric[m["id"]] for m in METRIC_SPECS):
-            continue
         sample = next((raw_by_metric[m["id"]][city] for m in METRIC_SPECS if city in raw_by_metric[m["id"]]), {})
         values = {}
         for spec in METRIC_SPECS:
@@ -643,9 +640,9 @@ def build_payload(period: str, summary: dict, modules: dict, dump: dict) -> dict
             "modules": dump.get("modules"),
         },
         "note": (
-            "数据来自初心「新商考核」各模块页 + 模块数据汇总表；"
-            "本期值优先用汇总表考核指标值，分群/预警来自汇总表，同分群最大/中位/最小按分群自算。"
-            "本城仅限川藏一区五城。"
+            "数据来自初心「新商考核」：城市名单以模块数据汇总表为准；"
+            "各指标优先取对应模块页，缺失回汇总表，再没有为「暂无数据」。"
+            "同分群最大/中位/最小按分群自算。本城仅限川藏一区五城。"
         ),
         "sourceFile": f"metabase:{MB_DASH_UUID}",
         "updatedAt": datetime.now(timezone.utc).isoformat(),
@@ -669,7 +666,11 @@ def main() -> int:
     new_html = html[:start] + json.dumps(data, ensure_ascii=False, indent=2) + html[end:]
     new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出 Excel 里同一分群的全部城市，不只比五城。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。模块缺数回汇总表，再没有显示「暂无数据」。",
+    )
+    new_html = new_html.replace(
         "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市，不只比五城。数据来自各模块页。",
+        "本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市（城市名单以模块数据汇总表为准）。模块缺数回汇总表，再没有显示「暂无数据」。",
     )
     new_html = new_html.replace(
         "暂无「同分群数值对比」数据。请先运行独立同步脚本导入 Excel 子表。",
