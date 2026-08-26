@@ -202,7 +202,7 @@
         <span class="filter-actions">
           <button type="button" id="btnSelectAllCities">全选</button>
           <button type="button" id="btnClearCities">清空</button>
-          <button type="button" id="btnPeerCompare" class="peer-btn">同分群数值对比（需密码）</button>
+          <button type="button" id="btnPeerCompare" class="peer-btn">同分群数值对比</button>
         </span>
       </div>
     </header>
@@ -237,8 +237,8 @@
 
     <div id="singleView" class="hidden"></div>
     <section class="section hidden" id="peerCompareSection">
-      <h2>同分群数值对比<span class="mode-tag">受限模块</span></h2>
-      <p class="desc">默认隐藏，手动点击并输入密码后可查看。本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市。非五城城市/区域显示为「友商」。对比目标城市差值=目标本期值−本城本期值；追平缺口按各模块绝对量测算，剩余天数=当月天数−(模块日期+2)。</p>
+      <h2>同分群数值对比</h2>
+      <p class="desc">点击按钮可展开/收起。本城只选川藏一区五城；选定指标后，按该城该指标的分群列出新商考核同一分群的全部城市。非五城城市/区域显示为「友商」。对比目标城市差值=目标本期值−本城本期值；追平缺口按各模块绝对量测算，剩余天数=当月天数−(模块日期+2)。</p>
       <div id="peerCompareBody"></div>
     </section>
 
@@ -54283,10 +54283,7 @@
 
     const NO_WARN = new Set(["—", "不预警", "暂不预警", "无预警", "不考核", "数据准备中", "不适用", "", null, undefined]);
     const CITIES_SET = new Set(["彭州市", "仁寿县", "合江县", "南溪", "叙永"]);
-    const PEER_COMPARE_PASSWORD = "chuanyi006";
-    const PEER_COMPARE_LS_KEY = "cz1-peer-compare-unlocked-v1";
-    let peerCompareUnlocked = false;
-    let peerCompareVisible = false;
+    let peerCompareVisible = true;
     let peerCompareMetric = "";
     let peerCompareBaseCity = "";
 
@@ -55092,7 +55089,7 @@
       const sec = document.getElementById("peerCompareSection");
       const body = document.getElementById("peerCompareBody");
       if (!sec || !body) return;
-      if (!peerCompareUnlocked || !peerCompareVisible) {
+      if (!peerCompareVisible) {
         sec.classList.add("hidden");
         return;
       }
@@ -55106,26 +55103,15 @@
       body.innerHTML = `<p class="desc">暂无「同分群数值对比」数据。请先运行 scripts/sync_peer_compare_from_chuxin.py 从新商考核各模块同步。</p>`;
     }
     function setupPeerCompareToggle() {
-      try {
-        peerCompareUnlocked = localStorage.getItem(PEER_COMPARE_LS_KEY) === "1";
-      } catch (e) {
-        peerCompareUnlocked = false;
-      }
       const btn = document.getElementById("btnPeerCompare");
       if (!btn) return;
-      btn.textContent = peerCompareUnlocked ? "同分群数值对比（已解锁）" : "同分群数值对比（需密码）";
+      const syncBtn = () => {
+        btn.textContent = peerCompareVisible ? "收起同分群数值对比" : "同分群数值对比";
+      };
+      syncBtn();
       btn.onclick = () => {
-        if (!peerCompareUnlocked) {
-          const typed = window.prompt("请输入同分群数值对比模块密码");
-          if (typed !== PEER_COMPARE_PASSWORD) {
-            window.alert("密码错误");
-            return;
-          }
-          peerCompareUnlocked = true;
-          try { localStorage.setItem(PEER_COMPARE_LS_KEY, "1"); } catch (e) {}
-          btn.textContent = "同分群数值对比（已解锁）";
-        }
         peerCompareVisible = !peerCompareVisible;
+        syncBtn();
         renderPeerCompare(activeCities());
       };
     }
