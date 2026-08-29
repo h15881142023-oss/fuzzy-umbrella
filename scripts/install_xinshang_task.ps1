@@ -58,6 +58,7 @@ function Get-RemoteFile([string]$rel, [string]$ref) {
   return $null
 }
 
+$Sha = "c4fb72b"
 $Ref = "cursor/cz1-merchant-dashboard-74a9"
 $need = @(
   "scripts/xinshang_daily_push.py",
@@ -76,7 +77,8 @@ foreach ($rel in $need) {
   $dest = Join-Path $Root ($rel -replace "/", "\")
   if (Test-Path $dest) { continue }
   New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
-  $tmp = Get-RemoteFile $rel $Ref
+  $tmp = Get-RemoteFile $rel $Sha
+  if (-not $tmp) { $tmp = Get-RemoteFile $rel $Ref }
   if (-not $tmp) {
     Write-Host ("[BAD] 缺少 " + $rel + " 且下载失败")
     exit 1

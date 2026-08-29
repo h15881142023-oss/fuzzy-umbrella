@@ -5,7 +5,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\fetch_xinshang_tools_windows.ps1 -Ref ab277ab
 
 param(
-  [string]$Ref = "cursor/cz1-merchant-dashboard-74a9"
+  [string]$Ref = "c4fb72b"
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,8 +17,6 @@ $relPaths = @(
   "scripts/xinshang_wecom.py",
   "scripts/xinshang_wecom_config.json",
   "scripts/run_xinshang_daily_push.bat",
-  "scripts/install_xinshang_task.ps1",
-  "scripts/install_xinshang_task.bat",
   "scripts/update_xinshang_html_windows.ps1",
   "scripts/bootstrap_xinshang_html_windows.ps1",
   "scripts/sync_xinshang_full_windows.ps1",
