@@ -749,20 +749,18 @@ def _run_python_script(rel_path: str, timeout: int = 600) -> dict:
 
 @app.route("/api/xinshang/sync", methods=["POST"])
 def api_xinshang_sync():
-    """本机/手动触发：Power BI 月在线商家数 + Metabase 主看板 + 同分群，写回外发 HTML。日常请用 Windows 计划任务 CZ1_Xinshang_WeCom_TueFriPush。"""
+    """本机 Web 内触发：补齐脚本后跑 xinshang_daily_push（含企微）。日常由 ChuanzangWeb5001 时钟触发。"""
     token = (request.headers.get("X-CZ-Token") or request.form.get("token") or "").strip()
     if token != SITE_PASSWORD and not session.get("authenticated"):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
 
-    steps = {}
-    steps["powerbi"] = _run_scraper("scrape_powerbi_wind_online.py")
-    steps["xinshang"] = _run_python_script("scripts/sync_xinshang_from_chuxin.py")
-    if not steps["xinshang"]["ok"]:
-        return jsonify({"ok": False, "steps": steps}), 500
-    steps["peer"] = _run_python_script("scripts/sync_peer_compare_from_chuxin.py")
-    ok = steps["peer"]["ok"]
-    db.log_sync("xinshang_sync", "ok" if ok else "fail", str(steps)[:2000])
-    return jsonify({"ok": ok, "steps": steps, "page": f"{PUBLIC_ORIGIN}/evaluation/xinshang"})
+    updater = BASE_DIR / "scripts" / "xinshang_self_update.py"
+    if updater.is_file():
+        _run_python_script("scripts/xinshang_self_update.py", timeout=180)
+    result = _run_python_script("scripts/xinshang_daily_push.py", timeout=1200)
+    db.log_sync("xinshang_sync", "ok" if result.get("ok") else "fail", str(result)[:2000])
+    status = 200 if result.get("ok") else 500
+    return jsonify({"ok": result.get("ok"), "result": result, "page": f"{PUBLIC_ORIGIN}/evaluation/xinshang"}), status
 
 
 @app.route("/api/evaluation/sync", methods=["POST"])
@@ -807,9 +805,45 @@ def sync_non_catering():
     return jsonify(_run_scraper("sync_non_catering_scores.py"))
 
 
+def _start_xinshang_clock() -> None:
+    """挂到已有 ChuanzangWeb5001：周二/周五 22:00 自动更新，无需再复制 PowerShell。"""
+    import os
+    import threading
+
+    if os.name != "nt":
+        return
+    if os.environ.get("CZ_XINSHANG_CLOCK", "1") == "0":
+        return
+    if any(t.name == "xinshang-clock" and t.is_alive() for t in threading.enumerate()):
+        return
+    try:
+        import importlib.util
+
+        updater = BASE_DIR / "scripts" / "xinshang_self_update.py"
+        if updater.is_file():
+            spec_u = importlib.util.spec_from_file_location("xinshang_self_update", updater)
+            if spec_u and spec_u.loader:
+                mod_u = importlib.util.module_from_spec(spec_u)
+                spec_u.loader.exec_module(mod_u)
+                mod_u.ensure_tools()
+
+        clock = BASE_DIR / "scripts" / "xinshang_clock_windows.py"
+        if not clock.is_file():
+            return
+        spec = importlib.util.spec_from_file_location("xinshang_clock_windows", clock)
+        if spec is None or spec.loader is None:
+            return
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.start_background()
+    except Exception as exc:  # noqa: BLE001
+        print("xinshang clock skip:", exc, flush=True)
+
+
 def create_app():
     db.init_db()
     db.seed_demo_if_empty()
+    _start_xinshang_clock()
     return app
 
 

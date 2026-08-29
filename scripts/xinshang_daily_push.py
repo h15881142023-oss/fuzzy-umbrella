@@ -216,8 +216,8 @@ def self_test() -> int:
         "新商评看板已更新" in ok_msg,
         "新商评看板更新失败" in fail_msg,
         sample.get("universeCities") == 117,
-        (ROOT / "scripts" / "run_xinshang_daily_push.bat").is_file(),
-        (ROOT / "scripts" / "install_xinshang_task.ps1").is_file(),
+        (ROOT / "scripts" / "xinshang_clock_windows.py").is_file(),
+        (ROOT / "scripts" / "xinshang_self_update.py").is_file(),
     ]
     print(json.dumps({"ok": all(checks), "checks": checks, "wecomSource": cfg.get("source")}, ensure_ascii=False))
     return 0 if all(checks) else 1

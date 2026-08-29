@@ -16,6 +16,8 @@ $relPaths = @(
   "scripts/xinshang_daily_push.py",
   "scripts/xinshang_wecom.py",
   "scripts/xinshang_wecom_config.json",
+  "scripts/xinshang_clock_windows.py",
+  "scripts/xinshang_self_update.py",
   "scripts/run_xinshang_daily_push.bat",
   "scripts/update_xinshang_html_windows.ps1",
   "scripts/bootstrap_xinshang_html_windows.ps1",
