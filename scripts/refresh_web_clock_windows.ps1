@@ -4,7 +4,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\refresh_web_clock_windows.ps1
 
 param(
-  [string]$Ref = "83be1d1"
+  [string]$Ref = "2f0ae47"
 )
 
 $ErrorActionPreference = "Stop"
