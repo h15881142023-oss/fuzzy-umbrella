@@ -46,9 +46,11 @@ def _download(rel: str) -> bytes | None:
 
 
 ALWAYS_REFRESH = {
+    "scripts/xinshang_daily_push.py",
+    "scripts/xinshang_wecom.py",
+    "scripts/xinshang_wecom_config.json",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
-    "scripts/xinshang_daily_push.py",
     "scripts/xinshang_clock_windows.py",
 }
 

@@ -30,8 +30,47 @@ format_failure = xinshang_wecom.format_failure
 format_success = xinshang_wecom.format_success
 load_wecom_config = xinshang_wecom.load_wecom_config
 send_text = xinshang_wecom.send_text
+FIXED_WEBHOOK = (
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send"
+    "?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
+)
+HOT_SHA = "ed1a4a8"
+HOT_FILES = (
+    "scripts/xinshang_wecom.py",
+    "scripts/xinshang_wecom_config.json",
+    "scrapers/cdp_client.py",
+    "scrapers/scrape_powerbi_wind_online.py",
+    "scrapers/powerbi_wind_js.py",
+)
 
 CDP_URL = "http://127.0.0.1:9222/json/version"
+
+
+def pull_hot_files() -> None:
+    """每次同步前覆盖企微配置和 Power BI 抓取脚本，避免本机仍用旧文件。"""
+    for rel in HOT_FILES:
+        dest = ROOT.joinpath(*rel.split("/"))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        urls = [
+            f"https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{HOT_SHA}/{rel}",
+            f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{HOT_SHA}/{rel}",
+            f"https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{HOT_SHA}/{rel}",
+        ]
+        data = None
+        for url in urls:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "cz1-xinshang"})
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    data = resp.read()
+                if data and len(data) > 40:
+                    break
+            except Exception:
+                data = None
+        if not data:
+            log("[WARN] hot-file miss " + rel)
+            continue
+        dest.write_bytes(data)
+        log("hot-file " + rel)
 
 
 def log(msg: str) -> None:
@@ -122,9 +161,8 @@ def notify(content: str, skip_wecom: bool) -> None:
     if skip_wecom:
         log("skip wecom: " + content.replace("\n", " | "))
         return
-    cfg = load_wecom_config()
-    log("wecom source=" + cfg.get("source", ""))
-    send_text(content, cfg["webhook_url"])
+    log("wecom source=fixed")
+    send_text(content, FIXED_WEBHOOK)
     log("wecom sent")
 
 
@@ -132,6 +170,7 @@ def run_pipeline(*, skip_wecom: bool) -> int:
     log("==== start ====")
     log("root=" + str(ROOT))
     log("python=" + sys.executable)
+    pull_hot_files()
 
     try:
         subprocess.run(
@@ -212,14 +251,14 @@ def self_test() -> int:
     fail_msg = format_failure("demo error", "peer")
     sample = last_json('noise\n{"ok": true, "universeCities": 117}\n')
     checks = [
-        bool(cfg.get("webhook_url")),
+        FIXED_WEBHOOK.endswith("103699eb-8cd7-4af8-9fbe-46f01d315abb"),
         "新商评看板已更新" in ok_msg,
         "新商评看板更新失败" in fail_msg,
         sample.get("universeCities") == 117,
         (ROOT / "scripts" / "xinshang_clock_windows.py").is_file(),
         (ROOT / "scripts" / "xinshang_self_update.py").is_file(),
     ]
-    print(json.dumps({"ok": all(checks), "checks": checks, "wecomSource": cfg.get("source")}, ensure_ascii=False))
+    print(json.dumps({"ok": all(checks), "checks": checks, "wecomSource": "fixed"}, ensure_ascii=False))
     return 0 if all(checks) else 1
 
 

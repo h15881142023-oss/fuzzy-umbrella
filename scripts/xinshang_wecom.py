@@ -1,4 +1,4 @@
-"""新商评企微推送：与经营宝同一套 webhook（text）。"""
+"""新商评企微推送（固定 webhook，不再读经营宝配置）。"""
 from __future__ import annotations
 
 import json
@@ -8,15 +8,8 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-
-JYB_WECOM = (
-    Path(os.environ.get("USERPROFILE", "") or os.environ.get("HOME", ""))
-    / "Desktop"
-    / "经营宝订单抓取"
-    / "wecom_config.json"
-)
 LOCAL_WECOM = ROOT / "scripts" / "xinshang_wecom_config.json"
-FALLBACK_WEBHOOK = (
+FIXED_WEBHOOK = (
     "https://qyapi.weixin.qq.com/cgi-bin/webhook/send"
     "?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
 )
@@ -35,18 +28,16 @@ def load_wecom_config() -> dict:
     if env:
         return {"webhook_url": env, "page_url": DEFAULT_PAGE, "source": "env"}
 
-    for path in (JYB_WECOM, LOCAL_WECOM):
-        if not path.is_file():
-            continue
-        data = _read_json(path)
+    if LOCAL_WECOM.is_file():
+        data = _read_json(LOCAL_WECOM)
         url = (data.get("webhook_url") or data.get("webhook") or "").strip()
         if url:
             return {
                 "webhook_url": url,
                 "page_url": (data.get("page_url") or DEFAULT_PAGE).strip(),
-                "source": str(path),
+                "source": str(LOCAL_WECOM),
             }
-    return {"webhook_url": FALLBACK_WEBHOOK, "page_url": DEFAULT_PAGE, "source": "fallback"}
+    return {"webhook_url": FIXED_WEBHOOK, "page_url": DEFAULT_PAGE, "source": "fixed"}
 
 
 def send_text(content: str, webhook: str | None = None) -> dict:

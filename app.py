@@ -763,6 +763,7 @@ def api_xinshang_sync():
     updater = BASE_DIR / "scripts" / "xinshang_self_update.py"
     if updater.is_file():
         _run_python_script("scripts/xinshang_self_update.py", timeout=180)
+    # 先覆盖入口脚本，再跑全量（含固定企微 webhook + Power BI 热补丁）
     result = _run_python_script("scripts/xinshang_daily_push.py", timeout=1200)
     db.log_sync("xinshang_sync", "ok" if result.get("ok") else "fail", str(result)[:2000])
     status = 200 if result.get("ok") else 500
