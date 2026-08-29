@@ -747,6 +747,12 @@ def _run_python_script(rel_path: str, timeout: int = 600) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+@app.route("/api/xinshang/health")
+def api_xinshang_health():
+    """用于确认本机 Web 已换成带时钟的新代码（无需登录）。"""
+    return jsonify({"ok": True, "clock": True, "schedule": "Tue,Fri 22:00"})
+
+
 @app.route("/api/xinshang/sync", methods=["POST"])
 def api_xinshang_sync():
     """本机 Web 内触发：补齐脚本后跑 xinshang_daily_push（含企微）。日常由 ChuanzangWeb5001 时钟触发。"""
