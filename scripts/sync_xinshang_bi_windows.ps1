@@ -73,6 +73,13 @@ if ($LASTEXITCODE -ne 0) {
   exit 1
 }
 
+Write-Host "==> sync 同分群数值对比"
+& $python "scripts\sync_peer_compare_from_chuxin.py"
+if ($LASTEXITCODE -ne 0) {
+  Write-Host "[BAD] peer compare sync failed"
+  exit 1
+}
+
 Write-Host ""
 Write-Host "[OK] HTML updated."
 Write-Host "Open https://1.chuanzangyiqu.top/evaluation/xinshang and Ctrl+F5"
