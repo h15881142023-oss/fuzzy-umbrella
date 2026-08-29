@@ -34,7 +34,7 @@ FIXED_WEBHOOK = (
     "https://qyapi.weixin.qq.com/cgi-bin/webhook/send"
     "?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
 )
-HOT_SHA = "ed1a4a8"
+HOT_SHA = "477db4d"
 HOT_FILES = (
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
