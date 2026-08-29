@@ -45,12 +45,21 @@ def _download(rel: str) -> bytes | None:
     return None
 
 
+ALWAYS_REFRESH = {
+    "scrapers/cdp_client.py",
+    "scrapers/scrape_powerbi_wind_online.py",
+    "scripts/xinshang_daily_push.py",
+    "scripts/xinshang_clock_windows.py",
+}
+
+
 def ensure_tools(*, force: bool = False) -> dict:
     ok, missing = [], []
     for rel in NEED:
         dest = ROOT.joinpath(*rel.split("/"))
         dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.is_file() and not force and dest.stat().st_size > 40:
+        should = force or rel in ALWAYS_REFRESH or not dest.is_file() or dest.stat().st_size <= 40
+        if dest.is_file() and not should:
             ok.append(rel)
             continue
         data = _download(rel)
