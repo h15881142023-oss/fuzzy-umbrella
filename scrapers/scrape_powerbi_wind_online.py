@@ -49,8 +49,11 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         print("[WARN] wait_ready: " + str(exc))
         time.sleep(5)
-    session.evaluate(POWERBI_WIND_HELPERS_JS)
-    payload = session.evaluate("return await window.__CZ_PBI_WIND.scrapeOnlineMerchants();")
+    session.evaluate(POWERBI_WIND_HELPERS_JS, await_promise=False)
+    payload = session.evaluate(
+        "window.__CZ_PBI_WIND.scrapeOnlineMerchants()",
+        await_promise=True,
+    )
     if not payload or not payload.get("ok"):
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1

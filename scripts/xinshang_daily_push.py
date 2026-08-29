@@ -35,6 +35,7 @@ FIXED_WEBHOOK = (
     "?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
 )
 HOT_SHA = "477db4d"
+HOT_BRANCH = "cursor/cz1-merchant-dashboard-74a9"
 HOT_FILES = (
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
@@ -52,9 +53,10 @@ def pull_hot_files() -> None:
         dest = ROOT.joinpath(*rel.split("/"))
         dest.parent.mkdir(parents=True, exist_ok=True)
         urls = [
+            f"https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{HOT_BRANCH}/{rel}",
+            f"https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{HOT_BRANCH}/{rel}",
             f"https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{HOT_SHA}/{rel}",
             f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{HOT_SHA}/{rel}",
-            f"https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{HOT_SHA}/{rel}",
         ]
         data = None
         for url in urls:
@@ -71,6 +73,25 @@ def pull_hot_files() -> None:
             continue
         dest.write_bytes(data)
         log("hot-file " + rel)
+
+
+def patch_powerbi_evaluate() -> None:
+    path = ROOT / "scrapers" / "scrape_powerbi_wind_online.py"
+    if not path.is_file():
+        return
+    text = path.read_text(encoding="utf-8")
+    orig = text
+    text = text.replace(
+        'session.evaluate("return await window.__CZ_PBI_WIND.scrapeOnlineMerchants();")',
+        'session.evaluate("window.__CZ_PBI_WIND.scrapeOnlineMerchants()", await_promise=True)',
+    )
+    text = text.replace(
+        "session.evaluate(POWERBI_WIND_HELPERS_JS)\n",
+        "session.evaluate(POWERBI_WIND_HELPERS_JS, await_promise=False)\n",
+    )
+    if text != orig:
+        path.write_text(text, encoding="utf-8")
+        log("patched powerbi evaluate")
 
 
 def log(msg: str) -> None:
@@ -171,6 +192,7 @@ def run_pipeline(*, skip_wecom: bool) -> int:
     log("root=" + str(ROOT))
     log("python=" + sys.executable)
     pull_hot_files()
+    patch_powerbi_evaluate()
 
     try:
         subprocess.run(
