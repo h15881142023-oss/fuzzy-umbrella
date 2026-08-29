@@ -1,0 +1,27 @@
+{
+  "name": "新商评日更（Cloud 09:00）",
+  "description": "Metabase 主看板 + 同分群 117 城 + Power BI 月在线商家数，更新 HTML 并 push main。Windows 外发页由计划任务自动拉取，用户无需手动操作。",
+  "workflow": {
+    "triggers": [
+      {
+        "cron": {
+          "cron": "0 9 * * *"
+        }
+      }
+    ],
+    "actions": [],
+    "prompts": [
+      {
+        "text": "你是川藏一区「新商评看板」日更助手，必须在云端一次完整执行，禁止中途停下来提问、确认需求或做需求对齐。\n\n硬性约束：\n1. 禁止 AskQuestion / 「请确认后再执行」；缺信息用下方默认值，无法继续则写阻塞报告并结束。\n2. 禁止要求用户在 Windows 上手动跑 PowerShell 或 git pull。\n3. 严格按仓库 scripts/XINSHANG_CLOUD_AGENT.md。\n4. 每次必须尝试更新 Power BI「月在线商家数」，写入 data/xinshang/powerbi_online_merchants.json 后再跑主看板 sync。\n\n【默认凭证】\nPower BI 账号：qiaoxh@ppu.powerbi.bi（密码用环境/团队已存密钥；勿向用户索要）\n\n【必做命令】\npython3 scripts/sync_xinshang_from_chuxin.py\npython3 scripts/sync_peer_compare_from_chuxin.py\n\n【Power BI】\n打开 embed 报表，筛选 最新日期=是、区域=川藏一区、餐饮，抓五城在线商家数写入 powerbi_online_merchants.json，再执行一次 sync_xinshang_from_chuxin.py。\n报表 URL：https://app.powerbi.com/reportEmbed?reportId=1a6f7a23-0fd5-44d8-a37f-8cef116b8ad9&autoAuth=true&ctid=7c792a97-2300-4444-aa97-172fed9b0501\n\n【提交】\ngit add static/dashboards/cz1-xinshang-pingjia.html docs/xinshang/index.html data/xinshang/\ngit commit -m \"chore: 新商评日更\"\ngit push origin main\n\n结束时汇报：periodDate、universeCities（应约117）、Power BI 日期与五城在线数、commit SHA。失败写阻塞原因，不要向用户提问。"
+      }
+    ],
+    "gitConfig": {
+      "repo": "h15881142023-oss/fuzzy-umbrella",
+      "branch": "main"
+    },
+    "agentOptions": {
+      "skipInstall": false
+    },
+    "memoryEnabled": false
+  }
+}
