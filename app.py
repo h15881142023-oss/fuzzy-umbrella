@@ -721,6 +721,50 @@ def _run_scraper(script_name: str) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+def _run_python_script(rel_path: str, timeout: int = 600) -> dict:
+    """运行仓库内任意 Python 脚本（含 scripts/）。"""
+    script = BASE_DIR / rel_path
+    if not script.exists():
+        return {"ok": False, "error": f"脚本不存在: {rel_path}"}
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        ok = proc.returncode == 0
+        db.log_sync(rel_path, "ok" if ok else "fail", (proc.stdout or proc.stderr)[-2000:])
+        return {
+            "ok": ok,
+            "returncode": proc.returncode,
+            "stdout": proc.stdout[-2000:],
+            "stderr": proc.stderr[-2000:],
+        }
+    except Exception as exc:  # noqa: BLE001
+        db.log_sync(rel_path, "fail", str(exc))
+        return {"ok": False, "error": str(exc)}
+
+
+@app.route("/api/xinshang/sync", methods=["POST"])
+def api_xinshang_sync():
+    """Cursor Automation / 本机计划任务：Power BI 月在线商家数 + Metabase 主看板 + 同分群，写回外发 HTML。"""
+    token = (request.headers.get("X-CZ-Token") or request.form.get("token") or "").strip()
+    if token != SITE_PASSWORD and not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    steps = {}
+    steps["powerbi"] = _run_scraper("scrape_powerbi_wind_online.py")
+    steps["xinshang"] = _run_python_script("scripts/sync_xinshang_from_chuxin.py")
+    if not steps["xinshang"]["ok"]:
+        return jsonify({"ok": False, "steps": steps}), 500
+    steps["peer"] = _run_python_script("scripts/sync_peer_compare_from_chuxin.py")
+    ok = steps["peer"]["ok"]
+    db.log_sync("xinshang_sync", "ok" if ok else "fail", str(steps)[:2000])
+    return jsonify({"ok": ok, "steps": steps, "page": f"{PUBLIC_ORIGIN}/evaluation/xinshang"})
+
+
 @app.route("/api/evaluation/sync", methods=["POST"])
 @login_required
 def sync_evaluation():
