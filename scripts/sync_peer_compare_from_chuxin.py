@@ -698,17 +698,35 @@ def fetch_all(day: str | None = None):
     return period, prev, summary, summary_prev, modules, dump
 
 
+def build_city_universe(summary: dict, summary_prev: dict, modules: dict) -> set[str]:
+    """城市名单：本期汇总表 ∪ 上期汇总表（约 117 城）。汇总表单日缩水时用上期补全，不把各模块页独有城市并入名单。"""
+    cities: set[str] = set(summary.keys())
+    if summary_prev:
+        cities |= set(summary_prev.keys())
+    return cities
+
+
 def build_payload(period: str, prev: str | None, summary: dict, summary_prev: dict, modules: dict, dump: dict) -> dict:
-    # 城市范围：以模块数据汇总表为准（约 117 城）
-    if not summary:
+    universe = build_city_universe(summary, summary_prev, modules)
+    if not universe:
         raise RuntimeError("模块数据汇总表没有城市数据")
-    ordered = sorted(summary.keys(), key=lambda c: (0 if c in TARGET_CITIES else 1, cell_str((summary.get(c) or {}).get("区域")), c))
+    if summary and len(summary) < len(universe):
+        dump.setdefault("cityUniverseNote", (
+            f"本期汇总表仅 {len(summary)} 城，已并入上期汇总与各模块共 {len(universe)} 城"
+        ))
+
+    def city_sort_key(c: str):
+        srow = summary.get(c) or summary_prev.get(c) or {}
+        return (0 if c in TARGET_CITIES else 1, cell_str(srow.get("区域")), c)
+
+    ordered = sorted(universe, key=city_sort_key)
 
     # 先填每城每指标的本期值/上期值/分群/预警/缺口分母
     raw_by_metric: dict[str, dict[str, dict]] = {m["id"]: {} for m in METRIC_SPECS}
     for city in ordered:
         srow = summary.get(city) or {}
         sprow = summary_prev.get(city) or {}
+        meta_row = srow or sprow
         for spec in METRIC_SPECS:
             mrow = (modules.get(spec["src"]) or {}).get(city)
             val = pick_value(
@@ -730,10 +748,14 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 prev_val = None
             if val is None:
                 val = MISSING_VALUE
-            cluster = pick_cluster(spec, srow)
-            warn = pick_warn(spec, srow, mrow)
-            region = cell_str(srow.get("区域") or (mrow or {}).get("区域") or (mrow or {}).get("配送区域"))
-            level = cell_str(srow.get("城市等级") or (mrow or {}).get("城市等级") or (mrow or {}).get("等级"))
+            cluster = pick_cluster(spec, meta_row)
+            warn = pick_warn(spec, meta_row, mrow)
+            region = cell_str(
+                srow.get("区域") or sprow.get("区域") or (mrow or {}).get("区域") or (mrow or {}).get("配送区域")
+            )
+            level = cell_str(
+                srow.get("城市等级") or sprow.get("城市等级") or (mrow or {}).get("城市等级") or (mrow or {}).get("等级")
+            )
             gap_denom = pick_gap_denom(spec, mrow, val if isinstance(val, (int, float)) else None)
             gap_daily = sum_counts(mrow, list(spec.get("gap_numer_keys") or [])[:1]) if spec.get("gap_numer_keys") else None
             # 零售 YoY：显式保留基期 + 日均，供 yoy_catchup 公式使用
@@ -879,14 +901,17 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
             "source": "metabase",
             "cities": mine_cities,
             "allCityCount": len(all_cities),
+            "summaryCityCount": len(summary),
+            "universeCityCount": len(universe),
             "periodDate": period,
             "prevDate": prev,
             "modules": dump.get("modules"),
             "moduleDates": module_dates,
             "remainingDaysBySrc": remain_by_src,
+            "cityUniverseNote": dump.get("cityUniverseNote"),
         },
         "note": (
-            "数据来自初心「新商考核」：城市名单以模块数据汇总表为准（117城）；"
+            "数据来自初心「新商考核」：城市名单=本期汇总表∪上期汇总表（约 117 城；汇总表单日仅 50 行时用上期补全）；"
             "本期值优先用汇总表考核指标值（与主看板一致）；上期值取汇总表上一考核日；"
             "追平缺口用各模块绝对量底数测算；剩余天数=当月天数−(模块日期+2)。"
             "非五城城市/区域展示为「友商」。"
@@ -964,6 +989,9 @@ def main() -> int:
                 "periodDate": period,
                 "prevDate": prev,
                 "cities": len(payload["records"]),
+                "summaryCities": (payload.get("meta") or {}).get("summaryCityCount"),
+                "universeCities": (payload.get("meta") or {}).get("universeCityCount"),
+                "cityUniverseNote": (payload.get("meta") or {}).get("cityUniverseNote"),
                 "mineCities": payload["mineCities"],
                 "metrics": len(payload["metrics"]),
                 "modules": dump.get("modules"),
