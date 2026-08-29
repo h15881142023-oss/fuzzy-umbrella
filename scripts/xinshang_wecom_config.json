@@ -1,0 +1,6 @@
+{
+  "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+  "page_url": "https://1.chuanzangyiqu.top/evaluation/xinshang",
+  "push_at": "Tue,Fri 22:00",
+  "comment": "优先读桌面「经营宝订单抓取/wecom_config.json」的 webhook_url，保证推到同一企微群。"
+}

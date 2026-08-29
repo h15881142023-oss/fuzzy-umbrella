@@ -712,7 +712,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
         raise RuntimeError("模块数据汇总表没有城市数据")
     if summary and len(summary) < len(universe):
         dump.setdefault("cityUniverseNote", (
-            f"本期汇总表仅 {len(summary)} 城，已并入上期汇总与各模块共 {len(universe)} 城"
+            f"本期汇总表仅 {len(summary)} 城，已并入上期汇总表共 {len(universe)} 城"
         ))
 
     def city_sort_key(c: str):

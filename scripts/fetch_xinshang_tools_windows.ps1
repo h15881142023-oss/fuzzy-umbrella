@@ -5,7 +5,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\fetch_xinshang_tools_windows.ps1 -Ref ab277ab
 
 param(
-  [string]$Ref = "ab277ab"
+  [string]$Ref = "cursor/cz1-merchant-dashboard-74a9"
 )
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +13,12 @@ $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $Root
 
 $relPaths = @(
+  "scripts/xinshang_daily_push.py",
+  "scripts/xinshang_wecom.py",
+  "scripts/xinshang_wecom_config.json",
+  "scripts/run_xinshang_daily_push.bat",
+  "scripts/install_xinshang_task.ps1",
+  "scripts/install_xinshang_task.bat",
   "scripts/update_xinshang_html_windows.ps1",
   "scripts/bootstrap_xinshang_html_windows.ps1",
   "scripts/sync_xinshang_full_windows.ps1",
@@ -29,11 +35,18 @@ $relPaths = @(
 
 function Get-RemoteFile([string]$rel) {
   $stamp = Get-Date -Format "yyyyMMddHHmmss"
-  $u1 = "https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $rel + "?t=" + $stamp
-  $u2 = "https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $rel + "?t=" + $stamp
-  $u3 = "https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $rel + "?t=" + $stamp
+  $urls = @(
+    ("https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $rel + "?t=" + $stamp),
+    ("https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/" + $Ref + "/" + $rel + "?t=" + $stamp)
+  )
+  if ($Ref -notmatch "/") {
+    $urls += @(
+      ("https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $rel + "?t=" + $stamp),
+      ("https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $Ref + "/" + $rel + "?t=" + $stamp)
+    )
+  }
   $tmp = Join-Path $env:TEMP ("cz1-" + $stamp + "-" + ($rel -replace "[\\/]", "_"))
-  foreach ($url in @($u1, $u2, $u3)) {
+  foreach ($url in $urls) {
     Write-Host ("==> try: " + $url)
     try {
       Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 120
@@ -73,5 +86,5 @@ if (-not $okAll) {
 
 Write-Host ""
 Write-Host "[OK] tools ready. Next:"
-Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_xinshang_full_windows.ps1 -Ref 48bd699"
+Write-Host "  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install_xinshang_task.ps1"
 exit 0

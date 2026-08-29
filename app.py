@@ -749,7 +749,7 @@ def _run_python_script(rel_path: str, timeout: int = 600) -> dict:
 
 @app.route("/api/xinshang/sync", methods=["POST"])
 def api_xinshang_sync():
-    """Cursor Automation / 本机计划任务：Power BI 月在线商家数 + Metabase 主看板 + 同分群，写回外发 HTML。"""
+    """本机/手动触发：Power BI 月在线商家数 + Metabase 主看板 + 同分群，写回外发 HTML。日常请用 Windows 计划任务 CZ1_Xinshang_WeCom_TueFriPush。"""
     token = (request.headers.get("X-CZ-Token") or request.form.get("token") or "").strip()
     if token != SITE_PASSWORD and not session.get("authenticated"):
         return jsonify({"ok": False, "error": "unauthorized"}), 401
