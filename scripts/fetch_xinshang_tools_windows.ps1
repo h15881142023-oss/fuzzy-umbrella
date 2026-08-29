@@ -5,7 +5,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\fetch_xinshang_tools_windows.ps1 -Ref ab277ab
 
 param(
-  [string]$Ref = "c4fb72b"
+  [string]$Ref = "3059d02"
 )
 
 $ErrorActionPreference = "Stop"

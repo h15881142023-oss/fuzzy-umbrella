@@ -58,7 +58,7 @@ function Get-RemoteFile([string]$rel, [string]$ref) {
   return $null
 }
 
-$Sha = "c4fb72b"
+$Sha = "3059d02"
 $Ref = "cursor/cz1-merchant-dashboard-74a9"
 $need = @(
   "scripts/xinshang_daily_push.py",
