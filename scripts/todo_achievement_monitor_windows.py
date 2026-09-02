@@ -21,7 +21,11 @@ BASE_URL = "http://www.chuxin.city"
 ACCOUNT = "qiaoxianhai"
 PASSWORD = "123"
 REGION = "川藏一区"
-WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
+DEFAULT_WEBHOOKS = [
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=8f0a0c3a-7636-4224-8ead-7b24fbb64157",
+]
+WEBHOOK = DEFAULT_WEBHOOKS[0]
 TZ = ZoneInfo("Asia/Shanghai")
 
 COLUMNS = [
@@ -287,6 +291,40 @@ def push_image(webhook: str, png_path: Path) -> dict:
     return body
 
 
+def _split_webhooks(raw: str) -> list[str]:
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def resolve_webhooks(*, webhooks: Optional[str], webhook: Optional[str]) -> list[str]:
+    if webhook:
+        return [webhook.strip()]
+    if webhooks:
+        return _split_webhooks(webhooks)
+    env_multi = os.getenv("TODO_WECOM_WEBHOOKS", "").strip()
+    if env_multi:
+        return _split_webhooks(env_multi)
+    env_single = os.getenv("TODO_WECOM_WEBHOOK", "").strip()
+    if env_single:
+        return _split_webhooks(env_single)
+    return list(DEFAULT_WEBHOOKS)
+
+
+def push_all(webhooks: list[str], text: str, png_path: Path) -> dict:
+    responses: dict[str, dict] = {}
+    errors: list[str] = []
+    for idx, webhook in enumerate(webhooks):
+        try:
+            text_resp = push_text(webhook, text)
+            image_resp = push_image(webhook, png_path)
+            responses[f"webhook_{idx + 1}"] = {"text": text_resp, "image": image_resp}
+            print(f"企微通道 {idx + 1}/{len(webhooks)} 推送成功", file=sys.stderr, flush=True)
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"通道{idx + 1}: {exc}")
+    if errors:
+        raise RuntimeError("部分企微通道推送失败: " + "; ".join(errors))
+    return responses
+
+
 def safe_cleanup(paths: list[Path]) -> None:
     for path in paths:
         try:
@@ -307,7 +345,16 @@ def main() -> int:
     parser.add_argument("--base-url", default=os.getenv("TODO_BASE_URL", BASE_URL))
     parser.add_argument("--account", default=os.getenv("TODO_ACCOUNT", ACCOUNT))
     parser.add_argument("--password", default=os.getenv("TODO_PASSWORD", PASSWORD))
-    parser.add_argument("--webhook", default=os.getenv("TODO_WECOM_WEBHOOK", WEBHOOK))
+    parser.add_argument(
+        "--webhook",
+        default=None,
+        help="单个企微 Webhook（指定后仅推此通道，覆盖默认多通道）",
+    )
+    parser.add_argument(
+        "--webhooks",
+        default=None,
+        help="多个企微 Webhook，逗号分隔（也可用环境变量 TODO_WECOM_WEBHOOKS）",
+    )
     parser.add_argument(
         "--temp-dir",
         default=os.getenv("TODO_TEMP_DIR", r"C:\Windows\Temp\todo_monitor"),
@@ -315,9 +362,11 @@ def main() -> int:
     )
     parser.add_argument("--dry-run", action="store_true", help="只生成不推送")
     args = parser.parse_args()
+    webhooks = resolve_webhooks(webhooks=args.webhooks, webhook=args.webhook)
 
     temp_dir = Path(args.temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Todo 监控启动 webhooks={len(webhooks)}", file=sys.stderr, flush=True)
     png_path = temp_dir / f"todo_{datetime.now(TZ).strftime('%Y%m%d_%H%M%S')}.png"
     cleanup_paths = [png_path]
 
@@ -344,9 +393,8 @@ def main() -> int:
             print("dry-run: skip wecom push")
             return 0
 
-        text_resp = push_text(args.webhook, text)
-        image_resp = push_image(args.webhook, png_path)
-        print(json.dumps({"text": text_resp, "image": image_resp}, ensure_ascii=False, indent=2))
+        push_resp = push_all(webhooks, text, png_path)
+        print(json.dumps(push_resp, ensure_ascii=False, indent=2))
 
         # errcode=0 后清理临时目录内文件
         cleanup_paths.extend(list(temp_dir.glob("*.png")))

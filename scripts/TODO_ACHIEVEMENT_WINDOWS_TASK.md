@@ -19,6 +19,8 @@ pip install pillow requests
 python scripts/todo_achievement_monitor_windows.py
 ```
 
+默认双通道企微推送（原群 + 新群）。可用环境变量 `TODO_WECOM_WEBHOOKS`（逗号分隔）自定义。
+
 ## 安装定时任务（无人登录也运行）
 
 建议管理员 PowerShell：
