@@ -24,7 +24,8 @@ python scripts/self_delivery_monitor_windows.py
 
 - 看板 URL：`SELF_DELIVERY_BOARD_URL`
 - 看板密码：`SELF_DELIVERY_BOARD_PASSWORD`（默认 `mtwm@888`）
-- 企微 Webhook：`SELF_DELIVERY_WECOM_WEBHOOK`
+- 企微 Webhook（默认双通道）：`SELF_DELIVERY_WECOM_WEBHOOKS`（逗号分隔多个 URL）
+- 单个 Webhook 覆盖：`SELF_DELIVERY_WECOM_WEBHOOK` 或 `--webhook`
 - 临时目录：`SELF_DELIVERY_TEMP_DIR`
 
 ## 3) 安装 Windows 定时任务（每日执行）

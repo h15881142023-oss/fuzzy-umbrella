@@ -22,7 +22,13 @@ from playwright.async_api import async_playwright
 
 BOARD_URL = "http://47.112.178.78:8100/#/de-link/zjygliyM?ticket=8GbVO1Vw"
 BOARD_PASSWORD = "mtwm@888"
-WEBHOOK = "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
+# 默认双通道推送：保留原群 + 新增群
+DEFAULT_WEBHOOKS = [
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=8f0a0c3a-7636-4224-8ead-7b24fbb64157",
+]
+# 兼容旧引用
+WEBHOOK = DEFAULT_WEBHOOKS[0]
 
 DELIVERY_ALLOWED = {"跑腿", "商家配送"}
 BIZ_ALLOWED = {"城市商家", "全国KA", "区域KA"}
@@ -690,14 +696,15 @@ def _upload_file(webhook: str, path: Path) -> dict:
     return body
 
 
-def push_failure_alert(webhook: str, error: str) -> None:
-    """下载或推送失败时发送企微告警（忽略告警发送本身的失败）。"""
+def push_failure_alert(webhooks: list[str], error: str) -> None:
+    """下载或推送失败时向所有企微通道发送告警（单通道失败不阻断其他通道）。"""
     today = date.today().isoformat()
     text = f"❌ 自配监控：DataEase数据下载失败\n> 日期：{today}\n> 原因：{error[:500]}"
-    try:
-        _post_json(webhook, {"msgtype": "text", "text": {"content": text}})
-    except Exception as alert_exc:  # noqa: BLE001
-        print(f"失败告警发送异常: {alert_exc}", file=sys.stderr, flush=True)
+    for idx, webhook in enumerate(webhooks):
+        try:
+            _post_json(webhook, {"msgtype": "text", "text": {"content": text}})
+        except Exception as alert_exc:  # noqa: BLE001
+            _log(f"失败告警通道 {idx + 1} 发送异常: {alert_exc}")
 
 
 def push_wecom(webhook: str, result: MonitorResult) -> dict:
@@ -715,6 +722,40 @@ def push_wecom(webhook: str, result: MonitorResult) -> dict:
     return {"markdown": md_resp, "upload": upload_resp, "file": file_resp}
 
 
+def _split_webhooks(raw: str) -> list[str]:
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def resolve_webhooks(*, webhooks: Optional[str], webhook: Optional[str]) -> list[str]:
+    """解析企微 Webhook 列表；默认双通道推送。"""
+    if webhook:
+        return [webhook.strip()]
+    if webhooks:
+        return _split_webhooks(webhooks)
+    env_multi = os.getenv("SELF_DELIVERY_WECOM_WEBHOOKS", "").strip()
+    if env_multi:
+        return _split_webhooks(env_multi)
+    env_single = os.getenv("SELF_DELIVERY_WECOM_WEBHOOK", "").strip()
+    if env_single:
+        return _split_webhooks(env_single)
+    return list(DEFAULT_WEBHOOKS)
+
+
+def push_wecom_all(webhooks: list[str], result: MonitorResult) -> dict:
+    """向所有企微通道推送；任一通道失败则整体报错。"""
+    responses: dict[str, dict] = {}
+    errors: list[str] = []
+    for idx, webhook in enumerate(webhooks):
+        try:
+            responses[f"webhook_{idx + 1}"] = push_wecom(webhook, result)
+            _log(f"企微通道 {idx + 1}/{len(webhooks)} 推送成功")
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"通道{idx + 1}: {exc}")
+    if errors:
+        raise RuntimeError("部分企微通道推送失败: " + "; ".join(errors))
+    return responses
+
+
 def safe_unlink(path: Optional[Path]) -> None:
     if path and path.exists():
         path.unlink(missing_ok=True)
@@ -724,7 +765,16 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="自配门店监控（Windows 本机定时）")
     parser.add_argument("--url", default=os.getenv("SELF_DELIVERY_BOARD_URL", BOARD_URL))
     parser.add_argument("--password", default=os.getenv("SELF_DELIVERY_BOARD_PASSWORD", BOARD_PASSWORD))
-    parser.add_argument("--webhook", default=os.getenv("SELF_DELIVERY_WECOM_WEBHOOK", WEBHOOK))
+    parser.add_argument(
+        "--webhook",
+        default=None,
+        help="单个企微 Webhook（指定后仅推此通道，覆盖默认多通道）",
+    )
+    parser.add_argument(
+        "--webhooks",
+        default=None,
+        help="多个企微 Webhook，逗号分隔（也可用环境变量 SELF_DELIVERY_WECOM_WEBHOOKS）",
+    )
     parser.add_argument(
         "--temp-dir",
         default=os.getenv("SELF_DELIVERY_TEMP_DIR", r"C:\Windows\Temp\zpei_monitor"),
@@ -738,10 +788,14 @@ def main() -> int:
         help=argparse.SUPPRESS,
     )
     args = parser.parse_args()
+    webhooks = resolve_webhooks(webhooks=args.webhooks, webhook=args.webhook)
 
     temp_dir = Path(args.temp_dir)
     temp_dir.mkdir(parents=True, exist_ok=True)
-    _log(f"自配监控启动 headless={args.headless} debug={args.debug} temp={temp_dir}")
+    _log(
+        f"自配监控启动 headless={args.headless} debug={args.debug} "
+        f"temp={temp_dir} webhooks={len(webhooks)}"
+    )
 
     if args.download_only:
         try:
@@ -777,19 +831,19 @@ def main() -> int:
         _log("开始筛选 Excel…")
         result = build_filtered_result(downloaded_excel, temp_dir)
         filtered_excel = result.recent_file
-        _log(f"筛选完成 当月={result.month_count} 近3天={result.recent_count}，开始推送企微…")
-        push_resp = push_wecom(args.webhook, result)
+        _log(f"筛选完成 当月={result.month_count} 近3天={result.recent_count}，开始推送企微（{len(webhooks)} 个通道）…")
+        push_resp = push_wecom_all(webhooks, result)
         print(json.dumps(push_resp, ensure_ascii=False, indent=2), flush=True)
 
         # 仅在推送成功（errcode=0）后删除临时 Excel。
         safe_unlink(downloaded_excel)
         safe_unlink(filtered_excel)
-        _log("推送成功，临时文件已清理")
+        _log("全部通道推送成功，临时文件已清理")
         return 0
     except Exception as exc:  # noqa: BLE001
         err_text = str(exc)
         _log(f"执行失败: {err_text}")
-        push_failure_alert(args.webhook, err_text)
+        push_failure_alert(webhooks, err_text)
         return 1
 
 
