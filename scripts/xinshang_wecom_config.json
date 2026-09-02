@@ -1,6 +1,9 @@
 {
-  "webhook_url": "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+  "webhook_urls": [
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=103699eb-8cd7-4af8-9fbe-46f01d315abb",
+    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=8f0a0c3a-7636-4224-8ead-7b24fbb64157"
+  ],
   "page_url": "https://1.chuanzangyiqu.top/evaluation/xinshang",
   "push_at": "Tue,Fri 22:00",
-  "comment": "新商评固定推这个群；不再读取经营宝 wecom_config.json。"
+  "comment": "新商评同时推这两个群。"
 }

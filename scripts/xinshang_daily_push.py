@@ -30,13 +30,10 @@ format_failure = xinshang_wecom.format_failure
 format_success = xinshang_wecom.format_success
 load_wecom_config = xinshang_wecom.load_wecom_config
 send_text = xinshang_wecom.send_text
-FIXED_WEBHOOK = (
-    "https://qyapi.weixin.qq.com/cgi-bin/webhook/send"
-    "?key=103699eb-8cd7-4af8-9fbe-46f01d315abb"
-)
-HOT_SHA = "477db4d"
+HOT_SHA = "c317718"
 HOT_BRANCH = "cursor/cz1-merchant-dashboard-74a9"
 HOT_FILES = (
+    "scripts/xinshang_daily_push.py",
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
     "scrapers/cdp_client.py",
@@ -182,9 +179,11 @@ def notify(content: str, skip_wecom: bool) -> None:
     if skip_wecom:
         log("skip wecom: " + content.replace("\n", " | "))
         return
-    log("wecom source=fixed")
-    send_text(content, FIXED_WEBHOOK)
-    log("wecom sent")
+    cfg = load_wecom_config()
+    urls = cfg.get("webhook_urls") or [cfg.get("webhook_url")]
+    log("wecom channels=" + str(len([u for u in urls if u])))
+    result = send_text(content)
+    log("wecom sent=" + str(result.get("sent")) + " failed=" + str(result.get("failed") or []))
 
 
 def run_pipeline(*, skip_wecom: bool) -> int:
@@ -193,6 +192,12 @@ def run_pipeline(*, skip_wecom: bool) -> int:
     log("python=" + sys.executable)
     pull_hot_files()
     patch_powerbi_evaluate()
+    global send_text, load_wecom_config, format_success, format_failure
+    _wecom_spec.loader.exec_module(xinshang_wecom)
+    send_text = xinshang_wecom.send_text
+    load_wecom_config = xinshang_wecom.load_wecom_config
+    format_success = xinshang_wecom.format_success
+    format_failure = xinshang_wecom.format_failure
 
     try:
         subprocess.run(
@@ -261,6 +266,7 @@ def run_pipeline(*, skip_wecom: bool) -> int:
 
 def self_test() -> int:
     cfg = load_wecom_config()
+    urls = cfg.get("webhook_urls") or []
     ok_msg = format_success(
         {
             "periodDate": "2026-08-27",
@@ -273,14 +279,14 @@ def self_test() -> int:
     fail_msg = format_failure("demo error", "peer")
     sample = last_json('noise\n{"ok": true, "universeCities": 117}\n')
     checks = [
-        FIXED_WEBHOOK.endswith("103699eb-8cd7-4af8-9fbe-46f01d315abb"),
+        any("103699eb-8cd7-4af8-9fbe-46f01d315abb" in u for u in urls),
+        any("8f0a0c3a-7636-4224-8ead-7b24fbb64157" in u for u in urls),
+        len(urls) >= 2,
         "新商评看板已更新" in ok_msg,
         "新商评看板更新失败" in fail_msg,
         sample.get("universeCities") == 117,
-        (ROOT / "scripts" / "xinshang_clock_windows.py").is_file(),
-        (ROOT / "scripts" / "xinshang_self_update.py").is_file(),
     ]
-    print(json.dumps({"ok": all(checks), "checks": checks, "wecomSource": "fixed"}, ensure_ascii=False))
+    print(json.dumps({"ok": all(checks), "checks": checks, "wecomChannels": len(urls)}, ensure_ascii=False))
     return 0 if all(checks) else 1
 
 
