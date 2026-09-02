@@ -25,10 +25,10 @@ NEED = [
 
 def _urls(rel: str) -> list[str]:
     return [
-        f"https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}/{rel}",
-        f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}/{rel}",
         f"https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{BRANCH}/{rel}",
         f"https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{BRANCH}/{rel}",
+        f"https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}/{rel}",
+        f"https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@{SHA}/{rel}",
     ]
 
 
@@ -49,6 +49,9 @@ ALWAYS_REFRESH = {
     "scripts/xinshang_daily_push.py",
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
+    "scripts/sync_xinshang_from_chuxin.py",
+    "scripts/sync_peer_compare_from_chuxin.py",
+    "scripts/xinshang_self_update.py",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
     "scripts/xinshang_clock_windows.py",

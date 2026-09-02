@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import statistics
 import urllib.parse
 import urllib.request
@@ -38,6 +39,17 @@ SUMMARY_CARD = {
     "date_id": "fe957d70",
     "date_type": "date/range",
 }
+
+# 与主看板一致：考核日取周一/周四节奏模块的最新一日，不单信汇总表下拉。
+CADENCE_DATE_PARAMS = (
+    "fe957d70",
+    "20b71f6",
+    "141a2780",
+    "74a547b9",
+    "21c403b0",
+    "bda69947",
+)
+CITY_SERIAL_RE = re.compile(r"^\d{5,6}(?=\D)")
 
 MODULE_CARDS = {
     "waimai": {"dashcard": 198, "card": 217, "date_id": "20b71f6", "date_type": "date/range", "tab": "外卖模块"},
@@ -376,7 +388,7 @@ def cell_str(v) -> str:
 
 
 def canon_city(v) -> str | None:
-    s = cell_str(v).replace(" ", "").replace("\n", "").replace("\r", "")
+    s = CITY_SERIAL_RE.sub("", cell_str(v).replace(" ", "").replace("\n", "").replace("\r", ""))
     if not s:
         return None
     hits = []
@@ -391,12 +403,36 @@ def canon_city(v) -> str | None:
     return hits[0][1]
 
 
-def latest_param_date(param_id: str) -> str:
+def param_dates(param_id: str) -> list[str]:
     url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/params/{param_id}/values"
-    vals = [str(v[0])[:10] for v in (http_json(url).get("values") or []) if v]
-    days = sorted({d for d in vals if len(d) >= 10 and d[4] == "-" and d[0].isdigit()})
+    try:
+        raw = http_json(url).get("values") or []
+    except Exception:
+        return []
+    days = []
+    for item in raw:
+        if not item:
+            continue
+        day = str(item[0])[:10]
+        if len(day) >= 10 and day[4] == "-" and day[0].isdigit():
+            days.append(day)
+    return sorted(set(days))
+
+
+def latest_param_date(param_id: str) -> str:
+    days = param_dates(param_id)
     if not days:
         raise RuntimeError(f"参数 {param_id} 没有可用日期")
+    return days[-1]
+
+
+def latest_assessment_date() -> str:
+    days: list[str] = []
+    for pid in CADENCE_DATE_PARAMS:
+        days.extend(param_dates(pid))
+    days = sorted(set(days))
+    if not days:
+        raise RuntimeError("没有可用考核日期")
     return days[-1]
 
 
@@ -630,10 +666,16 @@ def module_row_date(mrow: dict | None) -> str:
 
 
 def prev_param_date(param_id: str, day: str) -> str | None:
-    url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/params/{param_id}/values"
-    vals = [str(v[0])[:10] for v in (http_json(url).get("values") or []) if v]
-    days = sorted({d for d in vals if len(d) >= 10 and d[4] == "-" and d[0].isdigit()})
+    days = param_dates(param_id)
     older = [d for d in days if d < day]
+    return older[-1] if older else None
+
+
+def prev_assessment_date(day: str) -> str | None:
+    days: list[str] = []
+    for pid in CADENCE_DATE_PARAMS:
+        days.extend(param_dates(pid))
+    older = [d for d in sorted(set(days)) if d < day[:10]]
     return older[-1] if older else None
 
 
@@ -655,8 +697,8 @@ def remaining_days(module_day: str) -> int | None:
 
 def fetch_all(day: str | None = None):
     CACHE.mkdir(parents=True, exist_ok=True)
-    period = day or latest_param_date(SUMMARY_CARD["date_id"])
-    prev = prev_param_date(SUMMARY_CARD["date_id"], period)
+    period = day or latest_assessment_date()
+    prev = prev_assessment_date(period) or prev_param_date(SUMMARY_CARD["date_id"], period)
     dump = {
         "periodDate": period,
         "prevDate": prev,
@@ -923,7 +965,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--date", help="考核日期 YYYY-MM-DD（默认模块数据汇总表最新一日）")
+    ap.add_argument("--date", help="考核日期 YYYY-MM-DD（默认取周一/周四节奏最新一日）")
     args = ap.parse_args()
 
     period, prev, summary, summary_prev, modules, dump = fetch_all(args.date)

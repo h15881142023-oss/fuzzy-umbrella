@@ -36,6 +36,8 @@ HOT_FILES = (
     "scripts/xinshang_daily_push.py",
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
+    "scripts/sync_xinshang_from_chuxin.py",
+    "scripts/sync_peer_compare_from_chuxin.py",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
     "scrapers/powerbi_wind_js.py",

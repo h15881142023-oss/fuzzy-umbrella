@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import urllib.parse
@@ -36,6 +37,18 @@ CARDS = {
     "waimai": {"dashcard": 198, "card": 217, "date_id": "20b71f6", "date_type": "date/range", "region_id": "4da2372d"},
     "tuango": {"dashcard": 197, "card": 215, "date_id": "c717dd65", "date_type": "date/all-options", "region_id": "c6f05ae6"},
 }
+
+# 考核日跟周一/周四节奏，不能只信汇总表日期下拉（会落后一期）。
+# 用户体验等日更参数不要并进来，否则会选到 9/1 这类非考核日。
+CADENCE_DATE_PARAMS = (
+    "fe957d70",  # 模块数据汇总表
+    "20b71f6",  # 外卖
+    "141a2780",  # 零售
+    "74a547b9",  # 组织
+    "21c403b0",  # 总商能力看板
+    "bda69947",  # 新商预警
+)
+CITY_SERIAL_RE = re.compile(r"^\d{5,6}(?=\D)")
 
 BAND_RANK = {
     "(90%-100%]": 6,
@@ -144,12 +157,45 @@ def summarize_tests(rows):
     }
 
 
+def param_dates(param_id: str) -> list[str]:
+    url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/params/{param_id}/values"
+    try:
+        raw = http_json(url).get("values") or []
+    except Exception:
+        return []
+    days = []
+    for item in raw:
+        if not item:
+            continue
+        day = str(item[0])[:10]
+        if len(day) >= 10 and day[4] == "-" and day[0].isdigit():
+            days.append(day)
+    return sorted(set(days))
+
+
 def latest_summary_date() -> str:
-    url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/params/fe957d70/values"
-    vals = [v[0] for v in (http_json(url).get("values") or [])]
-    if not vals:
-        raise RuntimeError("模块数据汇总表没有可用日期")
-    return max(vals)
+    """考核日：汇总表下拉 ∪ 周一/周四节奏模块的最新一日。"""
+    days: list[str] = []
+    for pid in CADENCE_DATE_PARAMS:
+        days.extend(param_dates(pid))
+    days = sorted(set(days))
+    if not days:
+        raise RuntimeError("没有可用考核日期")
+    return days[-1]
+
+
+def prev_assessment_date(day: str) -> str | None:
+    days: list[str] = []
+    for pid in CADENCE_DATE_PARAMS:
+        days.extend(param_dates(pid))
+    older = [d for d in sorted(set(days)) if d < day[:10]]
+    return older[-1] if older else None
+
+
+def clean_city_name(name) -> str:
+    if name is None:
+        return ""
+    return CITY_SERIAL_RE.sub("", str(name).strip())
 
 
 def date_value(iso: str, kind: str):
@@ -177,8 +223,9 @@ def rows_to_city_map(cols, rows, city_key="城市"):
     out = {}
     for row in rows:
         d = dict(zip(cols, row))
-        name = d.get(city_key)
+        name = clean_city_name(d.get(city_key))
         if name:
+            d[city_key] = name
             out[name] = d
     return out
 
@@ -398,9 +445,14 @@ def pick_latest_board(cols, rows):
     by = defaultdict(list)
     for row in rows:
         d = dict(zip(cols, row))
+        city = clean_city_name(d.get("城市"))
+        if city:
+            d["城市"] = city
         if d.get("区域") != REGION:
             continue
-        by[d.get("城市")].append(d)
+        if not city:
+            continue
+        by[city].append(d)
     out = {}
     for city, items in by.items():
         items.sort(key=lambda x: str(x.get("本期日期") or ""), reverse=True)
@@ -772,15 +824,17 @@ def extract_data_json(html: str) -> tuple[int, int, dict]:
     return start, end, payload
 
 
-def fetch_metabase():
+def fetch_metabase(iso: str | None = None):
     CACHE.mkdir(parents=True, exist_ok=True)
-    iso = latest_summary_date()
+    iso = iso or latest_summary_date()
     day = iso[:10]
-    # 上一期：日期参数里比本期更早的最大一天
-    url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/params/fe957d70/values"
-    days = sorted({v[0][:10] for v in (http_json(url).get("values") or [])})
-    prev_day = next((d for d in reversed(days) if d < day), None)
-    dump = {"periodDate": day, "prevDate": prev_day, "fetchedAt": datetime.now(timezone.utc).isoformat()}
+    prev_day = prev_assessment_date(day)
+    dump = {
+        "periodDate": day,
+        "prevDate": prev_day,
+        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+        "dateSource": "cadence-params",
+    }
     tables = {}
     for name, spec in CARDS.items():
         cols, rows = query_card(spec, iso)
@@ -794,8 +848,8 @@ def fetch_metabase():
     return day, prev_day, tables
 
 
-def main():
-    day, prev_day, tables = fetch_metabase()
+def main(iso: str | None = None):
+    day, prev_day, tables = fetch_metabase(iso)
     tests = {"cityStats": [], "people": [], "totalRecords": 0, "totalPeople": 0}
     try:
         token = login()
@@ -921,4 +975,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--date", help="考核日期 YYYY-MM-DD（默认取周一/周四节奏最新一日）")
+    args = ap.parse_args()
+    main(args.date)

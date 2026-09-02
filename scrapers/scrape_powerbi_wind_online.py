@@ -26,25 +26,31 @@ OUT = ROOT / "data" / "xinshang" / "powerbi_online_merchants.json"
 
 
 def _refresh_push_entry() -> None:
-    """顺手覆盖同步入口，让下一次跑到双企微通道。"""
-    rel = "scripts/xinshang_daily_push.py"
-    dest = ROOT / "scripts" / "xinshang_daily_push.py"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    urls = [
-        "https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/cursor/cz1-merchant-dashboard-74a9/scripts/xinshang_daily_push.py",
-        "https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/cursor/cz1-merchant-dashboard-74a9/scripts/xinshang_daily_push.py",
-    ]
-    for url in urls:
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": "cz1-xinshang"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = resp.read()
-            if data and len(data) > 200:
-                dest.write_bytes(data)
-                print("[OK] refreshed xinshang_daily_push.py", flush=True)
-                return
-        except Exception:
-            continue
+    """覆盖日更入口和选日脚本，避免本机仍按汇总表下拉停在上一期。"""
+    rels = (
+        "scripts/xinshang_daily_push.py",
+        "scripts/sync_xinshang_from_chuxin.py",
+        "scripts/sync_peer_compare_from_chuxin.py",
+    )
+    branch = "cursor/cz1-merchant-dashboard-74a9"
+    for rel in rels:
+        dest = ROOT.joinpath(*rel.split("/"))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        urls = [
+            f"https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{branch}/{rel}",
+            f"https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/{branch}/{rel}",
+        ]
+        for url in urls:
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "cz1-xinshang"})
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    data = resp.read()
+                if data and len(data) > 200:
+                    dest.write_bytes(data)
+                    print(f"[OK] refreshed {rel}", flush=True)
+                    break
+            except Exception:
+                continue
 
 
 def _ensure_wait_ready() -> None:
