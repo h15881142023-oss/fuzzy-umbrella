@@ -13,6 +13,7 @@ from flask import (
     redirect,
     render_template,
     request,
+    send_from_directory,
     session,
     url_for,
 )
@@ -36,6 +37,7 @@ NAV_ITEMS = [
     {"path": "/kpi/dashboard", "label": "绩效看板"},
     {"path": "/warning/catering", "label": "餐饮预警"},
     {"path": "/evaluation", "label": "合作商评价"},
+    {"path": "/evaluation/xinshang", "label": "新商评价看板"},
     {"path": "/todo_achievement", "label": "TODO达成"},
     {"path": "/notice", "label": "通知函"},
     {"path": "/business", "label": "经营管理"},
@@ -211,6 +213,15 @@ def page_evaluation():
             {"key": "updated_at", "label": "更新时间"},
         ],
         "/api/evaluation/sync",
+    )
+
+
+@app.route("/evaluation/xinshang")
+def page_xinshang_dashboard():
+    """川藏一区新商能力评价看板（免登录，可供外发域名访问）。"""
+    return send_from_directory(
+        BASE_DIR / "static" / "dashboards",
+        "cz1-xinshang-pingjia.html",
     )
 
 
@@ -710,6 +721,55 @@ def _run_scraper(script_name: str) -> dict:
         return {"ok": False, "error": str(exc)}
 
 
+def _run_python_script(rel_path: str, timeout: int = 600) -> dict:
+    """运行仓库内任意 Python 脚本（含 scripts/）。"""
+    script = BASE_DIR / rel_path
+    if not script.exists():
+        return {"ok": False, "error": f"脚本不存在: {rel_path}"}
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(script)],
+            cwd=str(BASE_DIR),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        ok = proc.returncode == 0
+        db.log_sync(rel_path, "ok" if ok else "fail", (proc.stdout or proc.stderr)[-2000:])
+        return {
+            "ok": ok,
+            "returncode": proc.returncode,
+            "stdout": proc.stdout[-2000:],
+            "stderr": proc.stderr[-2000:],
+        }
+    except Exception as exc:  # noqa: BLE001
+        db.log_sync(rel_path, "fail", str(exc))
+        return {"ok": False, "error": str(exc)}
+
+
+@app.route("/api/xinshang/health")
+def api_xinshang_health():
+    """用于确认本机 Web 已换成带时钟的新代码（无需登录）。"""
+    return jsonify({"ok": True, "clock": True, "schedule": "Tue,Fri 22:00"})
+
+
+@app.route("/api/xinshang/sync", methods=["POST"])
+def api_xinshang_sync():
+    """本机 Web 内触发：补齐脚本后跑 xinshang_daily_push（含企微）。日常由 ChuanzangWeb5001 时钟触发。"""
+    token = (request.headers.get("X-CZ-Token") or request.form.get("token") or "").strip()
+    if token != SITE_PASSWORD and not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+
+    updater = BASE_DIR / "scripts" / "xinshang_self_update.py"
+    if updater.is_file():
+        _run_python_script("scripts/xinshang_self_update.py", timeout=180)
+    # 先覆盖入口脚本，再跑全量（含固定企微 webhook + Power BI 热补丁）
+    result = _run_python_script("scripts/xinshang_daily_push.py", timeout=1200)
+    db.log_sync("xinshang_sync", "ok" if result.get("ok") else "fail", str(result)[:2000])
+    status = 200 if result.get("ok") else 500
+    return jsonify({"ok": result.get("ok"), "result": result, "page": f"{PUBLIC_ORIGIN}/evaluation/xinshang"}), status
+
+
 @app.route("/api/evaluation/sync", methods=["POST"])
 @login_required
 def sync_evaluation():
@@ -752,9 +812,45 @@ def sync_non_catering():
     return jsonify(_run_scraper("sync_non_catering_scores.py"))
 
 
+def _start_xinshang_clock() -> None:
+    """挂到已有 ChuanzangWeb5001：周二/周五 22:00 自动更新，无需再复制 PowerShell。"""
+    import os
+    import threading
+
+    if os.name != "nt":
+        return
+    if os.environ.get("CZ_XINSHANG_CLOCK", "1") == "0":
+        return
+    if any(t.name == "xinshang-clock" and t.is_alive() for t in threading.enumerate()):
+        return
+    try:
+        import importlib.util
+
+        updater = BASE_DIR / "scripts" / "xinshang_self_update.py"
+        if updater.is_file():
+            spec_u = importlib.util.spec_from_file_location("xinshang_self_update", updater)
+            if spec_u and spec_u.loader:
+                mod_u = importlib.util.module_from_spec(spec_u)
+                spec_u.loader.exec_module(mod_u)
+                mod_u.ensure_tools()
+
+        clock = BASE_DIR / "scripts" / "xinshang_clock_windows.py"
+        if not clock.is_file():
+            return
+        spec = importlib.util.spec_from_file_location("xinshang_clock_windows", clock)
+        if spec is None or spec.loader is None:
+            return
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod.start_background()
+    except Exception as exc:  # noqa: BLE001
+        print("xinshang clock skip:", exc, flush=True)
+
+
 def create_app():
     db.init_db()
     db.seed_demo_if_empty()
+    _start_xinshang_clock()
     return app
 
 
