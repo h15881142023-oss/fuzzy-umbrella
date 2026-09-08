@@ -108,7 +108,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 
 ```powershell
 cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-$ref = "17c2dc0"
+$ref = "6efd178"
 $rel = "static/dashboards/cz1-xinshang-pingjia.html"
 $out1 = ".\static\dashboards\cz1-xinshang-pingjia.html"
 $out2 = ".\docs\xinshang\index.html"

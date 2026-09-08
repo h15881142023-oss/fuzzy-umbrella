@@ -5,7 +5,7 @@ import urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SHA = "17c2dc0"
+SHA = "6efd178"
 BRANCH = "cursor/cz1-merchant-dashboard-74a9"
 
 NEED = [
