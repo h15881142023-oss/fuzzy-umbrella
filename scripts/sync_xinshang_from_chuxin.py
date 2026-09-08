@@ -332,6 +332,18 @@ def calc_dongxiao(tx, online):
     return f"{a / b * 100:.2f}%"
 
 
+def calc_penetrate_denom(tx, rate):
+    a = parse_count(tx)
+    r = parse_count(rate)
+    if a is None or r is None or r == 0:
+        return "—"
+    if r > 1:
+        r = r / 100.0
+    if r <= 0:
+        return "—"
+    return f"{int(round(a / r)):,}"
+
+
 def fmt_pp(v):
     if blank(v):
         return "—"
@@ -457,7 +469,7 @@ WAIMAI_LAYOUT_RENAMES = {
 }
 
 
-PENETRATION_CHILDREN = ["月交易商家数", "月在线商家数", "公海商家数", "月动销率"]
+PENETRATION_CHILDREN = ["月交易商家数", "月在线商家数", "公海商家数", "月动销率", "渗透率分母"]
 
 
 def rename_waimai_layouts(layouts: dict) -> None:
@@ -787,6 +799,7 @@ def apply_city(
                 value_delta=mom_pref(cur=waimai.get("公海商家数"), prev=waimai_prev.get("公海商家数")),
             ),
             "月动销率": metric("—"),  # placeholder, filled below
+            "渗透率分母": metric("—"),
         },
         "零售": {
             "日均零售 YOY": metric(
@@ -990,6 +1003,8 @@ def apply_city(
     cur_dx = calc_dongxiao(waimai.get("交易商家数"), cur_online)
     prev_dx = calc_dongxiao(waimai_prev.get("交易商家数"), prev_online)
     details["外卖"]["月动销率"] = metric(cur_dx, value_delta=mom_pref(cur=cur_dx, prev=prev_dx))
+    tx_now = waimai.get("交易商家数") or details["外卖"].get("月交易商家数", {}).get("value")
+    details["外卖"]["渗透率分母"] = metric(calc_penetrate_denom(tx_now, penetrate_val))
 
     # 团购货币化率排名为 0 时视为不预警
     tg_mon = details["商业增值"]["团购货币化率"]

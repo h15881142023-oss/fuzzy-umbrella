@@ -37,11 +37,12 @@
     .section h2 { margin:0 0 4px; font-size:1.2rem; color:var(--brand-deep); }
     .section .desc { margin:0 0 12px; color:var(--muted); font-size:.9rem; }
     .scroll { overflow-x:auto; }
-    table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:1100px; }
+    table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:860px; }
     th, td {
       border:1px solid var(--line); padding:8px 10px; text-align:left;
-      vertical-align:top; white-space:nowrap;
+      vertical-align:middle; white-space:nowrap;
     }
+    #matrixTable tbody td { height: 3.55em; }
     th {
       background:#e7f3ef; color:#35545c; font-weight:700;
       position:sticky; top:0; z-index:1;
@@ -94,16 +95,21 @@
       display:inline-flex; flex-direction:row; flex-wrap:nowrap; align-items:center; gap:6px;
       white-space:nowrap;
     }
-    .warn-now { display:inline-flex; align-items:center; gap:4px; flex-shrink:0; }
+    .warn-stack {
+      display:inline-flex; flex-direction:column; align-items:flex-start; justify-content:center;
+      gap:2px; min-height:2.9em;
+    }
+    .warn-now { display:inline-flex; align-items:center; gap:4px; min-height:1.4em; }
     .prev-warn {
       font-size:.64rem; color:#8a9aa2; font-weight:600;
       display:inline-flex; align-items:center; gap:3px; line-height:1.2;
-      letter-spacing:.02em; flex-shrink:0; white-space:nowrap;
+      letter-spacing:.02em; white-space:nowrap; min-height:1.15em;
     }
     .prev-warn .badge { font-size:.6rem; padding:0 5px; font-weight:600; opacity:.78; }
+    .prev-warn-ph { visibility:hidden; user-select:none; }
     .delta { display:inline-block; min-width:1em; text-align:center; font-weight:800; font-size:.95rem; }
-    .delta.up { color:#b42318; }
-    .delta.down { color:#027a48; }
+    .delta.up { color:#14804a; }
+    .delta.down { color:#c62828; }
     .delta.flat, .delta.na { color:#667780; }
     .b0{background:#fde8e6;color:#8f1d14} .b1{background:#ffedd5;color:#9a3412}
     .b2{background:#fef3c7;color:#92400e} .b3{background:#ecfccb;color:#3f6212}
@@ -199,7 +205,7 @@
   <div class="wrap">
     <header class="hero">
       <h1>川藏一区</h1>
-      <p>新商能力评价详表看板 · 多城对比 / 单城档案。只选 1 城进入单城视角；预警有变化时箭头旁显示上期区间。</p>
+      <p>新商能力评价详表看板 · 多城对比 / 单城档案。只选 1 城进入单城视角；区域视角预警变化时上期区间在当期下方。</p>
       <div class="meta">
         <div class="chip">考核周期 <strong id="period">—</strong></div>
         <div class="chip">数据日期 <strong id="date">—</strong></div>
@@ -226,7 +232,7 @@
     <div id="multiView">
       <section class="section">
         <h2>一、预警矩阵</h2>
-        <p class="desc">城市类型、加权预警、大盘预警与各模块预警；有变化时箭头旁用小字标上期区间。不含组织、综合治理。</p>
+        <p class="desc">城市类型、加权预警、大盘预警与各模块预警；有变化时箭头下方用小字标上期区间（同列单元格等高）。不含组织、综合治理。</p>
         <div class="legend" id="legend"></div>
         <div class="scroll"><table id="matrixTable"></table></div>
       </section>
@@ -299,7 +305,8 @@
           "月交易商家数",
           "月在线商家数",
           "公海商家数",
-          "月动销率"
+          "月动销率",
+          "渗透率分母"
         ]
       }
     ],
@@ -454,6 +461,9 @@
           "月动销率": {
             "value": "77.93%",
             "valueDelta": "+3.14pp"
+          },
+          "渗透率分母": {
+            "value": "2,636"
           }
         },
         "零售": {
@@ -626,6 +636,9 @@
           "月动销率": {
             "value": "81.69%",
             "valueDelta": "+7.94pp"
+          },
+          "渗透率分母": {
+            "value": "1,378"
           }
         },
         "零售": {
@@ -790,6 +803,9 @@
           "月动销率": {
             "value": "72.52%",
             "valueDelta": "+4.01pp"
+          },
+          "渗透率分母": {
+            "value": "839"
           }
         },
         "零售": {
@@ -964,6 +980,9 @@
           "月动销率": {
             "value": "68.76%",
             "valueDelta": "+3.73pp"
+          },
+          "渗透率分母": {
+            "value": "773"
           }
         },
         "零售": {
@@ -53345,7 +53364,7 @@
       if (n === "down") return `<span class="delta down" title="较上期下降">↓</span>`;
       return "";
     }
-    function warnWithDelta(band, delta, prevBand) {
+    function warnWithDelta(band, delta, prevBand, layout) {
       const cur = (band == null || band === "") ? "—" : band;
       const core = badge(cur);
       let n = normalizeDelta(delta);
@@ -53353,10 +53372,16 @@
         const computed = deltaFromBands(cur, prevBand);
         if (computed === "up" || computed === "down") n = computed;
       }
-      if (n !== "up" && n !== "down") return core;
-      const prevTxt = (prevBand != null && String(prevBand).trim() !== "" && String(prevBand) !== String(cur))
-        ? `<span class="prev-warn">上期 ${badge(prevBand)}</span>`
-        : "";
+      const changed = n === "up" || n === "down";
+      const prevOk = prevBand != null && String(prevBand).trim() !== "" && String(prevBand) !== String(cur);
+      if (layout === "stack") {
+        const prevLine = (changed && prevOk)
+          ? `<span class="prev-warn">上期 ${badge(prevBand)}</span>`
+          : `<span class="prev-warn prev-warn-ph">上期 ${badge("无预警")}</span>`;
+        return `<span class="warn-stack"><span class="warn-now">${core}${changed ? deltaIcon(n) : ""}</span>${prevLine}</span>`;
+      }
+      if (!changed) return core;
+      const prevTxt = prevOk ? `<span class="prev-warn">上期 ${badge(prevBand)}</span>` : "";
       return `<span class="warn-changed">${core}${deltaIcon(n)}${prevTxt}</span>`;
     }
     function metricWarnDelta(city, mod, metricObj) {
@@ -53380,11 +53405,24 @@
       const n = Number(String(s).replace(/,/g, ""));
       return Number.isFinite(n) ? n : null;
     }
+    function parseRate(v) {
+      const s = typeof v === "object" ? cellValue(v) : String(v == null ? "" : v);
+      if (!s || s === "—") return null;
+      const n = Number(String(s).replace(/,/g, "").replace(/%/g, ""));
+      if (!Number.isFinite(n) || n === 0) return null;
+      return n > 1 ? n / 100 : n;
+    }
     function displayMetricValue(city, mod, name, metricObj) {
       if (mod === "外卖" && name === "月动销率") {
         const tx = parseCount(getMetric(city, "外卖", "月交易商家数"));
         const online = parseCount(getMetric(city, "外卖", "月在线商家数"));
         if (tx != null && online) return ((tx / online) * 100).toFixed(2) + "%";
+        return "—";
+      }
+      if (mod === "外卖" && name === "渗透率分母") {
+        const tx = parseCount(getMetric(city, "外卖", "月交易商家数"));
+        const rate = parseRate(getMetric(city, "外卖", "餐饮商家渗透率"));
+        if (tx != null && rate) return Math.round(tx / rate).toLocaleString("en-US");
         return "—";
       }
       return cellValue(metricObj);
@@ -53490,8 +53528,10 @@
         ["[0%-10%]", "b0"], ["(10%-30%]", "b1"], ["(30%-50%]", "b2"],
         ["(50%-70%]", "b3"], ["(70%-90%]", "b4"], ["(90%-100%]", "b5"],
         ["暂不预警/不预警", "bna"],
-        ["↑上升", ""], ["↓下降", ""]
-      ].map(([t, c]) => c
+        ["↑上升", "up"], ["↓下降", "down"]
+      ].map(([t, c]) => c === "up" || c === "down"
+        ? `<span class="chip" style="background:#eef2f4;color:#35545c;border:1px solid #d7e0e4"><span class="delta ${c}">${t.slice(0,1)}</span>${t.slice(1)}</span>`
+        : c
         ? `<span class="badge ${c}">${t}</span>`
         : `<span class="chip" style="background:#eef2f4;color:#35545c;border:1px solid #d7e0e4">${t}</span>`
       ).join("");
@@ -53520,9 +53560,9 @@
           <tr>
             <td class="city">${c.name}</td>
             <td>${c.type || "—"}</td>
-            <td>${warnWithDelta(c.warnWeighted, c.warnWeightedDelta, c.warnWeightedPrev)}</td>
-            <td>${warnWithDelta(c.warnMarket, c.warnDelta, c.warnMarketPrev)}</td>
-            ${mods.map(m => `<td>${warnWithDelta(c.bands[m], (c.bandsDelta || {})[m], (c.bandsPrev || {})[m])}</td>`).join("")}
+            <td>${warnWithDelta(c.warnWeighted, c.warnWeightedDelta, c.warnWeightedPrev, "stack")}</td>
+            <td>${warnWithDelta(c.warnMarket, c.warnDelta, c.warnMarketPrev, "stack")}</td>
+            ${mods.map(m => `<td>${warnWithDelta(c.bands[m], (c.bandsDelta || {})[m], (c.bandsPrev || {})[m], "stack")}</td>`).join("")}
           </tr>`).join("")}</tbody>`;
     }
 
@@ -53573,7 +53613,7 @@
             const main = getMetric(c, mod, item.name) || {};
             let html = `<td>${displayMetricValue(c, mod, item.name, main)}</td>`;
             if (item.mom) html += `<td>${momCell(main)}</td>`;
-            if (item.warn) html += `<td>${warnWithDelta(main.band, metricWarnDelta(c, mod, main), main.bandPrev)}</td>`;
+            if (item.warn) html += `<td>${warnWithDelta(main.band, metricWarnDelta(c, mod, main), main.bandPrev, "stack")}</td>`;
             for (const child of (item.children || [])) {
               const cm = getMetric(c, mod, child) || {};
               html += `<td>${displayMetricValue(c, mod, child, cm)}</td>`;
@@ -53583,7 +53623,7 @@
           const m = getMetric(c, mod, item.name) || {};
           let html = `<td>${displayMetricValue(c, mod, item.name, m)}</td>`;
           if (item.mom) html += `<td>${momCell(m)}</td>`;
-          if (item.warn) html += `<td>${warnWithDelta(m.band, metricWarnDelta(c, mod, m), m.bandPrev)}</td>`;
+          if (item.warn) html += `<td>${warnWithDelta(m.band, metricWarnDelta(c, mod, m), m.bandPrev, "stack")}</td>`;
           return html;
         }).join("");
         return `<tr><td class="city">${c.name}</td>${tds}</tr>`;
@@ -53593,7 +53633,7 @@
 
     function moduleDesc(mod) {
       if (mod === "团购") return "仅仁寿、南溪（且受上方城市筛选约束）；「优质商家渗透率」为父指标，子列不加预警。";
-      if (mod === "外卖") return "「餐饮商家渗透率」为父指标；月动销率 = 月交易商家数 ÷ 月在线商家数；月在线商家数来自 Power BI 业务风向看板。";
+      if (mod === "外卖") return "「餐饮商家渗透率」为父指标；月动销率 = 月交易商家数 ÷ 月在线商家数；渗透率分母 = 月交易商家数 ÷ 餐饮商家渗透率；月在线商家数来自 Power BI 业务风向看板。";
       if (mod === "综合治理") return "综合治理只展示指标值，不展示预警区间列。";
       if (mod === "履约" || mod === "用户体验") return "与相邻模块并排展示；受上方城市筛选统一控制。";
       return "城市横排对比；带预警指标旁 ↑ / ↓ 表示预警区间较上期变化；「环比变化」为指标值较上期变化。";
