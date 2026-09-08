@@ -469,7 +469,7 @@ WAIMAI_LAYOUT_RENAMES = {
 }
 
 
-PENETRATION_CHILDREN = ["月交易商家数", "月在线商家数", "公海商家数", "月动销率", "渗透率分母"]
+PENETRATION_CHILDREN = ["月交易商家数", "渗透率分母", "月在线商家数", "公海商家数", "月动销率"]
 
 
 def rename_waimai_layouts(layouts: dict) -> None:

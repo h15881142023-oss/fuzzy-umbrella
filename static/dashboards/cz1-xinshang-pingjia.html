@@ -40,9 +40,15 @@
     table { width:100%; border-collapse:collapse; font-size:.86rem; min-width:860px; }
     th, td {
       border:1px solid var(--line); padding:8px 10px; text-align:left;
-      vertical-align:middle; white-space:nowrap;
+      vertical-align:top; white-space:nowrap;
     }
-    #matrixTable tbody td { height: 3.55em; }
+    #multiView table tbody td {
+      height: 4.45em;
+      vertical-align: top;
+    }
+    #multiView table tbody td .warn-stack {
+      min-height: 3.35em;
+    }
     th {
       background:#e7f3ef; color:#35545c; font-weight:700;
       position:sticky; top:0; z-index:1;
@@ -96,10 +102,10 @@
       white-space:nowrap;
     }
     .warn-stack {
-      display:inline-flex; flex-direction:column; align-items:flex-start; justify-content:center;
-      gap:2px; min-height:2.9em;
+      display:inline-flex; flex-direction:column; align-items:flex-start; justify-content:flex-start;
+      gap:2px; min-height:3.35em;
     }
-    .warn-now { display:inline-flex; align-items:center; gap:4px; min-height:1.4em; }
+    .warn-now { display:inline-flex; align-items:center; gap:4px; min-height:1.45em; }
     .prev-warn {
       font-size:.64rem; color:#8a9aa2; font-weight:600;
       display:inline-flex; align-items:center; gap:3px; line-height:1.2;
@@ -111,6 +117,7 @@
     .delta.up { color:#14804a; }
     .delta.down { color:#c62828; }
     .delta.flat, .delta.na { color:#667780; }
+    .delta.ph { visibility:hidden; pointer-events:none; }
     .b0{background:#fde8e6;color:#8f1d14} .b1{background:#ffedd5;color:#9a3412}
     .b2{background:#fef3c7;color:#92400e} .b3{background:#ecfccb;color:#3f6212}
     .b4{background:#dcfce7;color:#166534} .b5{background:#bbf7d0;color:#14532d}
@@ -303,10 +310,10 @@
         "mom": true,
         "children": [
           "月交易商家数",
+          "渗透率分母",
           "月在线商家数",
           "公海商家数",
-          "月动销率",
-          "渗透率分母"
+          "月动销率"
         ]
       }
     ],
@@ -53378,7 +53385,8 @@
         const prevLine = (changed && prevOk)
           ? `<span class="prev-warn">上期 ${badge(prevBand)}</span>`
           : `<span class="prev-warn prev-warn-ph">上期 ${badge("无预警")}</span>`;
-        return `<span class="warn-stack"><span class="warn-now">${core}${changed ? deltaIcon(n) : ""}</span>${prevLine}</span>`;
+        const arrow = changed ? deltaIcon(n) : `<span class="delta ph" aria-hidden="true">↑</span>`;
+        return `<span class="warn-stack"><span class="warn-now">${core}${arrow}</span>${prevLine}</span>`;
       }
       if (!changed) return core;
       const prevTxt = prevOk ? `<span class="prev-warn">上期 ${badge(prevBand)}</span>` : "";
