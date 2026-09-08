@@ -39,6 +39,7 @@ HOT_FILES = (
     "scripts/sync_xinshang_from_chuxin.py",
     "scripts/sync_peer_compare_from_chuxin.py",
     "scripts/sync_xinshang_from_excel.py",
+    "data/xinshang/新商考核预警数据_20260908_113823.xlsx",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
     "scrapers/powerbi_wind_js.py",

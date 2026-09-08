@@ -119,6 +119,28 @@ def candidate_paths(explicit: str | None = None) -> list[Path]:
     return seen
 
 
+def download_excel_from_repo(dest: Path) -> Path | None:
+    import urllib.request
+
+    rel = f"data/xinshang/{EXACT_NAME}"
+    urls = [
+        f"https://ghproxy.net/https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/cursor/cz1-merchant-dashboard-74a9/{rel}",
+        f"https://raw.githubusercontent.com/h15881142023-oss/fuzzy-umbrella/cursor/cz1-merchant-dashboard-74a9/{rel}",
+    ]
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    for url in urls:
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": "cz1-xinshang"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = resp.read()
+            if data and len(data) > 200 and data[:2] == b"PK":
+                dest.write_bytes(data)
+                return dest
+        except Exception:
+            continue
+    return None
+
+
 def find_excel(explicit: str | None = None) -> Path | None:
     for p in candidate_paths(explicit):
         if _exists(p):
@@ -147,7 +169,9 @@ def find_excel(explicit: str | None = None) -> Path | None:
     if not found:
         return None
     found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return found[0]
+    if found:
+        return found[0]
+    return download_excel_from_repo(CACHE / EXACT_NAME)
 
 
 def cell_str(v) -> str:
