@@ -565,18 +565,19 @@ def pick_warn(spec: dict, summary: dict | None, module_row: dict | None):
     return spec.get("default_warn") or "—"
 
 
-def pick_cluster(spec: dict, summary: dict | None) -> str:
-    if not summary:
-        return "无分群"
-    for k in (spec.get("cluster_key"), spec.get("cluster_alt")):
-        if not k:
+def pick_cluster(spec: dict, *rows) -> str:
+    for summary in rows:
+        if not summary:
             continue
-        v = cell_str(summary.get(k))
-        if not v:
-            continue
-        if v in {"无", "无分群", "—", "-"}:
-            return "无分群"
-        return v
+        for k in (spec.get("cluster_key"), spec.get("cluster_alt")):
+            if not k:
+                continue
+            v = cell_str(summary.get(k))
+            if not v:
+                continue
+            if v in {"无", "无分群", "—", "-"}:
+                continue
+            return v
     return "无分群"
 
 
@@ -818,7 +819,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 prev_val = None
             if val is None:
                 val = MISSING_VALUE
-            cluster = pick_cluster(spec, meta_row)
+            cluster = pick_cluster(spec, srow, sprow)
             warn = pick_warn(spec, meta_row, mrow)
             region = cell_str(
                 srow.get("区域") or sprow.get("区域") or (mrow or {}).get("区域") or (mrow or {}).get("配送区域")
