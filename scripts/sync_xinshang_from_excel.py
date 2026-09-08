@@ -333,7 +333,7 @@ def inspect_book(path: Path) -> dict:
 
 
 def fetch_prev_from_metabase(day: str) -> tuple[str | None, dict, dict, dict, dict, dict, dict]:
-    """上期汇总仍走考核日；当期外卖/团购模块补交易商家数、公海、团购子项。彭州走川藏二区。"""
+    """上期汇总仍走考核日；当期外卖/团购模块补交易商家数、公海、团购子项。"""
     prev_day = xin.prev_assessment_date(day)
     prev: dict = {}
     board: dict = {}
@@ -422,6 +422,7 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
     xin.rename_waimai_layouts(data.get("layouts") or {})
     xin.enable_layout_mom(data.get("layouts") or {})
     update_peer_compare(data, day, prev_day, merged, prev)
+    xin.sanitize_dashboard(data)
 
     new_json = json.dumps(data, ensure_ascii=False, indent=2)
     new_html = html[:start] + new_json + html[end:]

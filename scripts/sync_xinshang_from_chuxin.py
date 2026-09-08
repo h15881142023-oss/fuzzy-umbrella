@@ -20,11 +20,12 @@ MB_HOST = "http://47.112.178.78:3000"
 MB_DASH_UUID = "5d509c91-583b-4229-89ee-51721035ae71"
 COLLECTION = "t_t6e991yzf4c"
 REGION = "川藏一区"
-REGIONS = ["川藏一区", "川藏二区"]  # 彭州在川藏二区，仍纳入五城看板
-CITIES = ["彭州市", "仁寿县", "合江县", "南溪", "叙永"]
+REGIONS = ["川藏一区"]
+CITIES = ["仁寿县", "合江县", "南溪", "叙永"]
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "data" / "xinshang"
-MODULE_ORDER = ["外卖", "团购", "履约", "零售", "商业增值", "用户体验", "组织", "综合治理"]
+MODULE_ORDER = ["外卖", "团购", "履约", "零售", "商业增值", "用户体验"]
+HIDDEN_MODULES = {"组织", "综合治理"}
 POWERBI_ONLINE_JSON = CACHE / "powerbi_online_merchants.json"
 HTMLS = [
     ROOT / "static" / "dashboards" / "cz1-xinshang-pingjia.html",
@@ -256,13 +257,20 @@ def is_na_band(v) -> bool:
     return show(v) in NA_BANDS or v in NA_BANDS
 
 
+def band_rank(v):
+    s = show(v)
+    if s in BAND_RANK:
+        return BAND_RANK[s]
+    if s in {"无预警", "不预警", "暂不预警"}:
+        return 7
+    return None
+
+
 def band_delta(old, new):
     a, b = show(old), show(new)
-    if is_na_band(a) or is_na_band(b):
-        return None
     if a == b:
         return "持平"
-    ra, rb = BAND_RANK.get(a), BAND_RANK.get(b)
+    ra, rb = band_rank(a), band_rank(b)
     if ra is None or rb is None:
         return None
     if rb > ra:
@@ -274,7 +282,6 @@ def band_delta(old, new):
 
 DEFAULT_POWERBI_ONLINE = {
     "仁寿县": 1341,
-    "彭州市": 843,
     "合江县": 579,
     "南溪": 524,
     "叙永": 429,
@@ -495,6 +502,69 @@ MOM_LAYOUT_NAMES = {
 }
 
 
+def recompute_warn_deltas(city: dict) -> None:
+    """按当期/上期预警区间重算箭头，避免模块级「持平」盖住指标级变化。"""
+    dw = band_delta(city.get("warnWeightedPrev"), city.get("warnWeighted"))
+    city["warnWeightedDelta"] = dw if dw and dw != "持平" else None
+    dm = band_delta(city.get("warnMarketPrev"), city.get("warnMarket"))
+    if dm:
+        city["warnDelta"] = dm
+    bands = city.get("bands") or {}
+    prevs = city.get("bandsPrev") or {}
+    city["bandsDelta"] = {
+        k: band_delta(prevs.get(k), v)
+        for k, v in bands.items()
+        if k not in HIDDEN_MODULES and band_delta(prevs.get(k), v) not in (None, "持平")
+    }
+    details = city.get("details") or {}
+    for metrics in details.values():
+        if not isinstance(metrics, dict):
+            continue
+        for rec in metrics.values():
+            if not isinstance(rec, dict) or not rec.get("band") or not rec.get("bandPrev"):
+                continue
+            computed = band_delta(rec.get("bandPrev"), rec.get("band"))
+            if computed and computed != "持平":
+                rec["delta"] = computed
+            else:
+                rec.pop("delta", None)
+
+
+def sanitize_dashboard(data: dict) -> None:
+    data["modules"] = list(MODULE_ORDER)
+    by = {c.get("name"): c for c in (data.get("cities") or []) if c.get("name") in CITIES}
+    data["cities"] = [by[n] for n in CITIES if n in by]
+    data.setdefault("meta", {})["richCz1Count"] = len(CITIES)
+    layouts = data.get("layouts") or {}
+    for key in list(layouts):
+        if key in HIDDEN_MODULES:
+            layouts.pop(key, None)
+    for city in data["cities"]:
+        for key in ("bands", "bandsPrev", "bandsDelta"):
+            mp = city.get(key)
+            if isinstance(mp, dict):
+                for hidden in HIDDEN_MODULES:
+                    mp.pop(hidden, None)
+        details = city.get("details")
+        if isinstance(details, dict):
+            for hidden in HIDDEN_MODULES:
+                details.pop(hidden, None)
+        recompute_warn_deltas(city)
+    pc = data.get("peerCompare")
+    if not isinstance(pc, dict):
+        return
+    mine = [c for c in CITIES if c in set(pc.get("mineCities") or pc.get("cities") or [])]
+    if not mine:
+        mine = list(CITIES)
+    pc["mineCities"] = mine
+    pc["cities"] = list(mine)
+    for rec in pc.get("records") or []:
+        rec["mine"] = rec.get("城市") in CITIES
+    note = pc.get("note")
+    if isinstance(note, str):
+        pc["note"] = note.replace("五城", "四城")
+
+
 def enable_layout_mom(layouts: dict) -> None:
     for items in (layouts or {}).values():
         for item in items:
@@ -502,14 +572,22 @@ def enable_layout_mom(layouts: dict) -> None:
                 item["mom"] = True
 
 
-def metric(value, band=None, value_delta=None, warn_delta=None):
+def metric(value, band=None, value_delta=None, warn_delta=None, band_prev=None):
     rec = {"value": show(value)}
     if band is not None and not blank(band):
         rec["band"] = show(band)
     if value_delta not in (None, "—"):
         rec["valueDelta"] = value_delta
-    if warn_delta:
-        rec["delta"] = warn_delta
+    if band_prev not in (None, "—") and not blank(band_prev):
+        rec["bandPrev"] = show(band_prev)
+    computed = None
+    if rec.get("band") and rec.get("bandPrev"):
+        computed = band_delta(rec["bandPrev"], rec["band"])
+    chosen = computed if computed not in (None, "持平") else None
+    if chosen is None and warn_delta not in (None, "持平", "—", ""):
+        chosen = warn_delta
+    if chosen:
+        rec["delta"] = chosen
     return rec
 
 
@@ -562,7 +640,11 @@ def apply_city(
     dst["riskMonth"] = show(board.get("风险状态(当月)"), dst.get("riskMonth") or "—")
     dst["warnWeighted"] = show(summary.get("加权排名区间") or board.get("加权预警"), "无预警")
     dst["warnMarket"] = show(summary.get("大盘预警") or board.get("大盘预警"), "—")
-    dst["warnDelta"] = show(board.get("预警状态环比变化"), None) or band_delta(prev.get("大盘预警"), summary.get("大盘预警")) or "—"
+    dst["warnDelta"] = (
+        band_delta(prev.get("大盘预警"), summary.get("大盘预警") or board.get("大盘预警"))
+        or show(board.get("预警状态环比变化"), None)
+        or "—"
+    )
 
     dst["cluster"] = {
         "waimai": show(summary.get("外卖能力分群"), "无分群"),
@@ -586,8 +668,11 @@ def apply_city(
         "综合治理": ("综合治理能力预警", "综合治理"),
     }
     bands = {}
+    bands_prev = {}
     mod_warn_delta = {}
     for cn, (sk, bk) in band_map.items():
+        if cn in HIDDEN_MODULES:
+            continue
         val = summary.get(sk)
         if blank(val) and board:
             val = board.get(bk)
@@ -597,8 +682,18 @@ def apply_city(
             continue
         bands[cn] = show(val, "—")
         mod_warn_delta[cn] = band_delta(prev.get(sk), val)
+        if not blank(prev.get(sk)):
+            bands_prev[cn] = show(prev.get(sk))
     dst["bands"] = bands
+    dst["bandsPrev"] = bands_prev
     dst["bandsDelta"] = {k: v for k, v in mod_warn_delta.items() if v and v != "持平"}
+    _wdelta = band_delta(
+        prev.get("加权排名区间") or prev.get("加权预警"),
+        summary.get("加权排名区间") or board.get("加权预警"),
+    )
+    dst["warnWeightedDelta"] = _wdelta if _wdelta and _wdelta != "持平" else None
+    dst["warnWeightedPrev"] = show(prev.get("加权排名区间") or prev.get("加权预警"), None) or None
+    dst["warnMarketPrev"] = show(prev.get("大盘预警"), None) or None
 
     def wd(mod):
         return mod_warn_delta.get(mod)
@@ -647,6 +742,7 @@ def apply_city(
                     prev=wm_order_prev,
                 ),
                 None if is_na_band(wm_order_band) else wd("外卖"),
+                pick(prev, "餐饮订单量完成率排名", "餐饮订单量完成率-外卖", "市场开发率（订单）-外卖"),
             ),
             "餐饮实付完成率": metric(
                 wm_gtv_val,
@@ -659,6 +755,7 @@ def apply_city(
                     prev=wm_gtv_prev,
                 ),
                 None if is_na_band(wm_gtv_band) else wd("外卖"),
+                pick(prev, "餐饮交易额完成率排名", "餐饮交易额完成率-外卖", "市场开发率（实付）-外卖"),
             ),
             "餐饮商家渗透率": metric(
                 penetrate_val,
@@ -669,6 +766,7 @@ def apply_city(
                     prev=penetrate_prev,
                 ),
                 wd("外卖"),
+                pick(prev, "餐饮渗透率排名", "餐饮商家渗透率-外卖"),
             ),
             "月交易商家数": metric(
                 waimai.get("交易商家数"),
@@ -700,6 +798,7 @@ def apply_city(
                     prev=prev.get("YoY指标值-零售") or prev.get("日均零售YOY"),
                 ),
                 wd("零售"),
+                prev.get("YoY-零售预警"),
             ),
             "优质仓数达标情况": metric(
                 summary.get("优质仓数达标情况"),
@@ -719,6 +818,7 @@ def apply_city(
                     prev=prev.get("市场开发率指标值-团购"),
                 ),
                 None if not dst["hasTuango"] else wd("团购"),
+                None if not dst["hasTuango"] else prev.get("市场开发率-团购"),
             ),
             "优质商家渗透率": metric(
                 "—" if not dst["hasTuango"] else (summary.get("优质商家渗透率指标值-团购") or summary.get("优质商家渗透率") or summary.get("4N_1动销率")),
@@ -732,6 +832,7 @@ def apply_city(
                     prev=prev.get("优质商家渗透率指标值-团购") or prev.get("优质商家渗透率"),
                 ),
                 None if not dst["hasTuango"] else wd("团购"),
+                None if not dst["hasTuango"] else prev.get("优质商家渗透率-团购"),
             ),
             "4n+1货架达标数": metric("—"),
             "4n+1达标商家动销数": metric(
@@ -766,6 +867,7 @@ def apply_city(
                     prev=prev.get("推单完成率指标值-履约") or prev.get("推单完成率"),
                 ),
                 wd("履约"),
+                prev.get("推单完成率排名-履约"),
             ),
             "压力天出勤率": metric(
                 summary.get("压力天出勤率"),
@@ -780,6 +882,7 @@ def apply_city(
                     prev=prev.get("超45分钟订单占比指标值-履约") or prev.get("超45分钟订单占比"),
                 ),
                 wd("履约"),
+                prev.get("超45分钟订单占比-履约"),
             ),
         },
         "用户体验": {
@@ -792,6 +895,7 @@ def apply_city(
                     prev=prev.get("用户商家万服分群排名") or prev.get("用户体验_用户投诉商家问题万服差值"),
                 ),
                 wd("用户体验"),
+                prev.get("用户体验_用户投诉商家问题万服差值排名"),
             ),
             "用户投诉履约问题万服排名": metric(
                 summary.get("用户履约万服分群排名") or summary.get("用户体验_用户投诉履约问题万服差值"),
@@ -802,6 +906,7 @@ def apply_city(
                     prev=prev.get("用户履约万服分群排名") or prev.get("用户体验_用户投诉履约问题万服差值"),
                 ),
                 wd("用户体验"),
+                prev.get("用户体验_用户投诉履约问题万服差值排名"),
             ),
         },
         "组织": {
@@ -845,6 +950,7 @@ def apply_city(
                     prev=prev.get("外卖货币化率指标值-商业增值") or prev.get("外卖货币化率"),
                 ),
                 wd("商业增值"),
+                prev.get("商业增值_外卖货币化率排名"),
             ),
             "团购货币化率": metric(
                 "—" if not dst["hasTuango"] else (summary.get("团购货币化率指标值-商业增值") or summary.get("团购货币化率")),
@@ -856,6 +962,7 @@ def apply_city(
                     prev=prev.get("团购货币化率指标值-商业增值") or prev.get("团购货币化率"),
                 ),
                 None if not dst["hasTuango"] else wd("商业增值"),
+                None if not dst["hasTuango"] else prev.get("商业增值_团购货币化率排名"),
             ),
         },
         "综合治理": {
@@ -1029,8 +1136,10 @@ def main(iso: str | None = None):
         )
         new_cities.append(city)
     data["cities"] = new_cities
+    data["modules"] = MODULE_ORDER
     rename_waimai_layouts(data.get("layouts") or {})
     enable_layout_mom(data.get("layouts") or {})
+    sanitize_dashboard(data)
 
     new_json = json.dumps(data, ensure_ascii=False, indent=2)
     new_html = html[:start] + new_json + html[end:]
