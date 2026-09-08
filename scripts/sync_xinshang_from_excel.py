@@ -393,6 +393,11 @@ def update_peer_compare(data: dict, day: str, prev_day: str | None, excel_all: d
                 if prev_val is not None:
                     block["上期值"] = prev_val
             block["moduleDate"] = day
+    for metric in pc.get("metrics") or []:
+        for spec in peer.METRIC_SPECS:
+            if metric.get("id") == spec["id"]:
+                metric["name"] = spec["name"]
+                break
 
 
 def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
@@ -445,6 +450,7 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
         city["dataDate"] = day
         new_cities.append(city)
     data["cities"] = new_cities
+    xin.rename_waimai_layouts(data.get("layouts") or {})
     xin.enable_layout_mom(data.get("layouts") or {})
     update_peer_compare(data, day, prev_day, merged, prev)
 

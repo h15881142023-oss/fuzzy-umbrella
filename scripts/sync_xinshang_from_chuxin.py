@@ -393,7 +393,22 @@ def mom_pref(*officials, cur=None, prev=None):
     return mom_auto(cur, prev)
 
 
+WAIMAI_LAYOUT_RENAMES = {
+    "市场开发率(订单量)": "餐饮订单完成率",
+    "市场开发率(GTV)": "餐饮实付完成率",
+}
+
+
+def rename_waimai_layouts(layouts: dict) -> None:
+    for item in (layouts or {}).get("外卖") or []:
+        old = item.get("name")
+        if old in WAIMAI_LAYOUT_RENAMES:
+            item["name"] = WAIMAI_LAYOUT_RENAMES[old]
+
+
 MOM_LAYOUT_NAMES = {
+    "餐饮订单完成率",
+    "餐饮实付完成率",
     "市场开发率(订单量)",
     "市场开发率(GTV)",
     "餐饮商家渗透率",
@@ -533,7 +548,7 @@ def apply_city(
     def wd(mod):
         return mod_warn_delta.get(mod)
 
-    # 指标值：不考核的市场开发率按源表展示
+    # 指标值：外卖完成率仍读源表旧字段，仅改看板展示名
     wm_order_val = summary.get("市场开发率（订单）指标值-外卖")
     wm_order_band = summary.get("市场开发率（订单）-外卖")
     wm_gtv_val = summary.get("市场开发率（实付）指标值-外卖")
@@ -544,7 +559,7 @@ def apply_city(
 
     details = {
         "外卖": {
-            "市场开发率(订单量)": metric(
+            "餐饮订单完成率": metric(
                 wm_order_val,
                 wm_order_band,
                 mom_pref(
@@ -554,7 +569,7 @@ def apply_city(
                 ),
                 None if is_na_band(wm_order_band) else wd("外卖"),
             ),
-            "市场开发率(GTV)": metric(
+            "餐饮实付完成率": metric(
                 wm_gtv_val,
                 wm_gtv_band,
                 mom_pref(
@@ -929,6 +944,7 @@ def main(iso: str | None = None):
         )
         new_cities.append(city)
     data["cities"] = new_cities
+    rename_waimai_layouts(data.get("layouts") or {})
     enable_layout_mom(data.get("layouts") or {})
 
     new_json = json.dumps(data, ensure_ascii=False, indent=2)
