@@ -399,12 +399,16 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
     }
 
     online_map = xin.load_powerbi_online()
+    mb_cur = xin.rows_to_city_map(*xin.query_card_regions(xin.CARDS["summary"], day))
     by_name = {c["name"]: c for c in (data.get("cities") or [])}
     new_cities = []
     for name in CITIES:
         city = by_name.get(name) or {"name": name}
         city["name"] = name
-        row = merged[name]
+        row = dict(mb_cur.get(name) or {})
+        for k, v in (merged[name] or {}).items():
+            if not xin.blank(v):
+                row[k] = v
         xin.apply_city(
             city,
             row,
