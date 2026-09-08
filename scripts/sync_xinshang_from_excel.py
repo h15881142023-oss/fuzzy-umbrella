@@ -332,72 +332,41 @@ def inspect_book(path: Path) -> dict:
     }
 
 
-def fetch_prev_from_metabase(day: str) -> tuple[str | None, dict, dict, dict, dict]:
-    """上期仍按原考核日节奏从 Metabase 拉。"""
+def fetch_prev_from_metabase(day: str) -> tuple[str | None, dict, dict, dict, dict, dict, dict]:
+    """上期汇总仍走考核日；当期外卖/团购模块补交易商家数、公海、团购子项。彭州走川藏二区。"""
     prev_day = xin.prev_assessment_date(day)
-    if not prev_day:
-        return None, {}, {}, {}, {}
-    tables = {}
-    for name, spec in xin.CARDS.items():
-        cols, rows = xin.query_card(spec, prev_day)
-        tables[name] = {"cols": cols, "rows": rows}
-    prev = xin.rows_to_city_map(tables["summary"]["cols"], tables["summary"]["rows"])
-    board = xin.pick_latest_board(tables["cityboard"]["cols"], tables["cityboard"]["rows"])
-    waimai_prev = xin.rows_to_city_map(tables["waimai"]["cols"], tables["waimai"]["rows"])
-    tuango_prev = xin.rows_to_city_map(tables["tuango"]["cols"], tables["tuango"]["rows"])
-    return prev_day, prev, board, waimai_prev, tuango_prev
+    prev: dict = {}
+    board: dict = {}
+    waimai_prev: dict = {}
+    tuango_prev: dict = {}
+    if prev_day:
+        tables = {}
+        for name, spec in xin.CARDS.items():
+            cols, rows = xin.query_card_regions(spec, prev_day)
+            tables[name] = {"cols": cols, "rows": rows}
+        prev = xin.rows_to_city_map(tables["summary"]["cols"], tables["summary"]["rows"])
+        board = xin.pick_latest_board(tables["cityboard"]["cols"], tables["cityboard"]["rows"])
+        waimai_prev = xin.rows_to_city_map(tables["waimai"]["cols"], tables["waimai"]["rows"])
+        tuango_prev = xin.rows_to_city_map(tables["tuango"]["cols"], tables["tuango"]["rows"])
+    waimai_cur = xin.rows_to_city_map(*xin.query_card_regions(xin.CARDS["waimai"], day))
+    tuango_cur = xin.rows_to_city_map(*xin.query_card_regions(xin.CARDS["tuango"], day))
+    return prev_day, prev, board, waimai_prev, tuango_prev, waimai_cur, tuango_cur
 
 
 def update_peer_compare(data: dict, day: str, prev_day: str | None, excel_all: dict[str, dict], prev: dict) -> None:
     import sync_peer_compare_from_chuxin as peer
 
-    pc = data.get("peerCompare")
-    if not pc:
-        return
-    pc["periodDate"] = day
-    pc["prevDate"] = prev_day
-    meta = pc.setdefault("meta", {})
-    meta["periodDate"] = day
-    meta["prevDate"] = prev_day
-    meta["source"] = "excel+metabase"
-    for rec in pc.get("records") or []:
-        city = rec.get("城市")
-        cur = excel_all.get(city) or {}
-        old = prev.get(city) or {}
-        values = rec.get("values") or {}
-        for spec in peer.METRIC_SPECS:
-            block = values.get(spec["id"])
-            if not isinstance(block, dict):
-                continue
-            if cur:
-                val = peer.pick_value(
-                    None,
-                    [],
-                    cur,
-                    spec.get("summary_value") or "",
-                    keep_raw=bool(spec.get("keep_raw_number")),
-                )
-                if val is not None:
-                    block["本期值"] = val
-                warn = peer.pick_warn(spec, cur, None)
-                if warn and warn != "—":
-                    block["预警区间"] = warn
-            if old:
-                prev_val = peer.pick_value(
-                    None,
-                    [],
-                    old,
-                    spec.get("summary_value") or "",
-                    keep_raw=bool(spec.get("keep_raw_number")),
-                )
-                if prev_val is not None:
-                    block["上期值"] = prev_val
-            block["moduleDate"] = day
-    for metric in pc.get("metrics") or []:
-        for spec in peer.METRIC_SPECS:
-            if metric.get("id") == spec["id"]:
-                metric["name"] = spec["name"]
-                break
+    period, prev_d, summary, summary_prev, modules, dump = peer.fetch_all(day)
+    if prev_day and not prev_d:
+        prev_d = prev_day
+    if not summary_prev and prev:
+        summary_prev = prev
+    for city, row in excel_all.items():
+        cur = dict(summary.get(city) or {})
+        cur.update(row)
+        summary[city] = cur
+    payload = peer.build_payload(period, prev_d, summary, summary_prev, modules, dump)
+    data["peerCompare"] = payload
 
 
 def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
@@ -405,7 +374,7 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
     if missing:
         raise RuntimeError(f"Excel 缺城: {missing}; got {[c for c in CITIES if c in merged]}")
 
-    prev_day, prev, board, waimai_prev, tuango_prev = fetch_prev_from_metabase(day)
+    prev_day, prev, board, waimai_prev, tuango_prev, waimai_cur, tuango_cur = fetch_prev_from_metabase(day)
 
     html = HTMLS[0].read_text(encoding="utf-8")
     start, end, data = xin.extract_data_json(html)
@@ -441,8 +410,8 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
             row,
             prev.get(name),
             board.get(name) or row,
-            row,
-            row,
+            waimai_cur.get(name) or {},
+            tuango_cur.get(name) or {},
             online_map,
             waimai_prev.get(name),
             tuango_prev.get(name),

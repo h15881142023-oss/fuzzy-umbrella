@@ -75,13 +75,14 @@ METRIC_SPECS = [
         "name": "餐饮订单完成率",
         "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "waimai",
-        "value_keys": ["市场开发率差值", "市场开发率"],
-        "summary_value": "市场开发率（订单）指标值-外卖",
+        "value_keys": ["餐饮订单量完成率", "市场开发率差值", "市场开发率"],
+        "summary_value": "餐饮订单量完成率",
+        "summary_values": ["餐饮订单量完成率", "市场开发率（订单）指标值-外卖"],
         "cluster_key": "外卖能力分群",
-        "warn_keys": ["市场开发率（订单）-外卖"],
+        "warn_keys": ["餐饮订单量完成率排名", "餐饮订单量完成率-外卖", "市场开发率（订单）-外卖"],
         "module_warn": "外卖模块预警",
-        "gap_denom_keys": ["行业月累积订单量"],
-        "gap_numer_keys": ["订单量"],
+        "gap_denom_keys": ["餐饮订单量目标", "行业月累积订单量"],
+        "gap_numer_keys": ["餐饮消费订单量", "订单量"],
         "gap_unit": "单",
         "higher_better": True,
     },
@@ -91,13 +92,14 @@ METRIC_SPECS = [
         "name": "餐饮实付完成率",
         "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "waimai",
-        "value_keys": ["市场开发率_GMV差值", "市场开发率_GMV"],
-        "summary_value": "市场开发率（实付）指标值-外卖",
+        "value_keys": ["餐饮交易额完成率", "市场开发率_GMV差值", "市场开发率_GMV"],
+        "summary_value": "餐饮交易额完成率",
+        "summary_values": ["餐饮交易额完成率", "市场开发率（实付）指标值-外卖"],
         "cluster_key": "外卖能力分群",
-        "warn_keys": ["市场开发率（实付）-外卖"],
+        "warn_keys": ["餐饮交易额完成率排名", "餐饮交易额完成率-外卖", "市场开发率（实付）-外卖"],
         "module_warn": "外卖模块预警",
-        "gap_denom_keys": ["行业月累积GMV"],
-        "gap_numer_keys": ["实付交易额"],
+        "gap_denom_keys": ["餐饮交易额目标", "行业月累积GMV"],
+        "gap_numer_keys": ["餐饮实付交易额", "实付交易额"],
         "gap_unit": "元",
         "higher_better": True,
     },
@@ -107,10 +109,11 @@ METRIC_SPECS = [
         "name": "餐饮商家渗透率",
         "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "waimai",
-        "value_keys": ["餐饮渗透率"],
-        "summary_value": "餐饮商家渗透率指标值-外卖",
+        "value_keys": ["餐饮商家渗透率", "餐饮渗透率"],
+        "summary_value": "餐饮商家渗透率",
+        "summary_values": ["餐饮商家渗透率指标值-外卖", "餐饮商家渗透率"],
         "cluster_key": "外卖能力分群",
-        "warn_keys": ["餐饮商家渗透率-外卖"],
+        "warn_keys": ["餐饮渗透率排名", "餐饮商家渗透率-外卖"],
         "module_warn": "外卖模块预警",
         "gap_denom_keys": ["公海商家数"],
         "gap_numer_keys": ["交易商家数"],
@@ -502,14 +505,37 @@ def parse_metric_value(v, keep_raw_number: bool = False):
     return round(num, 6)
 
 
-def pick_value(row: dict | None, keys: list[str], summary: dict | None, summary_key: str, keep_raw: bool):
+def pick_value(
+    row: dict | None,
+    keys: list[str],
+    summary: dict | None,
+    summary_key: str,
+    keep_raw: bool,
+    summary_keys: list[str] | None = None,
+):
     """本期值：优先汇总表考核指标值（与主看板一致）；模块页仅作补充；都没有返回 None。"""
-    if summary and summary_key and not blank(summary.get(summary_key)):
-        return parse_metric_value(summary.get(summary_key), keep_raw_number=keep_raw)
+    skeys = [k for k in (list(summary_keys or []) + [summary_key]) if k]
+    seen = set()
+    ordered = []
+    for k in skeys:
+        if k not in seen:
+            seen.add(k)
+            ordered.append(k)
+    skip = {"不考核", "无区间", "暂无数据"}
+    if summary:
+        for key in ordered:
+            val = summary.get(key)
+            if blank(val) or cell_str(val) in skip:
+                continue
+            parsed = parse_metric_value(val, keep_raw_number=keep_raw)
+            if parsed is not None:
+                return parsed
     if row:
         for k in keys:
-            if k in row and not blank(row.get(k)):
-                return parse_metric_value(row.get(k), keep_raw_number=keep_raw)
+            if k in row and not blank(row.get(k)) and cell_str(row.get(k)) not in skip:
+                parsed = parse_metric_value(row.get(k), keep_raw_number=keep_raw)
+                if parsed is not None:
+                    return parsed
     return None
 
 
@@ -777,6 +803,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 srow,
                 spec.get("summary_value") or "",
                 keep_raw=bool(spec.get("keep_raw_number")),
+                summary_keys=spec.get("summary_values"),
             )
             prev_val = pick_value(
                 None,
@@ -784,6 +811,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 sprow,
                 spec.get("summary_value") or "",
                 keep_raw=bool(spec.get("keep_raw_number")),
+                summary_keys=spec.get("summary_values"),
             )
             if prev_val is None and mrow:
                 # 上期优先汇总表；没有则不硬凑模块上期（避免与考核口径不一致）

@@ -20,6 +20,7 @@ MB_HOST = "http://47.112.178.78:3000"
 MB_DASH_UUID = "5d509c91-583b-4229-89ee-51721035ae71"
 COLLECTION = "t_t6e991yzf4c"
 REGION = "川藏一区"
+REGIONS = ["川藏一区", "川藏二区"]  # 彭州在川藏二区，仍纳入五城看板
 CITIES = ["彭州市", "仁寿县", "合江县", "南溪", "叙永"]
 ROOT = Path(__file__).resolve().parents[1]
 CACHE = ROOT / "data" / "xinshang"
@@ -219,6 +220,17 @@ def query_card(spec: dict, iso_date: str, region: str = REGION) -> tuple[list[st
     return cols, rows
 
 
+def query_card_regions(spec: dict, iso_date: str, regions: list[str] | None = None) -> tuple[list[str], list[list]]:
+    cols: list[str] = []
+    rows: list[list] = []
+    for region in regions or REGIONS:
+        c, r = query_card(spec, iso_date, region)
+        if c:
+            cols = c
+        rows.extend(r)
+    return cols, rows
+
+
 def rows_to_city_map(cols, rows, city_key="城市"):
     out = {}
     for row in rows:
@@ -348,6 +360,45 @@ def fmt_num_delta(v, digits=4):
 UNUSABLE_VALUES = NA_BANDS | {"不考核", "None", "nan"}
 
 
+def pick(row: dict | None, *keys):
+    """按候选字段取第一个可用值（跳过空值/不考核）。"""
+    src = row or {}
+    for key in keys:
+        if not key:
+            continue
+        val = src.get(key)
+        if blank(val):
+            continue
+        if show(val) in UNUSABLE_VALUES:
+            continue
+        return val
+    return None
+
+
+def to_pct_points(v):
+    n, is_pct = parse_numeric(v)
+    if n is None:
+        return None
+    if is_pct or abs(n) > 2:
+        return n
+    return n * 100.0
+
+
+def mom_rate(*officials, cur=None, prev=None):
+    """完成率/渗透率环比：官方差值列（0~1 或百分数）优先，否则本期−上期。"""
+    for v in officials:
+        if blank(v) or show(v) in UNUSABLE_VALUES:
+            continue
+        pts = to_pct_points(v)
+        if pts is None:
+            continue
+        return fmt_pp(pts)
+    a, b = to_pct_points(cur), to_pct_points(prev)
+    if a is None or b is None:
+        return None
+    return fmt_pp(a - b)
+
+
 def parse_numeric(v):
     """返回 (数值, 是否百分数)。无法解析则 (None, False)。"""
     if isinstance(v, bool) or v is None:
@@ -399,11 +450,16 @@ WAIMAI_LAYOUT_RENAMES = {
 }
 
 
+PENETRATION_CHILDREN = ["月交易商家数", "月在线商家数", "公海商家数", "月动销率"]
+
+
 def rename_waimai_layouts(layouts: dict) -> None:
     for item in (layouts or {}).get("外卖") or []:
         old = item.get("name")
         if old in WAIMAI_LAYOUT_RENAMES:
             item["name"] = WAIMAI_LAYOUT_RENAMES[old]
+        if item.get("name") == "餐饮商家渗透率":
+            item["children"] = list(PENETRATION_CHILDREN)
 
 
 MOM_LAYOUT_NAMES = {
@@ -413,6 +469,7 @@ MOM_LAYOUT_NAMES = {
     "市场开发率(GTV)",
     "餐饮商家渗透率",
     "月交易商家数",
+    "公海商家数",
     "月动销率",
     "团购市场开发率",
     "优质商家渗透率",
@@ -463,9 +520,7 @@ def pick_latest_board(cols, rows):
         city = clean_city_name(d.get("城市"))
         if city:
             d["城市"] = city
-        if d.get("区域") != REGION:
-            continue
-        if not city:
+        if city not in CITIES:
             continue
         by[city].append(d)
     out = {}
@@ -548,11 +603,33 @@ def apply_city(
     def wd(mod):
         return mod_warn_delta.get(mod)
 
-    # 指标值：外卖完成率仍读源表旧字段，仅改看板展示名
-    wm_order_val = summary.get("市场开发率（订单）指标值-外卖")
-    wm_order_band = summary.get("市场开发率（订单）-外卖")
-    wm_gtv_val = summary.get("市场开发率（实付）指标值-外卖")
-    wm_gtv_band = summary.get("市场开发率（实付）-外卖")
+    # 完成率：优先用未发生对调的「餐饮订单量/交易额完成率」列，不用汇总表指标值-外卖
+    wm_order_val = pick(summary, "餐饮订单量完成率", "市场开发率（订单）指标值-外卖") or pick(
+        waimai, "餐饮订单量完成率"
+    )
+    wm_order_band = pick(
+        summary,
+        "餐饮订单量完成率排名",
+        "餐饮订单量完成率-外卖",
+        "市场开发率（订单）-外卖",
+    )
+    wm_gtv_val = pick(summary, "餐饮交易额完成率", "市场开发率（实付）指标值-外卖") or pick(
+        waimai, "餐饮交易额完成率"
+    )
+    wm_gtv_band = pick(
+        summary,
+        "餐饮交易额完成率排名",
+        "餐饮交易额完成率-外卖",
+        "市场开发率（实付）-外卖",
+    )
+    wm_order_prev = pick(prev, "餐饮订单量完成率", "市场开发率（订单）指标值-外卖") or pick(
+        waimai_prev, "餐饮订单量完成率"
+    )
+    wm_gtv_prev = pick(prev, "餐饮交易额完成率", "市场开发率（实付）指标值-外卖") or pick(
+        waimai_prev, "餐饮交易额完成率"
+    )
+    penetrate_val = pick(summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
+    penetrate_prev = pick(prev, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
 
     online_val = online_map.get(dst["name"]) or online_map.get(dst.get("account"))
     online_shown = fmt_online_count(online_val) if online_val is not None else None
@@ -562,30 +639,34 @@ def apply_city(
             "餐饮订单完成率": metric(
                 wm_order_val,
                 wm_order_band,
-                mom_pref(
+                mom_rate(
+                    waimai.get("环比变化差值_订单"),
+                    board.get("期环比-餐饮订单量完成率"),
                     board.get("期环比-市场开发率（订单）"),
                     cur=wm_order_val,
-                    prev=prev.get("市场开发率（订单）指标值-外卖"),
+                    prev=wm_order_prev,
                 ),
                 None if is_na_band(wm_order_band) else wd("外卖"),
             ),
             "餐饮实付完成率": metric(
                 wm_gtv_val,
                 wm_gtv_band,
-                mom_pref(
+                mom_rate(
+                    waimai.get("环比变化差值_交易额"),
+                    board.get("期环比-餐饮交易额完成率"),
                     board.get("期环比-市场开发率（实付）"),
                     cur=wm_gtv_val,
-                    prev=prev.get("市场开发率（实付）指标值-外卖"),
+                    prev=wm_gtv_prev,
                 ),
                 None if is_na_band(wm_gtv_band) else wd("外卖"),
             ),
             "餐饮商家渗透率": metric(
-                summary.get("餐饮商家渗透率指标值-外卖") or summary.get("餐饮商家渗透率"),
-                summary.get("餐饮商家渗透率-外卖"),
-                mom_pref(
+                penetrate_val,
+                pick(summary, "餐饮渗透率排名", "餐饮商家渗透率-外卖"),
+                mom_rate(
                     board.get("期环比-餐饮商家渗透率"),
-                    cur=summary.get("餐饮商家渗透率指标值-外卖") or summary.get("餐饮商家渗透率"),
-                    prev=prev.get("餐饮商家渗透率指标值-外卖") or prev.get("餐饮商家渗透率"),
+                    cur=penetrate_val,
+                    prev=penetrate_prev,
                 ),
                 wd("外卖"),
             ),
@@ -602,6 +683,10 @@ def apply_city(
                     if online_val is not None
                     else mom_pref(cur=waimai.get("公海商家数"), prev=waimai_prev.get("公海商家数"))
                 ),
+            ),
+            "公海商家数": metric(
+                waimai.get("公海商家数"),
+                value_delta=mom_pref(cur=waimai.get("公海商家数"), prev=waimai_prev.get("公海商家数")),
             ),
             "月动销率": metric("—"),  # placeholder, filled below
         },
@@ -852,11 +937,11 @@ def fetch_metabase(iso: str | None = None):
     }
     tables = {}
     for name, spec in CARDS.items():
-        cols, rows = query_card(spec, iso)
+        cols, rows = query_card_regions(spec, iso)
         tables[name] = {"cols": cols, "rows": rows}
         dump[name] = {"cols": cols, "n": len(rows)}
         if prev_day and name in {"summary", "waimai", "tuango"}:
-            pcols, prows = query_card(spec, prev_day + "T00:00:00+08:00")
+            pcols, prows = query_card_regions(spec, prev_day)
             tables[f"{name}_prev"] = {"cols": pcols, "rows": prows}
             dump[f"{name}_prev"] = {"cols": pcols, "n": len(prows), "date": prev_day}
     (CACHE / "metabase_latest.json").write_text(json.dumps({"meta": dump, "tables": tables}, ensure_ascii=False), encoding="utf-8")
