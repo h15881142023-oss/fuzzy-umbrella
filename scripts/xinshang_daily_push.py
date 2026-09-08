@@ -30,7 +30,7 @@ format_failure = xinshang_wecom.format_failure
 format_success = xinshang_wecom.format_success
 load_wecom_config = xinshang_wecom.load_wecom_config
 send_text = xinshang_wecom.send_text
-HOT_SHA = "d8d6e9f"
+HOT_SHA = "17c2dc0"
 HOT_BRANCH = "cursor/cz1-merchant-dashboard-74a9"
 HOT_FILES = (
     "scripts/xinshang_daily_push.py",
