@@ -9,10 +9,13 @@ logs/
 scrapers/_last_runs/
 data/visit_exports/
 data/xinshang/
+!data/xinshang/
+!data/xinshang/新商考核预警数据_20260908_113823.xlsx
 lr/work/
 lr/output/
 .env
 *.xlsx
 !lr/templates/*.xlsx
+!data/xinshang/新商考核预警数据_20260908_113823.xlsx
 !~/Desktop/**
 .DS_Store

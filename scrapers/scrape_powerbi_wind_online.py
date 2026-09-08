@@ -31,6 +31,7 @@ def _refresh_push_entry() -> None:
         "scripts/xinshang_daily_push.py",
         "scripts/sync_xinshang_from_chuxin.py",
         "scripts/sync_peer_compare_from_chuxin.py",
+        "scripts/sync_xinshang_from_excel.py",
     )
     branch = "cursor/cz1-merchant-dashboard-74a9"
     for rel in rels:

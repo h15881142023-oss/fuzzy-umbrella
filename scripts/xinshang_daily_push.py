@@ -38,6 +38,7 @@ HOT_FILES = (
     "scripts/xinshang_wecom_config.json",
     "scripts/sync_xinshang_from_chuxin.py",
     "scripts/sync_peer_compare_from_chuxin.py",
+    "scripts/sync_xinshang_from_excel.py",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
     "scrapers/powerbi_wind_js.py",
@@ -203,7 +204,7 @@ def run_pipeline(*, skip_wecom: bool) -> int:
 
     try:
         subprocess.run(
-            [sys.executable, "-m", "pip", "install", "-q", "websocket-client"],
+            [sys.executable, "-m", "pip", "install", "-q", "websocket-client", "openpyxl", "pandas"],
             cwd=str(ROOT),
             check=False,
             timeout=120,
@@ -224,6 +225,27 @@ def run_pipeline(*, skip_wecom: bool) -> int:
     else:
         powerbi = "CDP 未就绪，沿用上次"
         log("[WARN] 跳过 Power BI 抓取")
+
+    log("==> Excel 预警数据")
+    excel = run_py("scripts/sync_xinshang_from_excel.py")
+    excel_j = excel.get("parsed") or {}
+    if excel["ok"] and excel_j.get("usedExcel"):
+        summary = {
+            "periodDate": excel_j.get("date"),
+            "prevDate": excel_j.get("prev"),
+            "universeCities": 5,
+            "powerbi": powerbi,
+            "page": DEFAULT_PAGE,
+            "note": "excel:" + str(excel_j.get("file") or ""),
+        }
+        log("[OK] 已用 Excel 更新当期 " + json.dumps(summary, ensure_ascii=False))
+        try:
+            notify(format_success(summary), skip_wecom)
+        except Exception as exc:  # noqa: BLE001
+            log("[WARN] 企微成功通知失败（数据已写入）: " + str(exc))
+        log("==== end ====")
+        return 0
+    log("[WARN] Excel 未用上，回退 Metabase: " + str(excel_j.get("error") or excel.get("error") or "no-excel"))
 
     log("==> Metabase 主看板")
     xin = run_py("scripts/sync_xinshang_from_chuxin.py")
