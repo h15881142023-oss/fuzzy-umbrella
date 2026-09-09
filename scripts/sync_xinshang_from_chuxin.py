@@ -395,21 +395,48 @@ def pick(row: dict | None, *keys):
 
 
 def waimai_order_gtv_values(summary, module=None):
-    """餐饮订单完成率 / 餐饮实付完成率。
+    """餐饮订单完成率 / 餐饮实付完成率。全城同一口径，不以 Excel 四城为准。
 
-    Excel 列名是对的，同步时写入「市场开发率（订单/实付）指标值-外卖」。
-    Metabase 汇总表「餐饮订单量完成率」与「餐饮交易额完成率」数值对调，
-    按列名直取会把合江订单完成率做成 89.46%（实际应是 113.04%）。
+    列名可信顺序：
+    1. 外卖模块页「餐饮订单量完成率 / 餐饮交易额完成率」（列名始终正确）
+    2. Excel 写回的「市场开发率（订单/实付）指标值-外卖」（仅四城主表兜底）
+    3. 汇总表按列名直取「餐饮订单量完成率 / 餐饮交易额完成率」
+       （全国 100+ 城；不再把「交易额完成率」当订单——那套对调只对当天模块 50 城成立）
     """
     summary = summary or {}
     module = module or {}
-    order = pick(summary, "市场开发率（订单）指标值-外卖")
-    gtv = pick(summary, "市场开发率（实付）指标值-外卖")
+    order = pick(module, "餐饮订单量完成率")
+    gtv = pick(module, "餐饮交易额完成率")
     if order is None:
-        order = pick(summary, "餐饮交易额完成率") or pick(module, "市场开发率_GMV差值", "餐饮交易额完成率")
+        order = pick(summary, "市场开发率（订单）指标值-外卖", "餐饮订单量完成率")
     if gtv is None:
-        gtv = pick(summary, "餐饮订单量完成率") or pick(module, "市场开发率差值", "餐饮订单量完成率")
+        gtv = pick(summary, "市场开发率（实付）指标值-外卖", "餐饮交易额完成率")
     return order, gtv
+
+
+def waimai_completion_bands(summary, module=None):
+    """订单/实付预警区间。汇总表「*-外卖」排名跟着指标值走；指标值与模块页对调时排名也要对调。"""
+    summary = summary or {}
+    module = module or {}
+    order_band = pick(
+        summary,
+        "餐饮订单量完成率排名",
+        "餐饮订单量完成率-外卖",
+        "市场开发率（订单）-外卖",
+    )
+    gtv_band = pick(
+        summary,
+        "餐饮交易额完成率排名",
+        "餐饮交易额完成率-外卖",
+        "市场开发率（实付）-外卖",
+    )
+    io = to_pct_points(pick(summary, "餐饮订单量完成率指标值-外卖"))
+    mo = to_pct_points(pick(module, "餐饮订单量完成率"))
+    mg = to_pct_points(pick(module, "餐饮交易额完成率"))
+    if io is not None and mo is not None and mg is not None:
+        if abs(io - mo) > 2 and abs(io - mg) <= 2:
+            order_band, gtv_band = gtv_band, order_band
+    return order_band, gtv_band
 
 
 def to_pct_points(v):
@@ -730,18 +757,8 @@ def apply_city(
 
     wm_order_val, wm_gtv_val = waimai_order_gtv_values(summary, waimai)
     wm_order_prev, wm_gtv_prev = waimai_order_gtv_values(prev, waimai_prev)
-    wm_order_band = pick(
-        summary,
-        "餐饮订单量完成率排名",
-        "餐饮订单量完成率-外卖",
-        "市场开发率（订单）-外卖",
-    )
-    wm_gtv_band = pick(
-        summary,
-        "餐饮交易额完成率排名",
-        "餐饮交易额完成率-外卖",
-        "市场开发率（实付）-外卖",
-    )
+    wm_order_band, wm_gtv_band = waimai_completion_bands(summary, waimai)
+    wm_order_band_prev, wm_gtv_band_prev = waimai_completion_bands(prev, waimai_prev)
     penetrate_val = pick(summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
     penetrate_prev = pick(prev, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
 
@@ -754,23 +771,25 @@ def apply_city(
                 wm_order_val,
                 wm_order_band,
                 mom_rate(
+                    waimai.get("环比变化差值_订单"),
                     board.get("期环比-市场开发率（订单）"),
                     cur=wm_order_val,
                     prev=wm_order_prev,
                 ),
                 None if is_na_band(wm_order_band) else wd("外卖"),
-                pick(prev, "餐饮订单量完成率排名", "餐饮订单量完成率-外卖", "市场开发率（订单）-外卖"),
+                wm_order_band_prev,
             ),
             "餐饮实付完成率": metric(
                 wm_gtv_val,
                 wm_gtv_band,
                 mom_rate(
+                    waimai.get("环比变化差值_交易额"),
                     board.get("期环比-市场开发率（实付）"),
                     cur=wm_gtv_val,
                     prev=wm_gtv_prev,
                 ),
                 None if is_na_band(wm_gtv_band) else wd("外卖"),
-                pick(prev, "餐饮交易额完成率排名", "餐饮交易额完成率-外卖", "市场开发率（实付）-外卖"),
+                wm_gtv_band_prev,
             ),
             "餐饮商家渗透率": metric(
                 penetrate_val,

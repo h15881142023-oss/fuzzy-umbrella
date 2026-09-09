@@ -74,9 +74,9 @@ METRIC_SPECS = [
         "name": "餐饮订单完成率",
         "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "waimai",
-        "value_keys": ["市场开发率_GMV差值", "市场开发率_GMV"],
-        "summary_value": "市场开发率（订单）指标值-外卖",
-        "summary_values": ["市场开发率（订单）指标值-外卖", "餐饮交易额完成率"],
+        "value_keys": ["餐饮订单量完成率"],
+        "summary_value": "餐饮订单量完成率",
+        "summary_values": ["餐饮订单量完成率"],
         "cluster_key": "外卖能力分群",
         "warn_keys": ["餐饮订单量完成率排名", "餐饮订单量完成率-外卖", "市场开发率（订单）-外卖"],
         "module_warn": "外卖模块预警",
@@ -84,6 +84,7 @@ METRIC_SPECS = [
         "gap_numer_keys": ["餐饮消费订单量", "订单量"],
         "gap_unit": "单",
         "higher_better": True,
+        "gap_scale_to_month": True,
     },
     {
         "id": "外卖模块-市场开发率（实付",
@@ -91,9 +92,9 @@ METRIC_SPECS = [
         "name": "餐饮实付完成率",
         "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "waimai",
-        "value_keys": ["市场开发率差值", "市场开发率"],
-        "summary_value": "市场开发率（实付）指标值-外卖",
-        "summary_values": ["市场开发率（实付）指标值-外卖", "餐饮订单量完成率"],
+        "value_keys": ["餐饮交易额完成率"],
+        "summary_value": "餐饮交易额完成率",
+        "summary_values": ["餐饮交易额完成率"],
         "cluster_key": "外卖能力分群",
         "warn_keys": ["餐饮交易额完成率排名", "餐饮交易额完成率-外卖", "市场开发率（实付）-外卖"],
         "module_warn": "外卖模块预警",
@@ -101,6 +102,7 @@ METRIC_SPECS = [
         "gap_numer_keys": ["餐饮实付交易额", "实付交易额"],
         "gap_unit": "元",
         "higher_better": True,
+        "gap_scale_to_month": True,
     },
     {
         "id": "外卖模块-餐饮商家渗透率",
@@ -539,6 +541,32 @@ def pick_value(
 
 
 MISSING_VALUE = "暂无数据"
+WAIMAI_ORDER_ID = "外卖模块-市场开发率（订单）"
+WAIMAI_GTV_ID = "外卖模块-市场开发率（实付"
+
+
+def pick_waimai_completion(summary: dict | None, module: dict | None, keep_raw: bool = False):
+    """全城餐饮订单/实付完成率：模块页优先，否则汇总表按列名。
+
+    外卖模块页列名始终正确；汇总表覆盖 100+ 城，按列名直取。
+    不把「餐饮交易额完成率」当成订单——那套对调只对当天模块 50 城的汇总表成立，
+    不能用来填友商。也不用 Excel 去凑全国城市。
+    """
+    order_raw = None
+    gtv_raw = None
+    if module:
+        if not blank(module.get("餐饮订单量完成率")):
+            order_raw = module.get("餐饮订单量完成率")
+        if not blank(module.get("餐饮交易额完成率")):
+            gtv_raw = module.get("餐饮交易额完成率")
+    if order_raw is None and summary and not blank(summary.get("餐饮订单量完成率")):
+        order_raw = summary.get("餐饮订单量完成率")
+    if gtv_raw is None and summary and not blank(summary.get("餐饮交易额完成率")):
+        gtv_raw = summary.get("餐饮交易额完成率")
+    return (
+        parse_metric_value(order_raw, keep_raw_number=keep_raw),
+        parse_metric_value(gtv_raw, keep_raw_number=keep_raw),
+    )
 
 
 def pick_warn(spec: dict, summary: dict | None, module_row: dict | None):
@@ -760,6 +788,16 @@ def fetch_all(day: str | None = None):
             "remainingDays": remaining_days(use_day),
         }
 
+    if prev:
+        wp_cols, wp_rows = query_card(MODULE_CARDS["waimai"], prev)
+        modules["waimai_prev"] = rows_to_city_map(wp_cols, wp_rows)
+        dump["modules"]["waimai_prev"] = {
+            "tab": "外卖模块上期",
+            "day": prev,
+            "n": len(wp_rows),
+            "cities": len(modules["waimai_prev"]),
+        }
+
     (CACHE / "peer_compare_metabase.json").write_text(
         json.dumps({"meta": dump}, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -797,22 +835,35 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
         meta_row = srow or sprow
         for spec in METRIC_SPECS:
             mrow = (modules.get(spec["src"]) or {}).get(city)
-            val = pick_value(
-                mrow,
-                spec["value_keys"],
-                srow,
-                spec.get("summary_value") or "",
-                keep_raw=bool(spec.get("keep_raw_number")),
-                summary_keys=spec.get("summary_values"),
-            )
-            prev_val = pick_value(
-                None,
-                [],
-                sprow,
-                spec.get("summary_value") or "",
-                keep_raw=bool(spec.get("keep_raw_number")),
-                summary_keys=spec.get("summary_values"),
-            )
+            if spec["id"] in {WAIMAI_ORDER_ID, WAIMAI_GTV_ID}:
+                mrow_prev = (modules.get("waimai_prev") or {}).get(city)
+                order_val, gtv_val = pick_waimai_completion(
+                    srow, mrow, keep_raw=bool(spec.get("keep_raw_number"))
+                )
+                order_prev, gtv_prev = pick_waimai_completion(
+                    sprow, mrow_prev, keep_raw=bool(spec.get("keep_raw_number"))
+                )
+                if spec["id"] == WAIMAI_ORDER_ID:
+                    val, prev_val = order_val, order_prev
+                else:
+                    val, prev_val = gtv_val, gtv_prev
+            else:
+                val = pick_value(
+                    mrow,
+                    spec["value_keys"],
+                    srow,
+                    spec.get("summary_value") or "",
+                    keep_raw=bool(spec.get("keep_raw_number")),
+                    summary_keys=spec.get("summary_values"),
+                )
+                prev_val = pick_value(
+                    None,
+                    [],
+                    sprow,
+                    spec.get("summary_value") or "",
+                    keep_raw=bool(spec.get("keep_raw_number")),
+                    summary_keys=spec.get("summary_values"),
+                )
             if prev_val is None and mrow:
                 # 上期优先汇总表；没有则不硬凑模块上期（避免与考核口径不一致）
                 prev_val = None
@@ -847,6 +898,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 "gapMode": spec.get("gap_mode") or "month_first",
                 "gapAbsolute": bool(spec.get("gap_absolute")),
                 "gapRateOnly": bool(spec.get("gap_rate_only")),
+                "gapScaleToMonth": bool(spec.get("gap_scale_to_month")),
                 "moduleDate": mod_day,
             }
 
@@ -886,6 +938,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 "gapMode": block.get("gapMode"),
                 "gapAbsolute": block.get("gapAbsolute"),
                 "gapRateOnly": block.get("gapRateOnly"),
+                "gapScaleToMonth": block.get("gapScaleToMonth"),
                 "moduleDate": block.get("moduleDate"),
             }
             if "分群" in spec["fields"]:
@@ -931,6 +984,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 "gapMode": m.get("gap_mode") or "month_first",
                 "gapAbsolute": bool(m.get("gap_absolute")),
                 "gapRateOnly": bool(m.get("gap_rate_only")),
+                "gapScaleToMonth": bool(m.get("gap_scale_to_month")),
             }
         )
 
@@ -981,10 +1035,10 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
             "cityUniverseNote": dump.get("cityUniverseNote"),
         },
         "note": (
-            "数据来自初心「新商考核」：城市名单=本期汇总表∪上期汇总表（约 117 城；汇总表单日仅 50 行时用上期补全）；"
-            "本期值优先用汇总表考核指标值（与主看板一致）；上期值取汇总表上一考核日；"
-            "追平缺口用各模块绝对量底数测算；剩余天数=当月天数−(模块日期+2)。"
-            "非四城城市/区域展示为「友商」。"
+            "数据来自初心「新商考核」汇总表（约 117 城）+ 各模块页；"
+            "餐饮订单/实付完成率：有外卖模块页的城用模块页列名，其余城用汇总表列名，全城同一口径；"
+            "上期值取上一考核日；追平缺口用各模块绝对量底数测算，外卖完成率按整月目标放大；"
+            "剩余天数=当月天数−(模块日期+2)。非四城城市/区域展示为「友商」。"
         ),
         "sourceFile": f"metabase:{MB_DASH_UUID}",
         "updatedAt": datetime.now(timezone.utc).isoformat(),

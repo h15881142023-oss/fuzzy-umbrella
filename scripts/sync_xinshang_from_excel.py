@@ -362,6 +362,8 @@ def update_peer_compare(data: dict, day: str, prev_day: str | None, excel_all: d
     if not summary_prev and prev:
         summary_prev = prev
     for city, row in excel_all.items():
+        if city not in xin.CITIES:
+            continue
         cur = dict(summary.get(city) or {})
         cur.update(row)
         if not xin.blank(row.get("餐饮订单量完成率")):
