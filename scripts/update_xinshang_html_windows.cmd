@@ -4,7 +4,7 @@ cd /d "%~dp0\.."
 if not exist "static\dashboards" mkdir "static\dashboards"
 if not exist "docs\xinshang" mkdir "docs\xinshang"
 
-set REF=c084ed5
+set REF=ff46a09
 set REL=static/dashboards/cz1-xinshang-pingjia.html
 set OUT=static\dashboards\cz1-xinshang-pingjia.html
 
