@@ -243,7 +243,7 @@ def run_pipeline(*, skip_wecom: bool) -> int:
         summary = {
             "periodDate": excel_j.get("date"),
             "prevDate": excel_j.get("prev"),
-            "universeCities": 5,
+            "universeCities": excel_j.get("peerCities") or excel_j.get("universeCities"),
             "powerbi": powerbi,
             "page": DEFAULT_PAGE,
             "note": "excel:" + str(excel_j.get("file") or ""),

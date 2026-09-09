@@ -467,6 +467,7 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
             for n in CITIES
         },
         "sheets": [s["name"] for s in inspect.get("sheets") or []],
+        "peerCities": len((data.get("peerCompare") or {}).get("records") or []),
     }
 
 
