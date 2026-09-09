@@ -364,6 +364,10 @@ def update_peer_compare(data: dict, day: str, prev_day: str | None, excel_all: d
     for city, row in excel_all.items():
         cur = dict(summary.get(city) or {})
         cur.update(row)
+        if not xin.blank(row.get("餐饮订单量完成率")):
+            cur["市场开发率（订单）指标值-外卖"] = row["餐饮订单量完成率"]
+        if not xin.blank(row.get("餐饮交易额完成率")):
+            cur["市场开发率（实付）指标值-外卖"] = row["餐饮交易额完成率"]
         summary[city] = cur
     payload = peer.build_payload(period, prev_d, summary, summary_prev, modules, dump)
     data["peerCompare"] = payload
@@ -406,9 +410,14 @@ def apply_excel(day: str, merged: dict[str, dict], inspect: dict) -> dict:
         city = by_name.get(name) or {"name": name}
         city["name"] = name
         row = dict(mb_cur.get(name) or {})
-        for k, v in (merged[name] or {}).items():
+        excel_row = merged[name] or {}
+        for k, v in excel_row.items():
             if not xin.blank(v):
                 row[k] = v
+        if not xin.blank(excel_row.get("餐饮订单量完成率")):
+            row["市场开发率（订单）指标值-外卖"] = excel_row["餐饮订单量完成率"]
+        if not xin.blank(excel_row.get("餐饮交易额完成率")):
+            row["市场开发率（实付）指标值-外卖"] = excel_row["餐饮交易额完成率"]
         xin.apply_city(
             city,
             row,

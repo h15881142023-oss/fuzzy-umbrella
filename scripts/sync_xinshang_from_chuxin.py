@@ -394,6 +394,24 @@ def pick(row: dict | None, *keys):
     return None
 
 
+def waimai_order_gtv_values(summary, module=None):
+    """餐饮订单完成率 / 餐饮实付完成率。
+
+    Excel 列名是对的，同步时写入「市场开发率（订单/实付）指标值-外卖」。
+    Metabase 汇总表「餐饮订单量完成率」与「餐饮交易额完成率」数值对调，
+    按列名直取会把合江订单完成率做成 89.46%（实际应是 113.04%）。
+    """
+    summary = summary or {}
+    module = module or {}
+    order = pick(summary, "市场开发率（订单）指标值-外卖")
+    gtv = pick(summary, "市场开发率（实付）指标值-外卖")
+    if order is None:
+        order = pick(summary, "餐饮交易额完成率") or pick(module, "市场开发率_GMV差值", "餐饮交易额完成率")
+    if gtv is None:
+        gtv = pick(summary, "餐饮订单量完成率") or pick(module, "市场开发率差值", "餐饮订单量完成率")
+    return order, gtv
+
+
 def to_pct_points(v):
     n, is_pct = parse_numeric(v)
     if n is None:
@@ -710,30 +728,19 @@ def apply_city(
     def wd(mod):
         return mod_warn_delta.get(mod)
 
-    # 完成率：优先用未发生对调的「餐饮订单量/交易额完成率」列，不用汇总表指标值-外卖
-    wm_order_val = pick(summary, "餐饮订单量完成率", "市场开发率（订单）指标值-外卖") or pick(
-        waimai, "餐饮订单量完成率"
-    )
+    wm_order_val, wm_gtv_val = waimai_order_gtv_values(summary, waimai)
+    wm_order_prev, wm_gtv_prev = waimai_order_gtv_values(prev, waimai_prev)
     wm_order_band = pick(
         summary,
         "餐饮订单量完成率排名",
         "餐饮订单量完成率-外卖",
         "市场开发率（订单）-外卖",
     )
-    wm_gtv_val = pick(summary, "餐饮交易额完成率", "市场开发率（实付）指标值-外卖") or pick(
-        waimai, "餐饮交易额完成率"
-    )
     wm_gtv_band = pick(
         summary,
         "餐饮交易额完成率排名",
         "餐饮交易额完成率-外卖",
         "市场开发率（实付）-外卖",
-    )
-    wm_order_prev = pick(prev, "餐饮订单量完成率", "市场开发率（订单）指标值-外卖") or pick(
-        waimai_prev, "餐饮订单量完成率"
-    )
-    wm_gtv_prev = pick(prev, "餐饮交易额完成率", "市场开发率（实付）指标值-外卖") or pick(
-        waimai_prev, "餐饮交易额完成率"
     )
     penetrate_val = pick(summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
     penetrate_prev = pick(prev, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
@@ -747,8 +754,6 @@ def apply_city(
                 wm_order_val,
                 wm_order_band,
                 mom_rate(
-                    waimai.get("环比变化差值_订单"),
-                    board.get("期环比-餐饮订单量完成率"),
                     board.get("期环比-市场开发率（订单）"),
                     cur=wm_order_val,
                     prev=wm_order_prev,
@@ -760,8 +765,6 @@ def apply_city(
                 wm_gtv_val,
                 wm_gtv_band,
                 mom_rate(
-                    waimai.get("环比变化差值_交易额"),
-                    board.get("期环比-餐饮交易额完成率"),
                     board.get("期环比-市场开发率（实付）"),
                     cur=wm_gtv_val,
                     prev=wm_gtv_prev,
