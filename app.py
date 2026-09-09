@@ -216,9 +216,29 @@ def page_evaluation():
     )
 
 
+def _refresh_xinshang_html(*, force: bool = False) -> dict:
+    """外发页热覆盖：从 GitHub 分支拉最新 HTML 到本机 static。失败则沿用磁盘旧文件。"""
+    import importlib.util
+
+    path = BASE_DIR / "scripts" / "xinshang_hot_html.py"
+    if not path.is_file():
+        return {"ok": [], "missing": ["scripts/xinshang_hot_html.py"]}
+    spec = importlib.util.spec_from_file_location("xinshang_hot_html", path)
+    if spec is None or spec.loader is None:
+        return {"ok": [], "missing": ["loader"]}
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    if force:
+        return mod.pull_once()
+    return mod.ensure(min_interval_sec=45)
+
+
 @app.route("/evaluation/xinshang")
 def page_xinshang_dashboard():
     """川藏一区新商能力评价看板（免登录，可供外发域名访问）。"""
+    import threading
+
+    threading.Thread(target=_refresh_xinshang_html, daemon=True).start()
     return send_from_directory(
         BASE_DIR / "static" / "dashboards",
         "cz1-xinshang-pingjia.html",
@@ -750,7 +770,21 @@ def _run_python_script(rel_path: str, timeout: int = 600) -> dict:
 @app.route("/api/xinshang/health")
 def api_xinshang_health():
     """用于确认本机 Web 已换成带时钟的新代码（无需登录）。"""
-    return jsonify({"ok": True, "clock": True, "schedule": "Tue,Fri 22:00"})
+    return jsonify({"ok": True, "clock": True, "schedule": "Tue,Fri 22:00", "hotHtml": True})
+
+
+@app.route("/api/xinshang/hot-html", methods=["GET", "POST"])
+def api_xinshang_hot_html():
+    """云端改完看板后触发本机覆盖 HTML，无需登录会话（用站密码）。"""
+    token = (request.headers.get("X-CZ-Token") or request.args.get("token") or request.form.get("token") or "").strip()
+    if token != SITE_PASSWORD and not session.get("authenticated"):
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    try:
+        result = _refresh_xinshang_html(force=True)
+    except Exception as exc:  # noqa: BLE001
+        return jsonify({"ok": False, "error": str(exc)}), 500
+    missing = result.get("missing") or []
+    return jsonify({"ok": not missing, "result": result, "page": f"{PUBLIC_ORIGIN}/evaluation/xinshang"})
 
 
 @app.route("/api/xinshang/sync", methods=["POST"])
@@ -763,6 +797,10 @@ def api_xinshang_sync():
     updater = BASE_DIR / "scripts" / "xinshang_self_update.py"
     if updater.is_file():
         _run_python_script("scripts/xinshang_self_update.py", timeout=180)
+    try:
+        _refresh_xinshang_html(force=True)
+    except Exception:
+        pass
     # 先覆盖入口脚本，再跑全量（含固定企微 webhook + Power BI 热补丁）
     result = _run_python_script("scripts/xinshang_daily_push.py", timeout=1200)
     db.log_sync("xinshang_sync", "ok" if result.get("ok") else "fail", str(result)[:2000])

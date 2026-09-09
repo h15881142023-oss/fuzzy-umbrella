@@ -33,12 +33,16 @@ send_text = xinshang_wecom.send_text
 HOT_SHA = "c084ed5"
 HOT_BRANCH = "cursor/cz1-merchant-dashboard-74a9"
 HOT_FILES = (
+    "scripts/xinshang_self_update.py",
+    "scripts/xinshang_hot_html.py",
     "scripts/xinshang_daily_push.py",
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
     "scripts/sync_xinshang_from_chuxin.py",
     "scripts/sync_peer_compare_from_chuxin.py",
     "scripts/sync_xinshang_from_excel.py",
+    "static/dashboards/cz1-xinshang-pingjia.html",
+    "docs/xinshang/index.html",
     "data/xinshang/新商考核预警数据_20260908_113823.xlsx",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
@@ -65,12 +69,17 @@ def pull_hot_files() -> None:
                 req = urllib.request.Request(url, headers={"User-Agent": "cz1-xinshang"})
                 with urllib.request.urlopen(req, timeout=60) as resp:
                     data = resp.read()
-                if data and len(data) > 40:
+                min_size = 5000 if rel.endswith(".html") else 40
+                if data and len(data) > min_size:
                     break
             except Exception:
                 data = None
         if not data:
             log("[WARN] hot-file miss " + rel)
+            continue
+        min_size = 5000 if rel.endswith(".html") else 40
+        if len(data) <= min_size:
+            log("[WARN] hot-file too small " + rel)
             continue
         dest.write_bytes(data)
         log("hot-file " + rel)
@@ -319,10 +328,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="新商评周二/周五 22:00 入口")
     parser.add_argument("--once", action="store_true", help="兼容旧调用，行为与默认相同")
     parser.add_argument("--skip-wecom", action="store_true", help="只跑同步，不推企微")
+    parser.add_argument("--html-only", action="store_true", help="只热覆盖看板 HTML，不抓数、不推企微")
     parser.add_argument("--self-test", action="store_true", help="不抓数，只校验入口与文案")
     args = parser.parse_args()
     if args.self_test:
         return self_test()
+    if args.html_only:
+        pull_hot_files()
+        hot = ROOT / "scripts" / "xinshang_hot_html.py"
+        if hot.is_file():
+            spec = importlib.util.spec_from_file_location("xinshang_hot_html", hot)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                log("html-only " + str(mod.pull_once()))
+        return 0
     try:
         return run_pipeline(skip_wecom=args.skip_wecom)
     except Exception as exc:  # noqa: BLE001

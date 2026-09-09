@@ -9,6 +9,8 @@ SHA = "c084ed5"
 BRANCH = "cursor/cz1-merchant-dashboard-74a9"
 
 NEED = [
+    "scripts/xinshang_self_update.py",
+    "scripts/xinshang_hot_html.py",
     "scripts/xinshang_daily_push.py",
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
@@ -16,6 +18,8 @@ NEED = [
     "scripts/sync_xinshang_from_chuxin.py",
     "scripts/sync_peer_compare_from_chuxin.py",
     "scripts/sync_xinshang_from_excel.py",
+    "static/dashboards/cz1-xinshang-pingjia.html",
+    "docs/xinshang/index.html",
     "data/xinshang/新商考核预警数据_20260908_113823.xlsx",
     "scripts/start_chrome_powerbi_windows.ps1",
     "scrapers/__init__.py",
@@ -48,14 +52,17 @@ def _download(rel: str) -> bytes | None:
 
 
 ALWAYS_REFRESH = {
+    "scripts/xinshang_self_update.py",
+    "scripts/xinshang_hot_html.py",
     "scripts/xinshang_daily_push.py",
     "scripts/xinshang_wecom.py",
     "scripts/xinshang_wecom_config.json",
     "scripts/sync_xinshang_from_chuxin.py",
     "scripts/sync_peer_compare_from_chuxin.py",
     "scripts/sync_xinshang_from_excel.py",
+    "static/dashboards/cz1-xinshang-pingjia.html",
+    "docs/xinshang/index.html",
     "data/xinshang/新商考核预警数据_20260908_113823.xlsx",
-    "scripts/xinshang_self_update.py",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
     "scripts/xinshang_clock_windows.py",
@@ -64,15 +71,20 @@ ALWAYS_REFRESH = {
 
 def ensure_tools(*, force: bool = False) -> dict:
     ok, missing = [], []
-    for rel in NEED:
+    seen = []
+    for rel in list(NEED) + [r for r in ALWAYS_REFRESH if r not in NEED]:
+        if rel in seen:
+            continue
+        seen.append(rel)
         dest = ROOT.joinpath(*rel.split("/"))
         dest.parent.mkdir(parents=True, exist_ok=True)
-        should = force or rel in ALWAYS_REFRESH or not dest.is_file() or dest.stat().st_size <= 40
+        min_size = 5000 if rel.endswith(".html") else 40
+        should = force or rel in ALWAYS_REFRESH or not dest.is_file() or dest.stat().st_size <= min_size
         if dest.is_file() and not should:
             ok.append(rel)
             continue
         data = _download(rel)
-        if not data:
+        if not data or len(data) <= min_size:
             missing.append(rel)
             continue
         dest.write_bytes(data)

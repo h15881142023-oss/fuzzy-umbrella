@@ -69,9 +69,27 @@ def in_window(now: datetime | None = None) -> bool:
 
 def loop_forever() -> None:
     last_key: tuple | None = None
-    _log("xinshang clock started (Tue/Fri 22:00 local, via ChuanzangWeb5001)")
+    last_html = 0.0
+    _log("xinshang clock started (Tue/Fri 22:00 local + HTML hot pull every 5 min)")
     while True:
         now = datetime.now()
+        if time.time() - last_html >= 300:
+            try:
+                hot = Path(__file__).with_name("xinshang_hot_html.py")
+                if hot.is_file():
+                    spec = importlib.util.spec_from_file_location("xinshang_hot_html", hot)
+                    if spec and spec.loader:
+                        mod = importlib.util.module_from_spec(spec)
+                        spec.loader.exec_module(mod)
+                        result = mod.pull_once()
+                        if result.get("missing"):
+                            _log("hot-html missing: " + ",".join(result["missing"]))
+                        else:
+                            _log("hot-html ok bytes=" + str(result.get("bytes") or 0))
+                last_html = time.time()
+            except Exception as exc:  # noqa: BLE001
+                _log(f"hot-html error: {exc}")
+                last_html = time.time()
         if in_window(now):
             key = (now.date().isoformat(), now.weekday())
             if key != last_key:

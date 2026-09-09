@@ -98,42 +98,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 - **已外发冻结版（不变）**：`docs/xinshang/index-v1-frozen-202607.html`  
   此前发出去的旧版拷贝不受后续改动影响；需要旧版时发这个文件即可。
 
-### Windows 更新看板（推荐，不依赖 GitHub git）
+### 外发页更新（云端完成，不用本机跑命令）
 
-用 CDN 覆盖本机 HTML（**请用提交号，不要用带 `/` 的分支名**，否则 jsDelivr 可能 Forbidden）：
+改完看板后由云端触发本机 Web 热覆盖 `static/dashboards/cz1-xinshang-pingjia.html`，打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 即可。ChuanzangWeb5001 也会每 5 分钟自动拉一次 HTML。
 
-本机若仍是旧 `.ps1`（含 `Generic.List[string]`），PowerShell 5.1 会在第 30 行报意外的 `)`。请**不要跑本机旧脚本**，改用下面任一方式。
-
-**推荐：直接粘贴覆盖 HTML（不依赖本机 .ps1）**
-
-```powershell
-cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
-$ref = "c084ed5"
-$rel = "static/dashboards/cz1-xinshang-pingjia.html"
-$out1 = ".\static\dashboards\cz1-xinshang-pingjia.html"
-$out2 = ".\docs\xinshang\index.html"
-New-Item -ItemType Directory -Force -Path ".\static\dashboards",".\docs\xinshang" | Out-Null
-$urls = @(
-  ("https://fastly.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $ref + "/" + $rel),
-  ("https://gcore.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $ref + "/" + $rel),
-  ("https://cdn.jsdelivr.net/gh/h15881142023-oss/fuzzy-umbrella@" + $ref + "/" + $rel)
-)
-$ok = $false
-foreach ($u in $urls) {
-  Write-Host ("try " + $u)
-  try {
-    Invoke-WebRequest $u -OutFile $out1 -UseBasicParsing -TimeoutSec 60
-    if ((Get-Item $out1).Length -gt 5000) { Copy-Item $out1 $out2 -Force; $ok = $true; break }
-  } catch { Write-Host $_.Exception.Message }
-}
-if ($ok) { Write-Host "OK" } else { Write-Host "FAILED" }
-```
-
-或双击：`scripts\update_xinshang_html_windows.cmd`（用 curl，不经过旧 .ps1）
-
-更新后打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 并强制刷新。
-
-### Windows 自动更新数据（挂在已有 Web 上，对齐经营宝零操作）
+不要再从对话里复制 PowerShell 覆盖 HTML。
 
 与桌面「经营宝订单抓取」一样：**不要从对话里复制命令去执行**。
 
