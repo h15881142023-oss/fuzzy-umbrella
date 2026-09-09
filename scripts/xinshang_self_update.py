@@ -63,8 +63,10 @@ ALWAYS_REFRESH = {
     "static/dashboards/cz1-xinshang-pingjia.html",
     "docs/xinshang/index.html",
     "data/xinshang/新商考核预警数据_20260908_113823.xlsx",
+    "data/xinshang/powerbi_online_merchants.json",
     "scrapers/cdp_client.py",
     "scrapers/scrape_powerbi_wind_online.py",
+    "scrapers/powerbi_wind_js.py",
     "scripts/xinshang_clock_windows.py",
 }
 

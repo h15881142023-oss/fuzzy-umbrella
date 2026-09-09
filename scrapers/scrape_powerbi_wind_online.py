@@ -85,7 +85,9 @@ def main() -> int:
         "window.__CZ_PBI_WIND.scrapeOnlineMerchants()",
         await_promise=True,
     )
-    if not payload or not payload.get("ok"):
+    cities = (payload or {}).get("cities") or {}
+    need = ("仁寿县", "合江县", "南溪", "叙永")
+    if not payload or not payload.get("ok") or any(c not in cities for c in need):
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 1
     payload["source"] = "业务数据风向看板"

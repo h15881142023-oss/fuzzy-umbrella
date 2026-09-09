@@ -124,6 +124,24 @@ POWERBI_WIND_HELPERS_JS = r"""
     return { headers, rows };
   }
 
+  function canonCity(name) {
+    const s = String(name || '').replace(/\s+/g, '');
+    if (/仁寿/.test(s)) return '仁寿县';
+    if (/合江/.test(s)) return '合江县';
+    if (/南溪/.test(s)) return '南溪';
+    if (/叙永/.test(s)) return '叙永';
+    return null;
+  }
+
+  function pickOnlineCount(row) {
+    const nums = [];
+    for (const cell of row) {
+      const n = parseInt(String(cell).replace(/,/g, ''), 10);
+      if (!Number.isNaN(n) && n >= 50) nums.push(n);
+    }
+    return nums.length ? nums[nums.length - 1] : null;
+  }
+
   async function scrapeOnlineMerchants() {
     await ensureLatestDate();
     await ensureArea('川藏一区');
@@ -132,19 +150,26 @@ POWERBI_WIND_HELPERS_JS = r"""
     await sleep(1500);
     const table = readCityTable();
     const cities = {};
-    const metricCol = table.headers.find((h) => /在线商家/.test(h)) || table.headers[table.headers.length - 1];
-    const cityCol = table.headers.find((h) => /城市/.test(h)) || table.headers[0];
-    const mi = table.headers.indexOf(metricCol);
-    const ci = table.headers.indexOf(cityCol);
+    const metricCol = table.headers.find((h) => /在线商家/.test(h));
+    const cityCol = table.headers.find((h) => /^城市$/.test(h)) || table.headers.find((h) => /城市/.test(h));
+    const mi = metricCol ? table.headers.indexOf(metricCol) : -1;
+    const ci = cityCol ? table.headers.indexOf(cityCol) : -1;
     for (const row of table.rows) {
-      const city = row[ci >= 0 ? ci : 0];
-      const valRaw = row[mi >= 0 ? mi : row.length - 1];
-      if (!city || city === '总计' || city === '城市') continue;
-      const num = parseInt(String(valRaw).replace(/,/g, ''), 10);
-      if (!Number.isNaN(num)) cities[city] = num;
+      const cityRaw = ci >= 0 ? row[ci] : row.find((c) => canonCity(c));
+      const city = canonCity(cityRaw);
+      if (!city) continue;
+      let num = null;
+      if (mi >= 0 && row[mi] != null) {
+        num = parseInt(String(row[mi]).replace(/,/g, ''), 10);
+      }
+      if (Number.isNaN(num) || num == null) num = pickOnlineCount(row);
+      if (num != null) cities[city] = num;
     }
+    const need = ['仁寿县', '合江县', '南溪', '叙永'];
+    const missing = need.filter((c) => cities[c] == null);
     return {
-      ok: true,
+      ok: missing.length === 0,
+      missing,
       date: pageDateISO(),
       date_raw: pageDateRaw(),
       metric: '在线商家数',
