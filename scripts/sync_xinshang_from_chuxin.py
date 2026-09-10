@@ -623,10 +623,26 @@ def sanitize_dashboard(data: dict) -> None:
 
 
 def enable_layout_mom(layouts: dict) -> None:
+    warn_on = {
+        "餐饮订单完成率",
+        "餐饮实付完成率",
+        "餐饮商家渗透率",
+        "团购市场开发率",
+        "优质商家渗透率",
+        "推单完成率",
+        "超45分钟订单占比",
+        "日均零售 YOY",
+        "外卖货币化率",
+        "团购货币化率",
+        "用户投诉商家问题万服排名",
+        "用户投诉履约问题万服排名",
+    }
     for items in (layouts or {}).values():
         for item in items:
             if item.get("name") in MOM_LAYOUT_NAMES:
                 item["mom"] = True
+            if item.get("name") in warn_on:
+                item["warn"] = True
 
 
 def metric(value, band=None, value_delta=None, warn_delta=None, band_prev=None):
