@@ -71,6 +71,20 @@ class CDPSession:
         self.call("Page.navigate", {"url": url})
         time.sleep(wait_sec)
 
+    def wait_ready(self, timeout: float = 90) -> None:
+        deadline = time.time() + timeout
+        last_err = None
+        while time.time() < deadline:
+            try:
+                state = self.evaluate("document.readyState", await_promise=False)
+                if state in ("interactive", "complete"):
+                    time.sleep(1.5)
+                    return
+            except Exception as exc:  # noqa: BLE001
+                last_err = exc
+            time.sleep(1)
+        raise CDPError(f"wait_ready 超时: {last_err}")
+
     def reload(self, wait_sec: float = 4.0) -> None:
         self.call("Page.reload", {"ignoreCache": True})
         time.sleep(wait_sec)

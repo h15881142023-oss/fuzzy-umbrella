@@ -1,0 +1,11 @@
+# Cloudflare Tunnel — Windows 示例
+# 复制到: C:\Users\Administrator\.cloudflared\config.yml
+# 并把 tunnel / credentials-file 换成你本机真实值
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\Users\Administrator\.cloudflared\REPLACE_WITH_TUNNEL_ID.json
+
+ingress:
+  - hostname: 1.chuanzangyiqu.top
+    service: http://127.0.0.1:5001
+  - service: http_status:404
