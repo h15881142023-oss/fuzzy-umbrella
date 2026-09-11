@@ -508,6 +508,26 @@ def main() -> int:
         print(json.dumps({"ok": True, "usedExcel": False, **slim}, ensure_ascii=False))
         return 0
 
+    excel_day = str(inspect.get("periodGuess") or "")
+    try:
+        latest = xin.latest_summary_date()
+    except Exception:
+        latest = ""
+    if latest and excel_day and excel_day < latest:
+        print(
+            json.dumps(
+                {
+                    "ok": True,
+                    "usedExcel": False,
+                    "error": f"Excel日期 {excel_day} 早于最新考核日 {latest}，已跳过以免覆盖新数据",
+                    "latestAssessment": latest,
+                    **slim,
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
     try:
         result = apply_excel(inspect["periodGuess"], inspect["merged"], inspect)
     except Exception as exc:  # noqa: BLE001
