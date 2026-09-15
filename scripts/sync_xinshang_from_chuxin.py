@@ -40,6 +40,38 @@ CARDS = {
     "tuango": {"dashcard": 197, "card": 215, "date_id": "c717dd65", "date_type": "date/all-options", "region_id": "c6f05ae6"},
 }
 
+# 汇总表未出数时，用这些模块页覆盖四城指标值（空表不覆盖，以免把上期履约等抹掉）
+EXTRA_MODULE_CARDS = {
+    "retail": {"dashcard": 199, "card": 219, "date_id": "141a2780", "date_type": "date/range"},
+    "biz": {"dashcard": 177, "card": 202, "date_id": "145eb979", "date_type": "date/range"},
+    "lvyue": {"dashcard": 178, "card": 204, "date_id": "3dbda5d5", "date_type": "date/range"},
+    "ux": {"dashcard": 189, "card": 211, "date_id": "c8d3a576", "date_type": "date/range"},
+}
+
+CITY_ALIASES = {
+    "仁寿": "仁寿县",
+    "合江": "合江县",
+    "南溪区": "南溪",
+    "南溪县": "南溪",
+    "叙永县": "叙永",
+}
+
+# (模块表名, 模块字段, 汇总表字段) — 有模块值才覆盖
+MODULE_VALUE_TO_SUMMARY = (
+    ("waimai", ("餐饮渗透率", "餐饮商家渗透率"), "餐饮商家渗透率指标值-外卖"),
+    ("tuango", ("市场开发率",), "市场开发率指标值-团购"),
+    ("tuango", ("优质商家渗透率",), "优质商家渗透率指标值-团购"),
+    ("retail", ("非餐YOY",), "YoY指标值-零售"),
+    ("retail", ("优质仓达标情况",), "优质仓数达标情况"),
+    ("lvyue", ("推单完成率_调度后", "履约_推单完成率（预警值）", "推单完成率"), "推单完成率指标值-履约"),
+    ("lvyue", ("压力天出勤率",), "压力天出勤率"),
+    ("lvyue", ("超45分钟订单占比", "履约_超45分钟订单占比（预警值）"), "超45分钟订单占比指标值-履约"),
+    ("biz", ("外卖货币化率",), "外卖货币化率指标值-商业增值"),
+    ("biz", ("团购货币化率",), "团购货币化率指标值-商业增值"),
+    ("ux", ("用户商家万服差值",), "用户体验_用户投诉商家问题万服差值"),
+    ("ux", ("用户履约万服差值",), "用户体验_用户投诉履约问题万服差值"),
+)
+
 # 考核日跟周一/周四节奏，不能只信汇总表日期下拉（会落后一期）。
 # 用户体验等日更参数不要并进来，否则会选到 9/1 这类非考核日。
 CADENCE_DATE_PARAMS = (
@@ -186,6 +218,56 @@ def latest_summary_date() -> str:
     return days[-1]
 
 
+def summary_covers_targets(cols, rows) -> bool:
+    sm = rows_to_city_map(cols, rows)
+    return all(c in sm for c in CITIES)
+
+
+def fetch_summary_with_fallback(prefer_day: str) -> tuple[str, list, list, str | None]:
+    """本期汇总表缺四城时，回退到汇总表下拉里最近一次齐套考核日。
+
+    返回 (实际使用的汇总日期, cols, rows, 回退日期或 None)。
+    """
+    cols, rows = query_card_regions(CARDS["summary"], prefer_day)
+    if summary_covers_targets(cols, rows):
+        return prefer_day, cols, rows, None
+    days = [d for d in reversed(param_dates(CARDS["summary"]["date_id"])) if d != prefer_day]
+    for day in days:
+        cols, rows = query_card_regions(CARDS["summary"], day)
+        if summary_covers_targets(cols, rows):
+            return day, cols, rows, day
+    got = list(rows_to_city_map(cols, rows))
+    raise RuntimeError(f"模块数据汇总表缺少城市: {CITIES}; prefer={prefer_day}; got={got}")
+
+
+def canon_target_city(name) -> str:
+    raw = clean_city_name(name)
+    if raw in CITIES:
+        return raw
+    return CITY_ALIASES.get(raw, raw)
+
+
+def overlay_summary_with_modules(summary: dict, tables: dict) -> dict:
+    """用本期模块页指标值覆盖汇总表字段；模块空表不覆盖，保留回退汇总。"""
+    by_src: dict[str, dict] = {}
+    for key in ("waimai", "tuango", "retail", "lvyue", "biz", "ux"):
+        block = tables.get(key) or {}
+        raw = rows_to_city_map(block.get("cols") or [], block.get("rows") or [])
+        mapped = {}
+        for name, row in raw.items():
+            mapped[canon_target_city(name)] = row
+        by_src[key] = mapped
+    out = {}
+    for city, row in summary.items():
+        merged = dict(row)
+        for src, keys, skey in MODULE_VALUE_TO_SUMMARY:
+            val = pick(by_src.get(src, {}).get(city), *keys)
+            if val is not None:
+                merged[skey] = val
+        out[city] = merged
+    return out
+
+
 def prev_assessment_date(day: str) -> str | None:
     days: list[str] = []
     for pid in CADENCE_DATE_PARAMS:
@@ -207,11 +289,12 @@ def date_value(iso: str, kind: str):
     return day
 
 
-def query_card(spec: dict, iso_date: str, region: str = REGION) -> tuple[list[str], list[list]]:
+def query_card(spec: dict, iso_date: str, region: str | None = REGION) -> tuple[list[str], list[list]]:
     parameters = [
         {"type": spec["date_type"], "value": date_value(iso_date, spec["date_type"]), "id": spec["date_id"]},
-        {"type": "string/=", "value": [region], "id": spec["region_id"]},
     ]
+    if region and spec.get("region_id"):
+        parameters.append({"type": "string/=", "value": [region], "id": spec["region_id"]})
     q = urllib.parse.urlencode({"parameters": json.dumps(parameters, ensure_ascii=False)})
     url = f"{MB_HOST}/api/public/dashboard/{MB_DASH_UUID}/dashcard/{spec['dashcard']}/card/{spec['card']}?{q}"
     payload = http_json(url)
@@ -775,8 +858,12 @@ def apply_city(
     wm_order_prev, wm_gtv_prev = waimai_order_gtv_values(prev, waimai_prev)
     wm_order_band, wm_gtv_band = waimai_completion_bands(summary, waimai)
     wm_order_band_prev, wm_gtv_band_prev = waimai_completion_bands(prev, waimai_prev)
-    penetrate_val = pick(summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
-    penetrate_prev = pick(prev, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率")
+    penetrate_val = pick(waimai, "餐饮渗透率", "餐饮商家渗透率") or pick(
+        summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率"
+    )
+    penetrate_prev = pick(waimai_prev, "餐饮渗透率", "餐饮商家渗透率") or pick(
+        prev, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率"
+    )
 
     online_val = online_map.get(dst["name"]) or online_map.get(dst.get("account"))
     online_shown = fmt_online_count(online_val) if online_val is not None else None
@@ -1096,20 +1183,45 @@ def fetch_metabase(iso: str | None = None):
         "dateSource": "cadence-params",
     }
     tables = {}
+    summary_day, scols, srows, summary_fallback = fetch_summary_with_fallback(day)
+    tables["summary"] = {"cols": scols, "rows": srows, "date": summary_day}
+    dump["summary"] = {"cols": scols, "n": len(srows), "date": summary_day, "fallback": summary_fallback}
+    dump["summaryDate"] = summary_day
+    dump["summaryFallbackDate"] = summary_fallback
+
     for name, spec in CARDS.items():
-        cols, rows = query_card_regions(spec, iso)
-        tables[name] = {"cols": cols, "rows": rows}
-        dump[name] = {"cols": cols, "n": len(rows)}
-        if prev_day and name in {"summary", "waimai", "tuango"}:
+        if name == "summary":
+            continue
+        use_day = day
+        cols, rows = query_card_regions(spec, day)
+        if name == "cityboard" and not pick_latest_board(cols, rows):
+            fb = summary_fallback or prev_day
+            if fb and fb != day:
+                use_day = fb
+                cols, rows = query_card_regions(spec, fb)
+        tables[name] = {"cols": cols, "rows": rows, "date": use_day}
+        dump[name] = {"cols": cols, "n": len(rows), "date": use_day}
+        if prev_day and name in {"waimai", "tuango"}:
             pcols, prows = query_card_regions(spec, prev_day)
-            tables[f"{name}_prev"] = {"cols": pcols, "rows": prows}
+            tables[f"{name}_prev"] = {"cols": pcols, "rows": prows, "date": prev_day}
             dump[f"{name}_prev"] = {"cols": pcols, "n": len(prows), "date": prev_day}
+
+    if prev_day:
+        pcols, prows = query_card_regions(CARDS["summary"], prev_day)
+        tables["summary_prev"] = {"cols": pcols, "rows": prows, "date": prev_day}
+        dump["summary_prev"] = {"cols": pcols, "n": len(prows), "date": prev_day}
+
+    for name, spec in EXTRA_MODULE_CARDS.items():
+        cols, rows = query_card(spec, day, region=None)
+        tables[name] = {"cols": cols, "rows": rows, "date": day}
+        dump[name] = {"n": len(rows), "date": day}
+
     (CACHE / "metabase_latest.json").write_text(json.dumps({"meta": dump, "tables": tables}, ensure_ascii=False), encoding="utf-8")
-    return day, prev_day, tables
+    return day, prev_day, tables, dump
 
 
 def main(iso: str | None = None):
-    day, prev_day, tables = fetch_metabase(iso)
+    day, prev_day, tables, dump = fetch_metabase(iso)
     tests = {"cityStats": [], "people": [], "totalRecords": 0, "totalPeople": 0}
     try:
         token = login()
@@ -1118,6 +1230,7 @@ def main(iso: str | None = None):
         print("tests skipped:", e)
 
     summary = rows_to_city_map(tables["summary"]["cols"], tables["summary"]["rows"])
+    summary = overlay_summary_with_modules(summary, tables)
     prev = rows_to_city_map(tables.get("summary_prev", {}).get("cols") or [], tables.get("summary_prev", {}).get("rows") or [])
     board = pick_latest_board(tables["cityboard"]["cols"], tables["cityboard"]["rows"])
     waimai = rows_to_city_map(tables["waimai"]["cols"], tables["waimai"]["rows"])
@@ -1129,10 +1242,15 @@ def main(iso: str | None = None):
         tables.get("tuango_prev", {}).get("cols") or [], tables.get("tuango_prev", {}).get("rows") or []
     )
     online_map = load_powerbi_online()
+    if not online_map or any(c not in online_map for c in CITIES):
+        online_map = dict(DEFAULT_POWERBI_ONLINE)
 
     missing = [c for c in CITIES if c not in summary]
     if missing:
         raise RuntimeError(f"模块数据汇总表缺少城市: {missing}; got {list(summary)}")
+    missing_wm = [c for c in CITIES if c not in waimai]
+    if missing_wm:
+        raise RuntimeError(f"外卖模块缺少城市: {missing_wm}")
 
     html_path = HTMLS[0]
     html = html_path.read_text(encoding="utf-8")
@@ -1148,6 +1266,8 @@ def main(iso: str | None = None):
     data["meta"]["obsUpdatedAt"] = day
     data["meta"]["richObsCount"] = None
     data["meta"]["richCz1Count"] = len(CITIES)
+    data["meta"]["summaryDate"] = dump.get("summaryDate") or day
+    data["meta"]["summaryFallbackDate"] = dump.get("summaryFallbackDate")
     data["tests"] = tests
     data["modules"] = MODULE_ORDER
     pbi_meta = {}
@@ -1163,6 +1283,8 @@ def main(iso: str | None = None):
         "metabase": f"{MB_HOST}/public/dashboard/{MB_DASH_UUID}",
         "periodDate": day,
         "prevDate": prev_day,
+        "summaryDate": dump.get("summaryDate") or day,
+        "summaryFallbackDate": dump.get("summaryFallbackDate"),
         "tests": COLLECTION,
         "powerbiOnline": {
             "metric": pbi_meta.get("metric") or "在线商家数",
@@ -1187,6 +1309,7 @@ def main(iso: str | None = None):
             waimai_prev.get(name),
             tuango_prev.get(name),
         )
+        city["dataDate"] = day
         new_cities.append(city)
     data["cities"] = new_cities
     data["modules"] = MODULE_ORDER
@@ -1222,14 +1345,19 @@ def main(iso: str | None = None):
                 "ok": True,
                 "date": day,
                 "prev": prev_day,
+                "summaryDate": dump.get("summaryDate"),
+                "summaryFallbackDate": dump.get("summaryFallbackDate"),
                 "cities": {
                     n: {
                         "level": summary[n].get("城市等级"),
                         "market": summary[n].get("大盘预警"),
                         "waimai": summary[n].get("外卖能力预警"),
+                        "order": summary[n].get("市场开发率（订单）指标值-外卖") or waimai.get(n, {}).get("餐饮订单量完成率"),
+                        "gtv": summary[n].get("市场开发率（实付）指标值-外卖") or waimai.get(n, {}).get("餐饮交易额完成率"),
                     }
                     for n in CITIES
                 },
+                "online": {n: online_map.get(n) for n in CITIES},
                 "tests": tests.get("totalRecords"),
             },
             ensure_ascii=False,

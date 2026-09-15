@@ -770,6 +770,14 @@ def fetch_all(day: str | None = None):
         summary_prev = rows_to_city_map(pcols, prows)
         dump["summary_prev"] = {"n": len(prows), "cities": len(summary_prev), "date": prev}
 
+    if not summary and summary_prev:
+        dump["summaryFallbackDate"] = prev
+        dump["cityUniverseNote"] = (
+            f"本期汇总表未出数，分群/预警沿用上期 {prev} 共 {len(summary_prev)} 城；指标值用各模块页 {period}"
+        )
+    if not summary and not summary_prev:
+        raise RuntimeError(f"模块数据汇总表 {period} 与上期 {prev} 都没有城市数据")
+
     modules = {}
     for name, spec in MODULE_CARDS.items():
         use_day = period
@@ -816,6 +824,9 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
     universe = build_city_universe(summary, summary_prev, modules)
     if not universe:
         raise RuntimeError("模块数据汇总表没有城市数据")
+    missing_mine = [c for c in TARGET_CITIES if c not in universe]
+    if missing_mine:
+        raise RuntimeError(f"同分群城市名单缺少本城: {missing_mine}")
     if summary and len(summary) < len(universe):
         dump.setdefault("cityUniverseNote", (
             f"本期汇总表仅 {len(summary)} 城，已并入上期汇总表共 {len(universe)} 城"
@@ -833,12 +844,13 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
         srow = summary.get(city) or {}
         sprow = summary_prev.get(city) or {}
         meta_row = srow or sprow
+        value_row = srow or sprow
         for spec in METRIC_SPECS:
             mrow = (modules.get(spec["src"]) or {}).get(city)
             if spec["id"] in {WAIMAI_ORDER_ID, WAIMAI_GTV_ID}:
                 mrow_prev = (modules.get("waimai_prev") or {}).get(city)
                 order_val, gtv_val = pick_waimai_completion(
-                    srow, mrow, keep_raw=bool(spec.get("keep_raw_number"))
+                    value_row, mrow, keep_raw=bool(spec.get("keep_raw_number"))
                 )
                 order_prev, gtv_prev = pick_waimai_completion(
                     sprow, mrow_prev, keep_raw=bool(spec.get("keep_raw_number"))
@@ -851,7 +863,7 @@ def build_payload(period: str, prev: str | None, summary: dict, summary_prev: di
                 val = pick_value(
                     mrow,
                     spec["value_keys"],
-                    srow,
+                    value_row,
                     spec.get("summary_value") or "",
                     keep_raw=bool(spec.get("keep_raw_number")),
                     summary_keys=spec.get("summary_values"),
