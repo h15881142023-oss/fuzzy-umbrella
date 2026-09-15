@@ -57,8 +57,8 @@ CITY_ALIASES = {
 }
 
 # (模块表名, 模块字段, 汇总表字段) — 有模块值才覆盖
+# 注意：外卖模块「餐饮渗透率」= 交易/公海，不是考核「餐饮商家渗透率」，不要覆盖。
 MODULE_VALUE_TO_SUMMARY = (
-    ("waimai", ("餐饮渗透率", "餐饮商家渗透率"), "餐饮商家渗透率指标值-外卖"),
     ("tuango", ("市场开发率",), "市场开发率指标值-团购"),
     ("tuango", ("优质商家渗透率",), "优质商家渗透率指标值-团购"),
     ("retail", ("非餐YOY",), "YoY指标值-零售"),
@@ -477,6 +477,15 @@ def pick(row: dict | None, *keys):
     return None
 
 
+def waimai_penetration_value(summary, module=None):
+    """考核口径餐饮商家渗透率。
+
+    只用汇总表「餐饮商家渗透率指标值-外卖」/「餐饮商家渗透率」。
+    外卖模块「餐饮渗透率」是交易商家数÷公海商家数，不是考核渗透率，禁止当考核值。
+    """
+    return pick(summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率") or pick(module, "餐饮商家渗透率")
+
+
 def waimai_order_gtv_values(summary, module=None):
     """餐饮订单完成率 / 餐饮实付完成率。全城同一口径，不以 Excel 四城为准。
 
@@ -775,6 +784,7 @@ def apply_city(
     online_map: dict | None = None,
     waimai_prev: dict | None = None,
     tuango_prev: dict | None = None,
+    period: str | None = None,
 ):
     prev = prev or {}
     board = board or {}
@@ -858,12 +868,11 @@ def apply_city(
     wm_order_prev, wm_gtv_prev = waimai_order_gtv_values(prev, waimai_prev)
     wm_order_band, wm_gtv_band = waimai_completion_bands(summary, waimai)
     wm_order_band_prev, wm_gtv_band_prev = waimai_completion_bands(prev, waimai_prev)
-    penetrate_val = pick(waimai, "餐饮渗透率", "餐饮商家渗透率") or pick(
-        summary, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率"
-    )
-    penetrate_prev = pick(waimai_prev, "餐饮渗透率", "餐饮商家渗透率") or pick(
-        prev, "餐饮商家渗透率指标值-外卖", "餐饮商家渗透率"
-    )
+    penetrate_val = waimai_penetration_value(summary, waimai)
+    penetrate_prev = waimai_penetration_value(prev, waimai_prev)
+    summary_day = show(summary.get("日期"), "")[:10]
+    same_period_summary = (not period) or (not summary_day) or summary_day == period[:10]
+    penetrate_mom_official = board.get("期环比-餐饮商家渗透率") if same_period_summary else None
 
     online_val = online_map.get(dst["name"]) or online_map.get(dst.get("account"))
     online_shown = fmt_online_count(online_val) if online_val is not None else None
@@ -898,7 +907,7 @@ def apply_city(
                 penetrate_val,
                 pick(summary, "餐饮渗透率排名", "餐饮商家渗透率-外卖"),
                 mom_rate(
-                    board.get("期环比-餐饮商家渗透率"),
+                    penetrate_mom_official,
                     cur=penetrate_val,
                     prev=penetrate_prev,
                 ),
@@ -1308,6 +1317,7 @@ def main(iso: str | None = None):
             online_map,
             waimai_prev.get(name),
             tuango_prev.get(name),
+            period=day,
         )
         city["dataDate"] = day
         new_cities.append(city)

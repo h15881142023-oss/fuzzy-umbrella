@@ -110,7 +110,7 @@ METRIC_SPECS = [
         "name": "餐饮商家渗透率",
         "fields": ["预警区间", "分群", "本期值", "同分群最大值", "同分群中位值", "同分群最小值"],
         "src": "waimai",
-        "value_keys": ["餐饮商家渗透率", "餐饮渗透率"],
+        "value_keys": ["餐饮商家渗透率"],
         "summary_value": "餐饮商家渗透率",
         "summary_values": ["餐饮商家渗透率指标值-外卖", "餐饮商家渗透率"],
         "cluster_key": "外卖能力分群",
