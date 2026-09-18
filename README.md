@@ -58,6 +58,92 @@ chmod +x start_all.sh stop.sh
 
 NS 生效后访问：https://1.chuanzangyiqu.top
 
+### Windows 域名恢复（站点密码保留，看板免登录）
+
+目标看板地址：`https://1.chuanzangyiqu.top/evaluation/xinshang`
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+git fetch origin "cursor/cz1-merchant-dashboard-74a9"
+git restore --source="origin/cursor/cz1-merchant-dashboard-74a9" -- app.py static/dashboards/cz1-xinshang-pingjia.html scripts/start_domain_windows.ps1 scripts/check_domain_windows.ps1 cloudflared.config.windows.example.yml
+
+# 先自检缺什么
+powershell -ExecutionPolicy Bypass -File .\scripts\check_domain_windows.ps1
+
+# 再启动 Web + 隧道
+powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
+```
+
+说明：
+- 看板 `/evaluation/xinshang` **免登录**
+- 站点其它页面仍用 `CZ_SITE_PASSWORD`（默认 `chuanzang2026`）
+- 域名打不开时，优先看自检脚本：5001 是否监听、cloudflared 是否安装/配置/在跑
+
+## 新商评价看板（免登录外发）
+
+单页 HTML：`static/dashboards/cz1-xinshang-pingjia.html`  
+公开站点目录：`docs/xinshang/`（GitHub Pages）
+
+| 场景 | 地址 |
+|------|------|
+| **公开分享（推荐）** | `https://h15881142023-oss.github.io/fuzzy-umbrella/xinshang/` |
+| 本机 | `http://127.0.0.1:5001/evaluation/xinshang` |
+| 自有域名 | `https://1.chuanzangyiqu.top/evaluation/xinshang` |
+
+公开链接**无需登录**。  
+
+版本说明：
+- **当前详表版**：`docs/xinshang/index.html` / `static/dashboards/cz1-xinshang-pingjia.html`  
+  无图表、不展示能力得分，只看预警区间，八大模块一次铺开。
+- **已外发冻结版（不变）**：`docs/xinshang/index-v1-frozen-202607.html`  
+  此前发出去的旧版拷贝不受后续改动影响；需要旧版时发这个文件即可。
+
+### 外发页更新（云端完成，不用本机跑命令）
+
+改完看板后由云端触发本机 Web 热覆盖 `static/dashboards/cz1-xinshang-pingjia.html`，打开 `https://1.chuanzangyiqu.top/evaluation/xinshang` 即可。ChuanzangWeb5001 也会每 5 分钟自动拉一次 HTML。
+
+不要再从对话里复制 PowerShell 覆盖 HTML。
+
+与桌面「经营宝订单抓取」一样：**不要从对话里复制命令去执行**。
+
+时钟挂在已经装好的 **ChuanzangWeb5001**（`install_background_windows.ps1` 开机自启）里：
+
+- 每周二、周五 **22:00** 自动：Power BI 月在线商家数 + 主看板 + 同分群
+- 成功/失败推同一企微（优先读桌面 `经营宝订单抓取\wecom_config.json`）
+- Web 启动时自动从 CDN 补齐同步脚本，不用 git pull
+- 日志：`logs\xinshang_push.log`
+
+外发页：`https://1.chuanzangyiqu.top/evaluation/xinshang`
+
+### 同分群数值对比模块（独立更新）
+
+该模块与主看板常规更新分开：  
+- 主看板：`scripts/sync_xinshang_from_chuxin.py`  
+- 同分群模块：`scripts/sync_peer_compare_from_chuxin.py`（初心「新商考核」各模块 Tab + 汇总表分群；**已停用 Excel**）
+
+Windows：
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\sync_peer_compare_windows.ps1
+```
+
+页面中该模块默认展开可查看，顶部按钮可收起/展开。本城只选五城，对比名单为同一分群下的全部城市。
+
+首次启用 GitHub Pages：
+
+1. 合并本仓库到 `main`
+2. GitHub 仓库 → **Settings** → **Pages**
+3. Build and deployment → Source 选 **GitHub Actions**
+4. 等待 Actions 里 `Deploy GitHub Pages` 跑绿后即可外发上面链接
+
+Windows 本机启动（Web + 可选隧道）：
+
+```powershell
+cd "C:\Users\Administrator\Documents\fuzzy-umbrella"
+powershell -ExecutionPolicy Bypass -File .\scripts\start_xinshang_windows.ps1
+```
+
 ## 美团看板 CDP 抓取
 
 ### 1. 安装依赖（已含 websocket-client）
