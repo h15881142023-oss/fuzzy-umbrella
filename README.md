@@ -81,6 +81,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_domain_windows.ps1
 
 ## 新商评价看板（免登录外发）
 
+**把这套看板复制到别的区域：先读 [`docs/xinshang/PLAYBOOK.md`](docs/xinshang/PLAYBOOK.md)。**  
+口径、数据源、同步顺序、热覆盖、换城清单和验收都在那一份里。不要从聊天窗口复制 PowerShell。
+
 单页 HTML：`static/dashboards/cz1-xinshang-pingjia.html`  
 公开站点目录：`docs/xinshang/`（GitHub Pages）
 

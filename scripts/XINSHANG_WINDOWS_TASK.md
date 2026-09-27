@@ -1,5 +1,7 @@
 # 新商评看板 — 挂在已有 Web 上（对齐经营宝，零复制命令）
 
+完整制作 / 换区域复制方案：仓库内 [`docs/xinshang/PLAYBOOK.md`](../docs/xinshang/PLAYBOOK.md)。
+
 经营宝不用从聊天窗口复制代码，是因为任务已经装在那个文件夹里、到点自己跑。
 
 新商评同样：**不要复制 PowerShell**。时钟挂在已经在跑的 `ChuanzangWeb5001`（开机自启的 Flask）里。
