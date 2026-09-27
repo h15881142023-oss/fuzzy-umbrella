@@ -431,13 +431,21 @@ def latest_param_date(param_id: str) -> str:
 
 
 def latest_assessment_date() -> str:
+    """考核日：节奏日期里，汇总表有城市数据的最近一日。
+
+    节假日提前出数时，外卖/零售下拉可能多出空档日，不能取各模块最大值。
+    """
     days: list[str] = []
     for pid in CADENCE_DATE_PARAMS:
         days.extend(param_dates(pid))
-    days = sorted(set(days))
+    days = sorted(set(days), reverse=True)
     if not days:
         raise RuntimeError("没有可用考核日期")
-    return days[-1]
+    for day in days:
+        cols, rows = query_card(SUMMARY_CARD, day)
+        if rows_to_city_map(cols, rows):
+            return day
+    return days[0]
 
 
 def date_value(day: str, kind: str):

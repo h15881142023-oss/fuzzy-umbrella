@@ -213,14 +213,22 @@ def latest_param_date(param_id: str) -> str | None:
 
 
 def latest_summary_date() -> str:
-    """考核日：汇总表下拉 ∪ 周一/周四节奏模块的最新一日。"""
+    """考核日：节奏日期里，汇总表四城齐套的最近一日。
+
+    节假日提前出数时，外卖/零售下拉可能多出空档日（如中秋 09-24），
+    不能只取各模块日期的最大值，否则看板会显示空考核日。
+    """
     days: list[str] = []
     for pid in CADENCE_DATE_PARAMS:
         days.extend(param_dates(pid))
-    days = sorted(set(days))
+    days = sorted(set(days), reverse=True)
     if not days:
         raise RuntimeError("没有可用考核日期")
-    return days[-1]
+    for day in days:
+        cols, rows = query_card_regions(CARDS["summary"], day)
+        if all(c in rows_to_city_map(cols, rows) for c in CITIES):
+            return day
+    return days[0]
 
 
 def summary_covers_targets(cols, rows) -> bool:
