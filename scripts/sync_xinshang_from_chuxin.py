@@ -207,6 +207,11 @@ def param_dates(param_id: str) -> list[str]:
     return sorted(set(days))
 
 
+def latest_param_date(param_id: str) -> str | None:
+    days = param_dates(param_id)
+    return days[-1] if days else None
+
+
 def latest_summary_date() -> str:
     """考核日：汇总表下拉 ∪ 周一/周四节奏模块的最新一日。"""
     days: list[str] = []
@@ -1208,6 +1213,15 @@ def fetch_metabase(iso: str | None = None):
             if fb and fb != day:
                 use_day = fb
                 cols, rows = query_card_regions(spec, fb)
+        # 节假日提前出数：汇总在 23 日，外卖模块页可能只挂在 24 日。
+        if name == "waimai" and not all(c in rows_to_city_map(cols, rows) for c in CITIES):
+            alt = latest_param_date(spec["date_id"])
+            if alt and alt != use_day:
+                acols, arows = query_card_regions(spec, alt)
+                if all(c in rows_to_city_map(acols, arows) for c in CITIES):
+                    use_day = alt
+                    cols, rows = acols, arows
+                    dump["waimaiFallbackDate"] = alt
         tables[name] = {"cols": cols, "rows": rows, "date": use_day}
         dump[name] = {"cols": cols, "n": len(rows), "date": use_day}
         if prev_day and name in {"waimai", "tuango"}:
@@ -1243,6 +1257,11 @@ def main(iso: str | None = None):
     prev = rows_to_city_map(tables.get("summary_prev", {}).get("cols") or [], tables.get("summary_prev", {}).get("rows") or [])
     board = pick_latest_board(tables["cityboard"]["cols"], tables["cityboard"]["rows"])
     waimai = rows_to_city_map(tables["waimai"]["cols"], tables["waimai"]["rows"])
+    # 模块页日期不是考核日时，完成率仍用汇总表考核值，只借用交易/公海等绝对量。
+    if dump.get("waimaiFallbackDate") and dump.get("waimaiFallbackDate") != day:
+        for row in waimai.values():
+            row.pop("餐饮订单量完成率", None)
+            row.pop("餐饮交易额完成率", None)
     tuango = rows_to_city_map(tables["tuango"]["cols"], tables["tuango"]["rows"])
     waimai_prev = rows_to_city_map(
         tables.get("waimai_prev", {}).get("cols") or [], tables.get("waimai_prev", {}).get("rows") or []
